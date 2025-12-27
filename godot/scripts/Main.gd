@@ -51,6 +51,11 @@ func _ready() -> void:
 	# (Some run configurations can keep these on even when the menu checkbox looks off.)
 	get_tree().debug_collisions_hint = false
 	get_tree().debug_navigation_hint = false
+	# Belt-and-suspenders: force the physics server debug draw off too.
+	# The “orb” visuals match collision shape debug rendering.
+	PhysicsServer2D.set_debug_collisions_hint(false)
+	ProjectSettings.set_setting("debug/shapes/visible_collision_shapes", false)
+	ProjectSettings.set_setting("debug/shapes/visible_collision_polygons", false)
 
 	# Ensure data systems are loaded early.
 	PixellabUtil.ensure_loaded()
