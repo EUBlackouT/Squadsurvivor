@@ -39,7 +39,6 @@ func _ready() -> void:
 	# If collision debug draw is somehow forced on, make it invisible so it can't look like "orbs".
 	if collision != null:
 		collision.debug_color = Color(0, 0, 0, 0)
-		collision.debug_fill = false
 
 	# Physics: projectiles = layer 1, hit enemies layer 2
 	collision_layer = 1
