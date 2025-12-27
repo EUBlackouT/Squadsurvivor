@@ -16,7 +16,8 @@ extends Node2D
 const PLAYER_SCENE: PackedScene = preload("res://scenes/Player.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://scenes/Enemy.tscn")
 const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
-const DAMAGE_NUMBER_SCENE: PackedScene = preload("res://scenes/DamageNumber.tscn")
+
+var damage_numbers: DamageNumbersLayer
 
 var rng: RandomNumberGenerator
 var run_start_time: float = 0.0
@@ -57,6 +58,9 @@ func _ready() -> void:
 	PassiveSystem.ensure_loaded()
 
 	_make_background()
+
+	damage_numbers = DamageNumbersLayer.new()
+	add_child(damage_numbers)
 
 	capture_meter = CaptureMeter.new()
 	add_child(capture_meter)
@@ -245,14 +249,10 @@ func start_rift_encounter(_rift: Node) -> void:
 	for i in range(10):
 		_spawn_enemy(rng.randf() < 0.35, true, false)
 
-func spawn_damage_number(amount: int, world_pos: Vector2, is_crit: bool, color: Color) -> void:
-	if DAMAGE_NUMBER_SCENE == null:
+func show_damage_number(source_id: int, channel: String, amount: int, world_pos: Vector2, style: int, is_crit: bool) -> void:
+	if damage_numbers == null:
 		return
-	var dn := DAMAGE_NUMBER_SCENE.instantiate()
-	add_child(dn)
-	dn.global_position = world_pos
-	if dn.has_method("setup"):
-		dn.setup(amount, color, is_crit)
+	damage_numbers.spawn_aggregated(source_id, channel, amount, world_pos, style, is_crit)
 
 func _on_draft_ready() -> void:
 	# Pause game and show recruit draft UI
