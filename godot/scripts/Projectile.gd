@@ -38,9 +38,7 @@ func _ready() -> void:
 	monitorable = false
 	collision_layer = 0
 	collision_mask = 0
-	var cs := get_node_or_null("CollisionShape2D")
-	if cs:
-		cs.queue_free()
+	# (Projectile.tscn no longer includes a CollisionShape2D.)
 
 	# Auto cleanup
 	await get_tree().create_timer(4.0).timeout
