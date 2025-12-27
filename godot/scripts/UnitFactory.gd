@@ -1,23 +1,13 @@
+class_name UnitFactory
 extends Node
 
 # Builds CharacterData from balance tables and a chosen PixelLab south path.
+# Uses static caches so callers can use UnitFactory.* without instancing nodes.
 
-var _loaded: bool = false
-var _balance: Dictionary = {}
+static var _loaded: bool = false
+static var _balance: Dictionary = {}
 
 static func ensure_loaded() -> void:
-	var main := Engine.get_main_loop() as SceneTree
-	if main == null:
-		return
-	var n := main.get_first_node_in_group("__unit_factory") as UnitFactory
-	if n == null or not is_instance_valid(n):
-		n = UnitFactory.new()
-		n.name = "UnitFactory"
-		n.add_to_group("__unit_factory")
-		main.root.add_child(n)
-	n._ensure_loaded_impl()
-
-func _ensure_loaded_impl() -> void:
 	if _loaded:
 		return
 	_loaded = true

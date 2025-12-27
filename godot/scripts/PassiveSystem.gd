@@ -1,26 +1,15 @@
+class_name PassiveSystem
 extends Node
 
 # Data-driven passive system with lightweight VFX hooks.
 
-var _loaded: bool = false
-var _passives: Dictionary = {} # id -> Dictionary
+static var _loaded: bool = false
+static var _passives: Dictionary = {} # id -> Dictionary
 
 const VFX_ARC_SCENE: PackedScene = preload("res://scenes/VfxArcLightning.tscn")
 const VFX_SLASH_SCENE: PackedScene = preload("res://scenes/VfxSlash.tscn")
 
 static func ensure_loaded() -> void:
-	var tree := Engine.get_main_loop() as SceneTree
-	if tree == null:
-		return
-	var n := tree.get_first_node_in_group("__passive_system") as PassiveSystem
-	if n == null or not is_instance_valid(n):
-		n = PassiveSystem.new()
-		n.name = "PassiveSystem"
-		n.add_to_group("__passive_system")
-		tree.root.add_child(n)
-	n._ensure_loaded_impl()
-
-func _ensure_loaded_impl() -> void:
 	if _loaded:
 		return
 	_loaded = true
@@ -44,27 +33,15 @@ func _ensure_loaded_impl() -> void:
 
 static func passive_name(id: String) -> String:
 	ensure_loaded()
-	var tree := Engine.get_main_loop() as SceneTree
-	var ps := tree.get_first_node_in_group("__passive_system") as PassiveSystem
-	if ps == null:
-		return id
-	return String((ps._passives.get(id, {}) as Dictionary).get("name", id))
+	return String((_passives.get(id, {}) as Dictionary).get("name", id))
 
 static func passive_description(id: String) -> String:
 	ensure_loaded()
-	var tree := Engine.get_main_loop() as SceneTree
-	var ps := tree.get_first_node_in_group("__passive_system") as PassiveSystem
-	if ps == null:
-		return ""
-	return String((ps._passives.get(id, {}) as Dictionary).get("description", ""))
+	return String((_passives.get(id, {}) as Dictionary).get("description", ""))
 
 static func passive_tags(id: String) -> PackedStringArray:
 	ensure_loaded()
-	var tree := Engine.get_main_loop() as SceneTree
-	var ps := tree.get_first_node_in_group("__passive_system") as PassiveSystem
-	if ps == null:
-		return PackedStringArray()
-	var arr: Array = (ps._passives.get(id, {}) as Dictionary).get("tags", [])
+	var arr: Array = (_passives.get(id, {}) as Dictionary).get("tags", [])
 	var out := PackedStringArray()
 	for t in arr:
 		out.append(String(t))
@@ -120,7 +97,7 @@ static func _arc_chain(unit: Node2D, target: Node2D, damage: int) -> void:
 	var world := _main_world(unit)
 	if world == null or target == null or not is_instance_valid(target):
 		return
-	var enemies: Array[Node2D] = []
+	var enemies: Array = []
 	if world.has_method("get_cached_enemies"):
 		enemies = world.get_cached_enemies()
 	else:
@@ -133,10 +110,11 @@ static func _arc_chain(unit: Node2D, target: Node2D, damage: int) -> void:
 	for e_node in enemies:
 		if not is_instance_valid(e_node):
 			continue
-		if e_node == target:
+		var n2 := e_node as Node2D
+		if n2 == null or n2 == target:
 			continue
-		if e_node.global_position.distance_squared_to(origin) <= r2:
-			candidates.append(e_node)
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			candidates.append(n2)
 	candidates.sort_custom(func(a: Node2D, b: Node2D) -> bool:
 		return a.global_position.distance_squared_to(origin) < b.global_position.distance_squared_to(origin)
 	)

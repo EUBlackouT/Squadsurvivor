@@ -171,7 +171,7 @@ func _formation_offset_world() -> Vector2:
 			return _offset
 
 func _find_target() -> Node2D:
-	var enemies: Array[Node2D] = []
+	var enemies: Array = []
 	if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
 		enemies = _main.get_cached_enemies()
 	else:
@@ -182,15 +182,18 @@ func _find_target() -> Node2D:
 	for e in enemies:
 		if not is_instance_valid(e):
 			continue
-		var dist2 := global_position.distance_squared_to(e.global_position)
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		var dist2 := global_position.distance_squared_to(n2.global_position)
 		var score := dist2
-		if _target_mode == TargetMode.ELITES_FIRST and bool(e.is_elite):
+		if _target_mode == TargetMode.ELITES_FIRST and bool(n2.is_elite):
 			score *= 0.65
-		if _target_mode == TargetMode.LOWEST_HP and e.has_method("get_hp_ratio"):
-			score *= 0.6 + float(e.get_hp_ratio())
+		if _target_mode == TargetMode.LOWEST_HP and n2.has_method("get_hp_ratio"):
+			score *= 0.6 + float(n2.get_hp_ratio())
 		if score < best_score:
 			best_score = score
-			best = e
+			best = n2
 	return best
 
 func _attack(target: Node2D) -> void:
@@ -212,16 +215,19 @@ func _attack(target: Node2D) -> void:
 			target.take_damage(final_damage, is_crit, "melee")
 		# tiny cleave
 		if melee_cleave_radius > 0.0 and melee_cleave_mult > 0.0:
-			var enemies: Array[Node2D] = []
+			var enemies: Array = []
 			if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
 				enemies = _main.get_cached_enemies()
 			var r2 := melee_cleave_radius * melee_cleave_radius
 			for e in enemies:
 				if not is_instance_valid(e) or e == target:
 					continue
-				if e.global_position.distance_squared_to(target.global_position) <= r2:
-					if e.has_method("take_damage"):
-						e.take_damage(int(round(float(final_damage) * melee_cleave_mult)), false, "melee_cleave")
+				var n2 := e as Node2D
+				if n2 == null:
+					continue
+				if n2.global_position.distance_squared_to(target.global_position) <= r2:
+					if n2.has_method("take_damage"):
+						n2.take_damage(int(round(float(final_damage) * melee_cleave_mult)), false, "melee_cleave")
 		PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, true)
 		return
 

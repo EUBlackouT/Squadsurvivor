@@ -1,3 +1,4 @@
+class_name PixellabUtil
 extends Node
 
 # Runtime helpers for PixelLab character assets (registry + walk frames).

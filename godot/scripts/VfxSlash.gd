@@ -91,7 +91,7 @@ func _make_tex() -> Texture2D:
 	var highlight_color: Color = Color(1.0, 1.0, 0.85, 0.75)
 	for y in range(tex_size):
 		for x in range(tex_size):
-			var cur := out_img.get_pixel(x, y)
+			var cur: Color = out_img.get_pixel(x, y)
 			if cur.a <= 0.01:
 				continue
 			if cur.r == outline_color.r and cur.g == outline_color.g and cur.b == outline_color.b:
@@ -99,7 +99,7 @@ func _make_tex() -> Texture2D:
 			var p := Vector2(float(x) + 0.5, float(y) + 0.5) - c
 			var r := p.length()
 			var inner_bias := clampf(1.0 - ((r - r_in) / maxf(0.0001, (r_out - r_in))), 0.0, 1.0)
-			var hl_a := cur.a * inner_bias * 0.60
+			var hl_a: float = cur.a * inner_bias * 0.60
 			if hl_a > 0.05:
 				out_img.set_pixel(x, y, Color(
 					maxf(cur.r, highlight_color.r),

@@ -110,7 +110,7 @@ func _find_target() -> Node2D:
 	var nearest: Node2D = null
 	var nearest_dist := aggression_radius
 
-	var squad: Array[Node2D] = []
+	var squad: Array = []
 	if _main and is_instance_valid(_main) and _main.has_method("get_cached_squad_units"):
 		squad = _main.get_cached_squad_units()
 	else:
@@ -119,10 +119,13 @@ func _find_target() -> Node2D:
 	for u in squad:
 		if not is_instance_valid(u):
 			continue
-		var d := global_position.distance_to(u.global_position)
+		var n2 := u as Node2D
+		if n2 == null:
+			continue
+		var d := global_position.distance_to(n2.global_position)
 		if d < nearest_dist:
 			nearest_dist = d
-			nearest = u
+			nearest = n2
 
 	if nearest != null:
 		return nearest
