@@ -1,3 +1,4 @@
+class_name DamageNumbersLayer
 extends CanvasLayer
 
 # Screen-space damage numbers (no physics, no sprites, no collisions).
@@ -48,19 +49,22 @@ func spawn_aggregated(source_id: int, channel: String, amount: int, world_pos: V
 
 func _process(delta: float) -> void:
 	# Flush pending aggregates
-	for k in _pending.keys():
-		var d: Dictionary = _pending[k] as Dictionary
+	var keys: Array = _pending.keys()
+	for k in keys:
+		var key: String = String(k)
+		var d: Dictionary = _pending.get(key, {}) as Dictionary
 		var t := float(d.get("timer", 0.0)) - delta
 		d["timer"] = t
-		_pending[k] = d
+		_pending[key] = d
 		if t <= 0.0:
 			var amt := int(d.get("amount", 0))
 			if amt > 0:
-				var pos := d.get("world_pos", Vector2.ZERO)
+				var pos_v: Variant = d.get("world_pos", Vector2.ZERO)
+				var pos: Vector2 = pos_v if pos_v is Vector2 else Vector2.ZERO
 				var style := int(d.get("style", STYLE_DEFAULT))
 				var crit := bool(d.get("is_crit", false))
 				_spawn_label(amt, _world_to_screen(pos), style, crit)
-			_pending.erase(k)
+			_pending.erase(key)
 
 	# Update actives
 	for i in range(_active.size() - 1, -1, -1):
