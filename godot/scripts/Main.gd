@@ -12,6 +12,7 @@ extends Node2D
 
 @export var run_timer_max_minutes: float = 18.0
 @export var boss_spawn_time_minutes: float = 14.0
+@export var enable_rifts: bool = false
 
 const PLAYER_SCENE: PackedScene = preload("res://scenes/Player.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://scenes/Enemy.tscn")
@@ -79,7 +80,8 @@ func _ready() -> void:
 
 	_spawn_player()
 	_spawn_initial_enemies()
-	_spawn_rifts()
+	if enable_rifts:
+		_spawn_rifts()
 	_setup_hud()
 
 func _init_rng() -> void:
