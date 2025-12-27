@@ -46,6 +46,7 @@ var _dbg_text: String = ""
 var _hide_projectiles: bool = false
 var _strip_cd: float = 0.0
 var _dbg_reported: Dictionary = {}
+var _hide_debug_shapes_cd: float = 0.0
 
 func _ready() -> void:
 	add_to_group("main")
@@ -146,6 +147,10 @@ func _physics_process(delta: float) -> void:
 	if _strip_cd <= 0.0:
 		_strip_cd = 0.6
 		_strip_circle_collision_shapes()
+	_hide_debug_shapes_cd -= delta
+	if _hide_debug_shapes_cd <= 0.0:
+		_hide_debug_shapes_cd = 0.4
+		_hide_collision_debug_visuals()
 	_spawn_timer += delta
 	if _spawn_timer >= enemy_spawn_interval:
 		_spawn_timer = 0.0
@@ -725,6 +730,19 @@ func _strip_circle_collision_shapes() -> void:
 						print("Stripping CircleShape2D at ", cs.get_path(), " parent=", ppath, " parent_type=", ptype, " script=", scr_path)
 					cs.queue_free()
 					continue
+		for ch in n.get_children():
+			if ch is Node:
+				stack.append(ch)
+
+func _hide_collision_debug_visuals() -> void:
+	# If collision debug rendering is being forced on by the editor/run instance,
+	# make all CollisionShape2D debug colors transparent so they can't show as "orbs".
+	var stack: Array[Node] = [self]
+	while stack.size() > 0:
+		var n: Node = stack.pop_back() as Node
+		if n is CollisionShape2D:
+			var cs := n as CollisionShape2D
+			cs.debug_color = Color(0, 0, 0, 0)
 		for ch in n.get_children():
 			if ch is Node:
 				stack.append(ch)
