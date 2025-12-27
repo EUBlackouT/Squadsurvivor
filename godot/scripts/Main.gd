@@ -45,6 +45,7 @@ var _dbg_cd: float = 0.0
 var _dbg_text: String = ""
 var _hide_projectiles: bool = false
 var _strip_cd: float = 0.0
+var _dbg_reported: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("main")
@@ -708,6 +709,13 @@ func _strip_circle_collision_shapes() -> void:
 				if parent != null and (parent.name == "RiftNode" or parent.get_script() == preload("res://scripts/RiftNode.gd")):
 					keep = true
 				if not keep:
+					# One-time report so we can identify the source of @Area2D@20.
+					var ppath := String(parent.get_path()) if parent != null else "<no-parent>"
+					if not _dbg_reported.has(ppath):
+						_dbg_reported[ppath] = true
+						var scr := parent.get_script()
+						var scr_path := (scr.resource_path if scr != null else "<no-script>")
+						print("Stripping CircleShape2D at ", cs.get_path(), " parent=", ppath, " parent_type=", parent.get_class(), " script=", scr_path)
 					cs.queue_free()
 					continue
 		for ch in n.get_children():
