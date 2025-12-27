@@ -636,7 +636,8 @@ func _update_hud_labels() -> void:
 				int(info.get("circle2d", 0)),
 				int(info.get("particles2d", 0))
 			]
-			var samples: PackedStringArray = info.get("circle_paths", PackedStringArray())
+			var samples_v: Variant = info.get("circle_paths", PackedStringArray())
+			var samples: PackedStringArray = samples_v if samples_v is PackedStringArray else PackedStringArray()
 			if samples.size() > 0:
 				_dbg_text += "\nCircles: " + ", ".join(samples)
 		dbg.text = _dbg_text
@@ -649,7 +650,7 @@ func _collect_debug_counts(root: Node) -> Dictionary:
 
 	var stack: Array[Node] = [root]
 	while stack.size() > 0:
-		var n := stack.pop_back()
+		var n: Node = stack.pop_back() as Node
 		if n is CollisionShape2D:
 			cshape2d += 1
 			var cs := n as CollisionShape2D
@@ -657,7 +658,7 @@ func _collect_debug_counts(root: Node) -> Dictionary:
 			if sh is CircleShape2D:
 				circle2d += 1
 				if circle_paths.size() < 6:
-					circle_paths.append(cs.get_path())
+					circle_paths.append(String(cs.get_path()))
 		elif n is GPUParticles2D or n is CPUParticles2D:
 			particles2d += 1
 		for ch in n.get_children():
