@@ -147,7 +147,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Debug helper: toggle damage number layer to verify what's drawing the "orbs".
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k := event as InputEventKey
-		if k.keycode == KEY_F8 and damage_numbers != null:
+		# NOTE: F8 is an editor hotkey (can stop the running game). Use Ctrl+Shift+F9.
+		if k.keycode == KEY_F9 and k.ctrl_pressed and k.shift_pressed and damage_numbers != null:
 			damage_numbers.visible = not damage_numbers.visible
 
 func _tick_spawns() -> void:
