@@ -19,19 +19,64 @@ config/features=PackedStringArray("4.4")
 
 CollectionManager="*res://scripts/CollectionManager.gd"
 
-[input]
-
-ui_1={"deadzone":0.5,"events":[{"deadzone":0.5,"keycode":49,"physical_keycode":49,"unicode":49,"window":0}]}
-ui_2={"deadzone":0.5,"events":[{"deadzone":0.5,"keycode":50,"physical_keycode":50,"unicode":50,"window":0}]}
-ui_3={"deadzone":0.5,"events":[{"deadzone":0.5,"keycode":51,"physical_keycode":51,"unicode":51,"window":0}]}
-ui_4={"deadzone":0.5,"events":[{"deadzone":0.5,"keycode":52,"physical_keycode":52,"unicode":52,"window":0}]}
-ui_t={"deadzone":0.5,"events":[{"deadzone":0.5,"keycode":84,"physical_keycode":84,"unicode":116,"window":0}]}
-
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
+
+[input]
+
+ui_1={
+"deadzone": 0.5,
+"events": [{
+"deadzone": 0.5,
+"keycode": 49,
+"physical_keycode": 49,
+"unicode": 49,
+"window": 0
+}]
+}
+ui_2={
+"deadzone": 0.5,
+"events": [{
+"deadzone": 0.5,
+"keycode": 50,
+"physical_keycode": 50,
+"unicode": 50,
+"window": 0
+}]
+}
+ui_3={
+"deadzone": 0.5,
+"events": [{
+"deadzone": 0.5,
+"keycode": 51,
+"physical_keycode": 51,
+"unicode": 51,
+"window": 0
+}]
+}
+ui_4={
+"deadzone": 0.5,
+"events": [{
+"deadzone": 0.5,
+"keycode": 52,
+"physical_keycode": 52,
+"unicode": 52,
+"window": 0
+}]
+}
+ui_t={
+"deadzone": 0.5,
+"events": [{
+"deadzone": 0.5,
+"keycode": 84,
+"physical_keycode": 84,
+"unicode": 116,
+"window": 0
+}]
+}
 
 [rendering]
 

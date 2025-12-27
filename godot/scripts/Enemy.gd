@@ -32,6 +32,13 @@ var _slow_cd: float = 0.0
 
 var _target: Node2D = null
 
+# Damage number aggregation (reduces “cloud of numbers” for rapid hits)
+var _pending_damage: int = 0
+var _pending_is_crit: bool = false
+var _pending_source: String = ""
+var _pending_t: float = 0.0
+const PENDING_WINDOW: float = 0.12
+
 func _ready() -> void:
 	add_to_group("enemies")
 	_main = get_tree().get_first_node_in_group("main") as Node2D
@@ -59,10 +66,9 @@ func _exit_tree() -> void:
 func _apply_visuals() -> void:
 	if anim == null:
 		return
-	var util := PixellabUtil._singleton(get_tree())
 	if pixellab_south_path == "" and character_data != null:
 		pixellab_south_path = character_data.sprite_path
-	var frames := util.walk_frames_from_south_path(pixellab_south_path)
+	var frames := PixellabUtil.walk_frames_from_south_path(pixellab_south_path)
 	if frames != null:
 		anim.sprite_frames = frames
 	_current_anim = "walk_south"
@@ -79,6 +85,7 @@ func _physics_process(delta: float) -> void:
 
 	# Status tick
 	_tick_status(delta)
+	_tick_damage_numbers(delta)
 
 	if _retarget_t <= 0.0 or _target == null or not is_instance_valid(_target):
 		_target = _find_target()
@@ -164,12 +171,15 @@ func take_damage(amount: int, is_crit: bool = false, source: String = "") -> voi
 	var prev := current_hp
 	current_hp = max(0, current_hp - amount)
 
-	# Damage numbers
-	if _main and is_instance_valid(_main) and _main.has_method("spawn_damage_number"):
-		var col := Color(1.0, 0.88, 0.28, 1.0) if is_crit else Color(0.92, 0.95, 1.0, 1.0)
-		if source == "bleed" or source == "dot":
-			col = Color(1.0, 0.25, 0.35, 1.0)
-		_main.spawn_damage_number(amount, global_position + Vector2(0, -26), is_crit, col)
+	# Damage numbers (DOT handled separately; others aggregated briefly)
+	if source == "bleed" or source == "dot":
+		if _main and is_instance_valid(_main) and _main.has_method("spawn_damage_number"):
+			_main.spawn_damage_number(amount, global_position + Vector2(0, -26), false, Color(1.0, 0.25, 0.35, 1.0))
+	else:
+		_pending_damage += amount
+		_pending_is_crit = _pending_is_crit or is_crit
+		_pending_source = source
+		_pending_t = PENDING_WINDOW
 
 	if current_hp <= 0:
 		_die()
@@ -228,4 +238,34 @@ func _tick_status(delta: float) -> void:
 		_bleed_amount = 0.0
 		_bleed_cd = 0.0
 
+func _tick_damage_numbers(delta: float) -> void:
+	if _pending_t <= 0.0:
+		return
+	_pending_t -= delta
+	if _pending_t > 0.0:
+		return
+	if _pending_damage <= 0:
+		_pending_is_crit = false
+		_pending_source = ""
+		return
+	if _main and is_instance_valid(_main) and _main.has_method("spawn_damage_number"):
+		var col := _color_for_source(_pending_source)
+		if _pending_is_crit:
+			col = Color(1.0, 0.88, 0.28, 1.0) # crit gold
+		_main.spawn_damage_number(_pending_damage, global_position + Vector2(0, -26), _pending_is_crit, col)
+	_pending_damage = 0
+	_pending_is_crit = false
+	_pending_source = ""
 
+func _color_for_source(source: String) -> Color:
+	match source:
+		"melee", "melee_cleave":
+			return Color(1.0, 0.95, 0.90, 1.0)
+		"ranged":
+			return Color(0.70, 0.90, 1.0, 1.0)
+		"arc":
+			return Color(0.55, 0.95, 1.0, 1.0)
+		"echo":
+			return Color(1.0, 0.85, 0.30, 1.0)
+		_:
+			return Color(0.92, 0.95, 1.0, 1.0)

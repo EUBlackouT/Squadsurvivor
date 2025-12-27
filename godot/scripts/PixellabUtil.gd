@@ -8,22 +8,12 @@ extends Node
 #
 # Caches keep hot paths from re-loading textures every spawn.
 
-var _loaded: bool = false
-var _entries: Array[Dictionary] = []
-var _walk_frames_cache: Dictionary = {} # id -> SpriteFrames
-var _rotation_tex_cache: Dictionary = {} # path -> Texture2D
+static var _loaded: bool = false
+static var _entries: Array[Dictionary] = []
+static var _walk_frames_cache: Dictionary = {} # id -> SpriteFrames
+static var _rotation_tex_cache: Dictionary = {} # path -> Texture2D
 
-static func _singleton(tree: SceneTree) -> PixellabUtil:
-	var n := tree.get_first_node_in_group("__pixellab_util") as PixellabUtil
-	if n != null and is_instance_valid(n):
-		return n
-	var u := PixellabUtil.new()
-	u.name = "PixellabUtil"
-	u.add_to_group("__pixellab_util")
-	tree.root.add_child(u)
-	return u
-
-func ensure_loaded() -> void:
+static func ensure_loaded() -> void:
 	if _loaded:
 		return
 	_loaded = true
@@ -43,18 +33,18 @@ func ensure_loaded() -> void:
 		if typeof(e) == TYPE_DICTIONARY:
 			_entries.append(e)
 
-func entry_count() -> int:
+static func entry_count() -> int:
 	ensure_loaded()
 	return _entries.size()
 
-func all_south_paths() -> PackedStringArray:
+static func all_south_paths() -> PackedStringArray:
 	ensure_loaded()
 	var out := PackedStringArray()
 	for e in _entries:
 		out.append(String(e.get("south_path", "")))
 	return out
 
-func pick_random_south_path(rng: RandomNumberGenerator) -> String:
+static func pick_random_south_path(rng: RandomNumberGenerator) -> String:
 	ensure_loaded()
 	if _entries.is_empty():
 		return ""
@@ -70,7 +60,7 @@ func pick_random_south_path(rng: RandomNumberGenerator) -> String:
 			return String(e.get("south_path", ""))
 	return String(_entries[0].get("south_path", ""))
 
-func pixellab_id_from_south_path(south_path: String) -> String:
+static func pixellab_id_from_south_path(south_path: String) -> String:
 	# Expected: res://assets/pixellab/<id>/rotations/south.png
 	var parts := south_path.split("/", false)
 	var idx := parts.find("pixellab")
@@ -82,7 +72,7 @@ func pixellab_id_from_south_path(south_path: String) -> String:
 			return p
 	return ""
 
-func load_rotation_texture(path: String) -> Texture2D:
+static func load_rotation_texture(path: String) -> Texture2D:
 	if _rotation_tex_cache.has(path):
 		return _rotation_tex_cache[path] as Texture2D
 	if path == "" or not ResourceLoader.exists(path):
@@ -91,7 +81,7 @@ func load_rotation_texture(path: String) -> Texture2D:
 	_rotation_tex_cache[path] = t
 	return t
 
-func walk_frames_from_south_path(south_path: String) -> SpriteFrames:
+static func walk_frames_from_south_path(south_path: String) -> SpriteFrames:
 	ensure_loaded()
 	var pid := pixellab_id_from_south_path(south_path)
 	if pid == "":
@@ -102,7 +92,7 @@ func walk_frames_from_south_path(south_path: String) -> SpriteFrames:
 	_walk_frames_cache[pid] = frames
 	return frames
 
-func _build_walk_frames(pid: String) -> SpriteFrames:
+static func _build_walk_frames(pid: String) -> SpriteFrames:
 	var base := "res://assets/pixellab/%s/animations/walking-8-frames/walking-8-frames" % pid
 	var dirs := {
 		"walk_south": "south",

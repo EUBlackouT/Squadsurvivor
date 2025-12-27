@@ -117,5 +117,3 @@ func _update_rotation() -> void:
 	var dir := (target_pos - global_position)
 	if dir.length() > 0.0:
 		rotation = dir.angle()
-
-

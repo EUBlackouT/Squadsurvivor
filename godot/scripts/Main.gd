@@ -47,7 +47,7 @@ func _ready() -> void:
 	run_start_time = Time.get_ticks_msec() / 1000.0
 
 	# Ensure data systems are loaded early.
-	PixellabUtil._singleton(get_tree()).ensure_loaded()
+	PixellabUtil.ensure_loaded()
 	UnitFactory.ensure_loaded()
 	PassiveSystem.ensure_loaded()
 
@@ -146,9 +146,6 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	if ENEMY_SCENE == null:
 		return
 	var e := ENEMY_SCENE.instantiate()
-	add_child(e)
-	e.set_meta("rift", from_rift)
-	e.set_meta("boss", is_boss)
 
 	var player := get_tree().get_first_node_in_group("player") as Node2D
 	var center := Vector2.ZERO
@@ -156,18 +153,22 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		center = player.global_position
 	var ang := rng.randf_range(0.0, TAU)
 	var dist := rng.randf_range(spawn_radius_min, spawn_radius_max)
-	e.global_position = center + Vector2(cos(ang), sin(ang)) * dist
 
 	# Random character pool -> random enemy skin
-	var util := PixellabUtil._singleton(get_tree())
-	var south := util.pick_random_south_path(rng)
+	var south := PixellabUtil.pick_random_south_path(rng)
 	var cd := UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south)
 	if is_elite:
 		cd.max_hp = int(round(float(cd.max_hp) * 1.55))
 		cd.attack_damage = int(round(float(cd.attack_damage) * 1.25))
+
+	# IMPORTANT: set exported fields BEFORE add_child so Enemy._ready() sees them.
+	e.set_meta("rift", from_rift)
+	e.set_meta("boss", is_boss)
 	e.character_data = cd
 	e.is_elite = is_elite
 	e.pixellab_south_path = south
+	add_child(e)
+	e.global_position = center + Vector2(cos(ang), sin(ang)) * dist
 
 func _spawn_boss() -> void:
 	_boss_spawned = true
@@ -386,14 +387,13 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 		options.append(_recent_trophy_pool[i])
 
 	# Option 3: random recruit roll (rift improves odds via elapsed minutes bias already)
-	var util := PixellabUtil._singleton(get_tree())
-	var south := util.pick_random_south_path(rng)
+	var south := PixellabUtil.pick_random_south_path(rng)
 	var cd := UnitFactory.build_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), south)
 	options.append(cd)
 
 	# Ensure 3 cards
 	while options.size() < 3:
-		var s2 := util.pick_random_south_path(rng)
+		var s2 := PixellabUtil.pick_random_south_path(rng)
 		options.append(UnitFactory.build_character_data("recruit", rng, _elapsed_minutes(), s2))
 
 	for c in options:
@@ -647,5 +647,3 @@ func _show_victory() -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 42)
 	ui.add_child(label)
-
-

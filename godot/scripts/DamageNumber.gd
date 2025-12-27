@@ -8,6 +8,8 @@ var _vel: Vector2 = Vector2(0, -65)
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	top_level = true
+	z_index = 999
 	if label == null:
 		label = Label.new()
 		label.name = "Label"
@@ -17,8 +19,8 @@ func _ready() -> void:
 	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
-	label.add_theme_constant_override("outline_size", 6)
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.65))
+	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
 	label.add_theme_constant_override("shadow_offset_x", 2)
 	label.add_theme_constant_override("shadow_offset_y", 3)
 
@@ -27,9 +29,11 @@ func setup(amount: int, color: Color, is_crit: bool) -> void:
 		return
 	label.text = str(amount)
 	label.add_theme_color_override("font_color", color)
+	# slight horizontal jitter to avoid stacking into “blobs”
+	position += Vector2(randf_range(-8.0, 8.0), randf_range(-2.0, 2.0))
 	if is_crit:
 		label.add_theme_font_size_override("font_size", 22)
-		label.add_theme_constant_override("outline_size", 7)
+		label.add_theme_constant_override("outline_size", 4)
 		_vel = Vector2(0, -90)
 		_life = 0.85
 

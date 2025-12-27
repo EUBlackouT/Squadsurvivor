@@ -61,7 +61,7 @@ func _apply_placeholder() -> void:
 
 func _apply_visuals() -> void:
 	# Prefer AnimatedSprite2D with PixelLab walk frames, fallback to Sprite2D
-	var util := PixellabUtil._singleton(get_tree())
+	PixellabUtil.ensure_loaded()
 	if anim == null:
 		anim = AnimatedSprite2D.new()
 		anim.name = "AnimatedSprite2D"
@@ -70,7 +70,7 @@ func _apply_visuals() -> void:
 	anim.z_index = 10
 
 	if character_data != null and character_data.sprite_path != "":
-		var frames := util.walk_frames_from_south_path(character_data.sprite_path)
+		var frames := PixellabUtil.walk_frames_from_south_path(character_data.sprite_path)
 		if frames != null:
 			anim.sprite_frames = frames
 			_current_anim = "walk_south"
@@ -303,5 +303,3 @@ func _projectile_color_for_unit() -> Color:
 			return Color(0.95, 0.35, 0.95, 1.0)
 		_:
 			return Color(0.75, 0.85, 1.0, 1.0)
-
-

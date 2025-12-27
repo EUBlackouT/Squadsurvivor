@@ -8,10 +8,7 @@ uniform float outline_px = 1.0; // 1-2 recommended
 
 void fragment() {
 	vec4 c = texture(TEXTURE, UV);
-	if (c.a > 0.01) {
-		COLOR = c;
-		return;
-	}
+	float inside = step(0.01, c.a);
 
 	// Sample neighbors for alpha.
 	vec2 px = TEXTURE_PIXEL_SIZE * outline_px;
@@ -25,11 +22,9 @@ void fragment() {
 	a = max(a, texture(TEXTURE, UV + vec2(px.x, -px.y)).a);
 	a = max(a, texture(TEXTURE, UV + vec2(-px.x, -px.y)).a);
 
-	if (a > 0.01) {
-		COLOR = vec4(outline_color.rgb, outline_color.a);
-	} else {
-		COLOR = vec4(0.0);
-	}
+	float edge = step(0.01, a) * (1.0 - inside);
+	vec4 out_col = vec4(outline_color.rgb, outline_color.a) * edge;
+	COLOR = mix(out_col, c, inside);
 }
 
 

@@ -48,9 +48,8 @@ func _spawn_initial_squad() -> void:
 	if roster.is_empty():
 		var rng := RandomNumberGenerator.new()
 		rng.seed = int(Time.get_ticks_usec())
-		var util := PixellabUtil._singleton(get_tree())
 		for i in range(3):
-			var south := util.pick_random_south_path(rng)
+			var south := PixellabUtil.pick_random_south_path(rng)
 			var cd := UnitFactory.build_character_data("recruit", rng, 0.0, south)
 			roster.append(cd)
 			# Also unlock and add to roster
@@ -130,5 +129,3 @@ func _set_target_mode(mode: int) -> void:
 	var main := get_tree().get_first_node_in_group("main")
 	if main and is_instance_valid(main) and main.has_method("_update_hud_labels"):
 		main._update_hud_labels()
-
-
