@@ -43,6 +43,7 @@ var capture_meter: CaptureMeter
 var _spawn_timer: float = 0.0
 var _dbg_cd: float = 0.0
 var _dbg_text: String = ""
+var _hide_projectiles: bool = false
 
 func _ready() -> void:
 	add_to_group("main")
@@ -152,6 +153,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		# NOTE: F8 is an editor hotkey (can stop the running game). Use Ctrl+Shift+F9.
 		if k.keycode == KEY_F9 and k.ctrl_pressed and k.shift_pressed and damage_numbers != null:
 			damage_numbers.visible = not damage_numbers.visible
+		# Debug helper: hide projectiles to confirm whether the "orbs" are projectile visuals.
+		# Ctrl+Shift+F10
+		if k.keycode == KEY_F10 and k.ctrl_pressed and k.shift_pressed:
+			_hide_projectiles = not _hide_projectiles
+			for p in get_tree().get_nodes_in_group("projectiles"):
+				if not is_instance_valid(p):
+					continue
+				var n2 := p as Node2D
+				if n2:
+					n2.visible = not _hide_projectiles
 
 func _tick_spawns() -> void:
 	_prune_invalid_lists()
@@ -636,6 +647,8 @@ func _update_hud_labels() -> void:
 				int(info.get("circle2d", 0)),
 				int(info.get("particles2d", 0))
 			]
+			var proj_count: int = get_tree().get_nodes_in_group("projectiles").size()
+			_dbg_text += "  Projectiles:%d%s" % [proj_count, " (HIDDEN)" if _hide_projectiles else ""]
 			var samples_v: Variant = info.get("circle_paths", PackedStringArray())
 			var samples: PackedStringArray = samples_v if samples_v is PackedStringArray else PackedStringArray()
 			if samples.size() > 0:

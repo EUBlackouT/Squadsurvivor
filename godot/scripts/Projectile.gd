@@ -17,6 +17,7 @@ var _main: Node2D = null
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_INHERIT
+	add_to_group("projectiles")
 	_main = get_tree().get_first_node_in_group("main") as Node2D
 
 	if sprite == null:
