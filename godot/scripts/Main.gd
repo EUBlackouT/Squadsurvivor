@@ -710,12 +710,19 @@ func _strip_circle_collision_shapes() -> void:
 					keep = true
 				if not keep:
 					# One-time report so we can identify the source of @Area2D@20.
-					var ppath := String(parent.get_path()) if parent != null else "<no-parent>"
+					var ppath: String = "<no-parent>"
+					if parent != null:
+						ppath = String(parent.get_path())
 					if not _dbg_reported.has(ppath):
 						_dbg_reported[ppath] = true
-						var scr := parent.get_script()
-						var scr_path := (scr.resource_path if scr != null else "<no-script>")
-						print("Stripping CircleShape2D at ", cs.get_path(), " parent=", ppath, " parent_type=", parent.get_class(), " script=", scr_path)
+						var scr: Script = null
+						if parent != null:
+							scr = parent.get_script() as Script
+						var scr_path: String = "<no-script>"
+						if scr != null:
+							scr_path = String(scr.resource_path)
+						var ptype: String = parent.get_class() if parent != null else "<no-parent>"
+						print("Stripping CircleShape2D at ", cs.get_path(), " parent=", ppath, " parent_type=", ptype, " script=", scr_path)
 					cs.queue_free()
 					continue
 		for ch in n.get_children():
