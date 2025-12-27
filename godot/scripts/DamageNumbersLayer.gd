@@ -104,8 +104,15 @@ func _apply_style(l: Label, style: int, is_crit: bool) -> void:
 	# Ensure no theme backgrounds/badges.
 	l.theme = Theme.new()
 	var empty := StyleBoxEmpty.new()
+	# Cover common Control stylebox names just in case a theme is leaking a background.
 	l.add_theme_stylebox_override("normal", empty)
 	l.add_theme_stylebox_override("focus", empty)
+	l.add_theme_stylebox_override("pressed", empty)
+	l.add_theme_stylebox_override("hover", empty)
+	l.add_theme_stylebox_override("disabled", empty)
+	l.add_theme_stylebox_override("read_only", empty)
+	l.use_parent_material = false
+	l.material = null
 
 	var col := Color(0.92, 0.95, 1.0, 1.0)
 	match style:

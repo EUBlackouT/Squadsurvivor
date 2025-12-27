@@ -143,6 +143,13 @@ func _physics_process(delta: float) -> void:
 		_spawn_boss()
 	_update_hud_labels()
 
+func _unhandled_input(event: InputEvent) -> void:
+	# Debug helper: toggle damage number layer to verify what's drawing the "orbs".
+	if event is InputEventKey and event.pressed and not event.echo:
+		var k := event as InputEventKey
+		if k.keycode == KEY_F8 and damage_numbers != null:
+			damage_numbers.visible = not damage_numbers.visible
+
 func _tick_spawns() -> void:
 	_prune_invalid_lists()
 	if live_enemies.size() >= max_enemies_alive:
