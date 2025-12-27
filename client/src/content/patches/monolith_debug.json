@@ -1,0 +1,8 @@
+{
+  "id": "monolith_debug",
+  "name": "Monolith Debug",
+  "rarity": "R",
+  "description": "+20% damage vs boss.",
+  "requiresBlueprint": true
+}
+

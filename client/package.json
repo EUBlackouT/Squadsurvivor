@@ -1,0 +1,38 @@
+{
+  "name": "patchbound-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 5173",
+    "test": "jest --runInBand",
+    "test:e2e": "playwright test",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "format": "prettier --write .",
+    "assets:placeholders": "node scripts/gen_placeholders.mjs"
+  },
+  "dependencies": {
+    "phaser": "3.87.0",
+    "seedrandom": "3.0.5",
+    "socket.io-client": "4.7.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.46.0",
+    "@types/jest": "29.5.12",
+    "@types/node": "20.11.30",
+    "@typescript-eslint/eslint-plugin": "7.9.0",
+    "@typescript-eslint/parser": "7.9.0",
+    "esbuild": "0.19.11",
+    "eslint": "8.57.0",
+    "jest": "29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "playwright": "1.46.0",
+    "pngjs": "7.0.0",
+    "prettier": "3.2.5",
+    "ts-jest": "^29.1.2",
+    "typescript": "5.4.5",
+    "vite": "5.1.4"
+  }
+}

@@ -1,0 +1,571 @@
+﻿{
+    "version":  1,
+    "generated_at":  "2025-12-13T22:37:17.0095301+01:00",
+    "count":  94,
+    "entries":  [
+                    {
+                        "id":  "f5a1d1a7-6a60-45fe-a27f-11e62fa98c0f",
+                        "name":  "f5a1d1a7-6a60-45fe-a27f-11e62fa98c0f",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/f5a1d1a7-6a60-45fe-a27f-11e62fa98c0f/rotations/south.png"
+                    },
+                    {
+                        "id":  "b5a46286-bbaf-4fbb-98e1-4cc8c5c706c7",
+                        "name":  "b5a46286-bbaf-4fbb-98e1-4cc8c5c706c7",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/b5a46286-bbaf-4fbb-98e1-4cc8c5c706c7/rotations/south.png"
+                    },
+                    {
+                        "id":  "2f870080-c1d3-47e9-ac79-a85359dbff4d",
+                        "name":  "2f870080-c1d3-47e9-ac79-a85359dbff4d",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/2f870080-c1d3-47e9-ac79-a85359dbff4d/rotations/south.png"
+                    },
+                    {
+                        "id":  "4d767c7d-ca4d-41b2-b7e7-c9733ed7b916",
+                        "name":  "4d767c7d-ca4d-41b2-b7e7-c9733ed7b916",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/4d767c7d-ca4d-41b2-b7e7-c9733ed7b916/rotations/south.png"
+                    },
+                    {
+                        "id":  "215fc789-bafe-4a21-8cfa-e8f62e45fcc9",
+                        "name":  "215fc789-bafe-4a21-8cfa-e8f62e45fcc9",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/215fc789-bafe-4a21-8cfa-e8f62e45fcc9/rotations/south.png"
+                    },
+                    {
+                        "id":  "c684ae10-483c-4544-876f-008cbb2b2786",
+                        "name":  "c684ae10-483c-4544-876f-008cbb2b2786",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/c684ae10-483c-4544-876f-008cbb2b2786/rotations/south.png"
+                    },
+                    {
+                        "id":  "d66d3cd4-05d8-4ae3-8c55-968149ac28d3",
+                        "name":  "d66d3cd4-05d8-4ae3-8c55-968149ac28d3",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/d66d3cd4-05d8-4ae3-8c55-968149ac28d3/rotations/south.png"
+                    },
+                    {
+                        "id":  "4266cdd3-9d52-4749-934f-520c6995472c",
+                        "name":  "4266cdd3-9d52-4749-934f-520c6995472c",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/4266cdd3-9d52-4749-934f-520c6995472c/rotations/south.png"
+                    },
+                    {
+                        "id":  "94742885-f94b-4a15-a2c2-ef2b912e3556",
+                        "name":  "94742885-f94b-4a15-a2c2-ef2b912e3556",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/94742885-f94b-4a15-a2c2-ef2b912e3556/rotations/south.png"
+                    },
+                    {
+                        "id":  "a24cd176-620c-4405-9010-8a8d2be4b5b0",
+                        "name":  "a24cd176-620c-4405-9010-8a8d2be4b5b0",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/a24cd176-620c-4405-9010-8a8d2be4b5b0/rotations/south.png"
+                    },
+                    {
+                        "id":  "29866e9c-d6b5-4e45-bef9-13fcfbbe7fd0",
+                        "name":  "29866e9c-d6b5-4e45-bef9-13fcfbbe7fd0",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/29866e9c-d6b5-4e45-bef9-13fcfbbe7fd0/rotations/south.png"
+                    },
+                    {
+                        "id":  "1f70f5c7-1b50-454e-acf2-4e4152811cea",
+                        "name":  "1f70f5c7-1b50-454e-acf2-4e4152811cea",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/1f70f5c7-1b50-454e-acf2-4e4152811cea/rotations/south.png"
+                    },
+                    {
+                        "id":  "b8c52cec-16c7-418f-85cd-2d82564f8104",
+                        "name":  "b8c52cec-16c7-418f-85cd-2d82564f8104",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/b8c52cec-16c7-418f-85cd-2d82564f8104/rotations/south.png"
+                    },
+                    {
+                        "id":  "de7eb872-5827-4cd3-b411-e1acd0152b1a",
+                        "name":  "de7eb872-5827-4cd3-b411-e1acd0152b1a",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/de7eb872-5827-4cd3-b411-e1acd0152b1a/rotations/south.png"
+                    },
+                    {
+                        "id":  "a3017ae9-0a92-4919-9fcb-542602366113",
+                        "name":  "a3017ae9-0a92-4919-9fcb-542602366113",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/a3017ae9-0a92-4919-9fcb-542602366113/rotations/south.png"
+                    },
+                    {
+                        "id":  "34d98d5c-392a-4f64-91ed-8bfeab01abae",
+                        "name":  "34d98d5c-392a-4f64-91ed-8bfeab01abae",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/34d98d5c-392a-4f64-91ed-8bfeab01abae/rotations/south.png"
+                    },
+                    {
+                        "id":  "ccfa94db-c75a-43a4-a6aa-edae773ca1d0",
+                        "name":  "ccfa94db-c75a-43a4-a6aa-edae773ca1d0",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/ccfa94db-c75a-43a4-a6aa-edae773ca1d0/rotations/south.png"
+                    },
+                    {
+                        "id":  "eccf31cc-f051-418a-b2f4-832531b61ed3",
+                        "name":  "eccf31cc-f051-418a-b2f4-832531b61ed3",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/eccf31cc-f051-418a-b2f4-832531b61ed3/rotations/south.png"
+                    },
+                    {
+                        "id":  "d86cb018-f66f-4c98-a73a-ed3d5f173b26",
+                        "name":  "d86cb018-f66f-4c98-a73a-ed3d5f173b26",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/d86cb018-f66f-4c98-a73a-ed3d5f173b26/rotations/south.png"
+                    },
+                    {
+                        "id":  "d94a2e18-5616-4f43-9a55-3abb6a845199",
+                        "name":  "d94a2e18-5616-4f43-9a55-3abb6a845199",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/d94a2e18-5616-4f43-9a55-3abb6a845199/rotations/south.png"
+                    },
+                    {
+                        "id":  "d3c00da8-4c20-438e-b0a4-e494c06f7b1f",
+                        "name":  "d3c00da8-4c20-438e-b0a4-e494c06f7b1f",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/d3c00da8-4c20-438e-b0a4-e494c06f7b1f/rotations/south.png"
+                    },
+                    {
+                        "id":  "e78a7196-6444-4fe5-9429-69ce4a2db59b",
+                        "name":  "e78a7196-6444-4fe5-9429-69ce4a2db59b",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/e78a7196-6444-4fe5-9429-69ce4a2db59b/rotations/south.png"
+                    },
+                    {
+                        "id":  "f2148ac5-6f3a-4840-bf59-1db419a614f8",
+                        "name":  "f2148ac5-6f3a-4840-bf59-1db419a614f8",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/f2148ac5-6f3a-4840-bf59-1db419a614f8/rotations/south.png"
+                    },
+                    {
+                        "id":  "379a6d57-9b8c-4be5-8cd3-6c5a6733f38d",
+                        "name":  "379a6d57-9b8c-4be5-8cd3-6c5a6733f38d",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/379a6d57-9b8c-4be5-8cd3-6c5a6733f38d/rotations/south.png"
+                    },
+                    {
+                        "id":  "6000e3bc-8f0e-4ad5-a836-dca35410a3af",
+                        "name":  "6000e3bc-8f0e-4ad5-a836-dca35410a3af",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/6000e3bc-8f0e-4ad5-a836-dca35410a3af/rotations/south.png"
+                    },
+                    {
+                        "id":  "709a6f91-d07f-4770-a2f3-165872a57ed9",
+                        "name":  "709a6f91-d07f-4770-a2f3-165872a57ed9",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/709a6f91-d07f-4770-a2f3-165872a57ed9/rotations/south.png"
+                    },
+                    {
+                        "id":  "7a896bc7-153f-4082-9877-bd30dea2a065",
+                        "name":  "7a896bc7-153f-4082-9877-bd30dea2a065",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/7a896bc7-153f-4082-9877-bd30dea2a065/rotations/south.png"
+                    },
+                    {
+                        "id":  "e5cb2f2f-e9ac-4c20-937b-1192ab2c4ac9",
+                        "name":  "e5cb2f2f-e9ac-4c20-937b-1192ab2c4ac9",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/e5cb2f2f-e9ac-4c20-937b-1192ab2c4ac9/rotations/south.png"
+                    },
+                    {
+                        "id":  "22be97a3-3f63-47de-b1e1-e193056b8af1",
+                        "name":  "22be97a3-3f63-47de-b1e1-e193056b8af1",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/22be97a3-3f63-47de-b1e1-e193056b8af1/rotations/south.png"
+                    },
+                    {
+                        "id":  "9aeff9cc-0a29-4cd0-aef2-51fe97deace2",
+                        "name":  "9aeff9cc-0a29-4cd0-aef2-51fe97deace2",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/9aeff9cc-0a29-4cd0-aef2-51fe97deace2/rotations/south.png"
+                    },
+                    {
+                        "id":  "08bb32b5-5975-4655-9da3-b3ee8231e37a",
+                        "name":  "08bb32b5-5975-4655-9da3-b3ee8231e37a",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/08bb32b5-5975-4655-9da3-b3ee8231e37a/rotations/south.png"
+                    },
+                    {
+                        "id":  "4e1d4c7e-7630-4e84-bc7f-d641450085fa",
+                        "name":  "4e1d4c7e-7630-4e84-bc7f-d641450085fa",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/4e1d4c7e-7630-4e84-bc7f-d641450085fa/rotations/south.png"
+                    },
+                    {
+                        "id":  "ab65a3f5-af20-4d20-9b8b-c962a44c78ae",
+                        "name":  "ab65a3f5-af20-4d20-9b8b-c962a44c78ae",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/ab65a3f5-af20-4d20-9b8b-c962a44c78ae/rotations/south.png"
+                    },
+                    {
+                        "id":  "0e4da43a-239d-4fe4-b971-f118a8da642a",
+                        "name":  "0e4da43a-239d-4fe4-b971-f118a8da642a",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/0e4da43a-239d-4fe4-b971-f118a8da642a/rotations/south.png"
+                    },
+                    {
+                        "id":  "4e86af45-5a59-4110-9c34-d2e88aa1b211",
+                        "name":  "4e86af45-5a59-4110-9c34-d2e88aa1b211",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/4e86af45-5a59-4110-9c34-d2e88aa1b211/rotations/south.png"
+                    },
+                    {
+                        "id":  "213a9c30-48f3-4067-8ea4-ee3c8c984992",
+                        "name":  "213a9c30-48f3-4067-8ea4-ee3c8c984992",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/213a9c30-48f3-4067-8ea4-ee3c8c984992/rotations/south.png"
+                    },
+                    {
+                        "id":  "655af4b9-f11e-489b-bc5f-02d4c7f69c8c",
+                        "name":  "655af4b9-f11e-489b-bc5f-02d4c7f69c8c",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/655af4b9-f11e-489b-bc5f-02d4c7f69c8c/rotations/south.png"
+                    },
+                    {
+                        "id":  "94d992f3-a9aa-4df6-b200-300c98e0bf66",
+                        "name":  "94d992f3-a9aa-4df6-b200-300c98e0bf66",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/94d992f3-a9aa-4df6-b200-300c98e0bf66/rotations/south.png"
+                    },
+                    {
+                        "id":  "58d19322-ed5b-4979-82c3-853066deb441",
+                        "name":  "58d19322-ed5b-4979-82c3-853066deb441",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/58d19322-ed5b-4979-82c3-853066deb441/rotations/south.png"
+                    },
+                    {
+                        "id":  "50d6d200-a764-474e-9466-d5de95ebf738",
+                        "name":  "50d6d200-a764-474e-9466-d5de95ebf738",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/50d6d200-a764-474e-9466-d5de95ebf738/rotations/south.png"
+                    },
+                    {
+                        "id":  "c879a4ad-5f88-4ddb-804b-9aadad16c4f5",
+                        "name":  "c879a4ad-5f88-4ddb-804b-9aadad16c4f5",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/c879a4ad-5f88-4ddb-804b-9aadad16c4f5/rotations/south.png"
+                    },
+                    {
+                        "id":  "230e2b8a-66de-420f-ba47-8d02ac587997",
+                        "name":  "230e2b8a-66de-420f-ba47-8d02ac587997",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/230e2b8a-66de-420f-ba47-8d02ac587997/rotations/south.png"
+                    },
+                    {
+                        "id":  "d84dc660-481d-4fff-a3c7-58390becc382",
+                        "name":  "d84dc660-481d-4fff-a3c7-58390becc382",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/d84dc660-481d-4fff-a3c7-58390becc382/rotations/south.png"
+                    },
+                    {
+                        "id":  "b18051bf-251d-493e-bfab-9b9864ff329d",
+                        "name":  "b18051bf-251d-493e-bfab-9b9864ff329d",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/b18051bf-251d-493e-bfab-9b9864ff329d/rotations/south.png"
+                    },
+                    {
+                        "id":  "c368689c-022b-41a2-8b2b-cc549c3ecb8c",
+                        "name":  "c368689c-022b-41a2-8b2b-cc549c3ecb8c",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/c368689c-022b-41a2-8b2b-cc549c3ecb8c/rotations/south.png"
+                    },
+                    {
+                        "id":  "0cfeaeac-e700-4d4c-b559-b3ba8ac64ee1",
+                        "name":  "0cfeaeac-e700-4d4c-b559-b3ba8ac64ee1",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/0cfeaeac-e700-4d4c-b559-b3ba8ac64ee1/rotations/south.png"
+                    },
+                    {
+                        "id":  "8f83c73c-dab3-4915-b153-c51f0de2de2b",
+                        "name":  "8f83c73c-dab3-4915-b153-c51f0de2de2b",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/8f83c73c-dab3-4915-b153-c51f0de2de2b/rotations/south.png"
+                    },
+                    {
+                        "id":  "c6b24eda-d9f3-453c-bbbb-686601d74bd5",
+                        "name":  "c6b24eda-d9f3-453c-bbbb-686601d74bd5",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/c6b24eda-d9f3-453c-bbbb-686601d74bd5/rotations/south.png"
+                    },
+                    {
+                        "id":  "f111f5c3-314a-4b01-9a7a-e4b806be232b",
+                        "name":  "f111f5c3-314a-4b01-9a7a-e4b806be232b",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/f111f5c3-314a-4b01-9a7a-e4b806be232b/rotations/south.png"
+                    },
+                    {
+                        "id":  "53a0c7b3-c801-4847-8f51-2160b3698197",
+                        "name":  "53a0c7b3-c801-4847-8f51-2160b3698197",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/53a0c7b3-c801-4847-8f51-2160b3698197/rotations/south.png"
+                    },
+                    {
+                        "id":  "dbff179e-8b53-425d-aecb-d30085c0c40b",
+                        "name":  "dbff179e-8b53-425d-aecb-d30085c0c40b",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/dbff179e-8b53-425d-aecb-d30085c0c40b/rotations/south.png"
+                    },
+                    {
+                        "id":  "5a27b6b4-0c1e-4447-bcff-71e4869b50ef",
+                        "name":  "5a27b6b4-0c1e-4447-bcff-71e4869b50ef",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/5a27b6b4-0c1e-4447-bcff-71e4869b50ef/rotations/south.png"
+                    },
+                    {
+                        "id":  "f7d4a880-4aca-4f5c-b023-f2fd69e4d767",
+                        "name":  "f7d4a880-4aca-4f5c-b023-f2fd69e4d767",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/f7d4a880-4aca-4f5c-b023-f2fd69e4d767/rotations/south.png"
+                    },
+                    {
+                        "id":  "bca159ac-55fd-4037-b4a2-5c58514cd7e1",
+                        "name":  "bca159ac-55fd-4037-b4a2-5c58514cd7e1",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/bca159ac-55fd-4037-b4a2-5c58514cd7e1/rotations/south.png"
+                    },
+                    {
+                        "id":  "0685fe18-4119-41f8-88a8-30ae6e07b24f",
+                        "name":  "0685fe18-4119-41f8-88a8-30ae6e07b24f",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/0685fe18-4119-41f8-88a8-30ae6e07b24f/rotations/south.png"
+                    },
+                    {
+                        "id":  "d31e3fb7-a7ba-4ecc-9186-7ccc702d9b80",
+                        "name":  "d31e3fb7-a7ba-4ecc-9186-7ccc702d9b80",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/d31e3fb7-a7ba-4ecc-9186-7ccc702d9b80/rotations/south.png"
+                    },
+                    {
+                        "id":  "b06a6c29-0715-4346-81dc-e40bfaefa289",
+                        "name":  "b06a6c29-0715-4346-81dc-e40bfaefa289",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/b06a6c29-0715-4346-81dc-e40bfaefa289/rotations/south.png"
+                    },
+                    {
+                        "id":  "4f767ebd-0769-473d-a56a-ad033524973c",
+                        "name":  "4f767ebd-0769-473d-a56a-ad033524973c",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/4f767ebd-0769-473d-a56a-ad033524973c/rotations/south.png"
+                    },
+                    {
+                        "id":  "76258bcb-3ce5-4f7c-99c8-b43c916af4b0",
+                        "name":  "76258bcb-3ce5-4f7c-99c8-b43c916af4b0",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/76258bcb-3ce5-4f7c-99c8-b43c916af4b0/rotations/south.png"
+                    },
+                    {
+                        "id":  "534b6325-413a-4bc2-9198-3f6ee63b590c",
+                        "name":  "534b6325-413a-4bc2-9198-3f6ee63b590c",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/534b6325-413a-4bc2-9198-3f6ee63b590c/rotations/south.png"
+                    },
+                    {
+                        "id":  "3e9b116b-2992-4070-927e-f7f996bf5a82",
+                        "name":  "3e9b116b-2992-4070-927e-f7f996bf5a82",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/3e9b116b-2992-4070-927e-f7f996bf5a82/rotations/south.png"
+                    },
+                    {
+                        "id":  "8757a74f-1ed0-4400-b2db-34a90c15d113",
+                        "name":  "8757a74f-1ed0-4400-b2db-34a90c15d113",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/8757a74f-1ed0-4400-b2db-34a90c15d113/rotations/south.png"
+                    },
+                    {
+                        "id":  "42deaa0b-9b34-445d-abe4-d27390445c51",
+                        "name":  "42deaa0b-9b34-445d-abe4-d27390445c51",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/42deaa0b-9b34-445d-abe4-d27390445c51/rotations/south.png"
+                    },
+                    {
+                        "id":  "44a2e413-20b3-49e3-8da2-e5fcf6af8240",
+                        "name":  "44a2e413-20b3-49e3-8da2-e5fcf6af8240",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/44a2e413-20b3-49e3-8da2-e5fcf6af8240/rotations/south.png"
+                    },
+                    {
+                        "id":  "aa1c3217-73a8-47ed-92e6-ab21cf012027",
+                        "name":  "aa1c3217-73a8-47ed-92e6-ab21cf012027",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/aa1c3217-73a8-47ed-92e6-ab21cf012027/rotations/south.png"
+                    },
+                    {
+                        "id":  "c03b89bf-f710-4982-a889-a2e860cca58f",
+                        "name":  "c03b89bf-f710-4982-a889-a2e860cca58f",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/c03b89bf-f710-4982-a889-a2e860cca58f/rotations/south.png"
+                    },
+                    {
+                        "id":  "42df64d0-8d98-4c7f-b8e4-d8225b29e16b",
+                        "name":  "42df64d0-8d98-4c7f-b8e4-d8225b29e16b",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/42df64d0-8d98-4c7f-b8e4-d8225b29e16b/rotations/south.png"
+                    },
+                    {
+                        "id":  "53966bad-056b-459a-8c2b-68c55a19808b",
+                        "name":  "53966bad-056b-459a-8c2b-68c55a19808b",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/53966bad-056b-459a-8c2b-68c55a19808b/rotations/south.png"
+                    },
+                    {
+                        "id":  "986b7bae-27ab-4d42-805e-762baf05ce3d",
+                        "name":  "986b7bae-27ab-4d42-805e-762baf05ce3d",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/986b7bae-27ab-4d42-805e-762baf05ce3d/rotations/south.png"
+                    },
+                    {
+                        "id":  "f1ec653e-8d03-4735-aadd-c6de03c67129",
+                        "name":  "f1ec653e-8d03-4735-aadd-c6de03c67129",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/f1ec653e-8d03-4735-aadd-c6de03c67129/rotations/south.png"
+                    },
+                    {
+                        "id":  "f0b4e999-3ac5-4ffe-9ecd-229896e7dfe8",
+                        "name":  "f0b4e999-3ac5-4ffe-9ecd-229896e7dfe8",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/f0b4e999-3ac5-4ffe-9ecd-229896e7dfe8/rotations/south.png"
+                    },
+                    {
+                        "id":  "10168dd5-f7db-4eba-a8cb-a87b6771bb2f",
+                        "name":  "10168dd5-f7db-4eba-a8cb-a87b6771bb2f",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/10168dd5-f7db-4eba-a8cb-a87b6771bb2f/rotations/south.png"
+                    },
+                    {
+                        "id":  "4143849b-44b9-4946-91d4-e8b9a18f1251",
+                        "name":  "4143849b-44b9-4946-91d4-e8b9a18f1251",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/4143849b-44b9-4946-91d4-e8b9a18f1251/rotations/south.png"
+                    },
+                    {
+                        "id":  "b1b4e3b7-4db1-4516-8073-2a8979ca1155",
+                        "name":  "b1b4e3b7-4db1-4516-8073-2a8979ca1155",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/b1b4e3b7-4db1-4516-8073-2a8979ca1155/rotations/south.png"
+                    },
+                    {
+                        "id":  "14001bf4-5610-4361-a53a-3c3a730d99f5",
+                        "name":  "14001bf4-5610-4361-a53a-3c3a730d99f5",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/14001bf4-5610-4361-a53a-3c3a730d99f5/rotations/south.png"
+                    },
+                    {
+                        "id":  "ced61d48-0f84-43cf-8844-cea7dd716c53",
+                        "name":  "ced61d48-0f84-43cf-8844-cea7dd716c53",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/ced61d48-0f84-43cf-8844-cea7dd716c53/rotations/south.png"
+                    },
+                    {
+                        "id":  "a23a3ea6-ba2e-484e-ae17-21ebfb3543ee",
+                        "name":  "a23a3ea6-ba2e-484e-ae17-21ebfb3543ee",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/a23a3ea6-ba2e-484e-ae17-21ebfb3543ee/rotations/south.png"
+                    },
+                    {
+                        "id":  "1790f97b-5313-4fc1-97a9-6c657b947cfc",
+                        "name":  "1790f97b-5313-4fc1-97a9-6c657b947cfc",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/1790f97b-5313-4fc1-97a9-6c657b947cfc/rotations/south.png"
+                    },
+                    {
+                        "id":  "15382117-f09d-4d04-8144-2b095a4add43",
+                        "name":  "15382117-f09d-4d04-8144-2b095a4add43",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/15382117-f09d-4d04-8144-2b095a4add43/rotations/south.png"
+                    },
+                    {
+                        "id":  "3e9bdc0d-6b21-4798-9b69-965d2825c466",
+                        "name":  "3e9bdc0d-6b21-4798-9b69-965d2825c466",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/3e9bdc0d-6b21-4798-9b69-965d2825c466/rotations/south.png"
+                    },
+                    {
+                        "id":  "2e1e1063-5d5d-4a6c-a36c-efc30dabddc5",
+                        "name":  "2e1e1063-5d5d-4a6c-a36c-efc30dabddc5",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/2e1e1063-5d5d-4a6c-a36c-efc30dabddc5/rotations/south.png"
+                    },
+                    {
+                        "id":  "e4e1de45-1183-4c4d-a424-e673b5206025",
+                        "name":  "e4e1de45-1183-4c4d-a424-e673b5206025",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/e4e1de45-1183-4c4d-a424-e673b5206025/rotations/south.png"
+                    },
+                    {
+                        "id":  "7891f1aa-b4e4-416c-9a45-31f751b85279",
+                        "name":  "7891f1aa-b4e4-416c-9a45-31f751b85279",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/7891f1aa-b4e4-416c-9a45-31f751b85279/rotations/south.png"
+                    },
+                    {
+                        "id":  "6a3909f3-f2eb-43f3-9eaf-7d8ddffe466a",
+                        "name":  "6a3909f3-f2eb-43f3-9eaf-7d8ddffe466a",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/6a3909f3-f2eb-43f3-9eaf-7d8ddffe466a/rotations/south.png"
+                    },
+                    {
+                        "id":  "980c6250-62a1-4118-8394-e7e39c5f779e",
+                        "name":  "980c6250-62a1-4118-8394-e7e39c5f779e",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/980c6250-62a1-4118-8394-e7e39c5f779e/rotations/south.png"
+                    },
+                    {
+                        "id":  "b2775bd0-7acf-4606-8e0b-9bc7de82d4c7",
+                        "name":  "b2775bd0-7acf-4606-8e0b-9bc7de82d4c7",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/b2775bd0-7acf-4606-8e0b-9bc7de82d4c7/rotations/south.png"
+                    },
+                    {
+                        "id":  "85de0c88-3bb7-4f9e-9bf5-e675f61c3fb2",
+                        "name":  "85de0c88-3bb7-4f9e-9bf5-e675f61c3fb2",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/85de0c88-3bb7-4f9e-9bf5-e675f61c3fb2/rotations/south.png"
+                    },
+                    {
+                        "id":  "57325dc2-7913-4721-bc00-bf2222a5fb4c",
+                        "name":  "57325dc2-7913-4721-bc00-bf2222a5fb4c",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/57325dc2-7913-4721-bc00-bf2222a5fb4c/rotations/south.png"
+                    },
+                    {
+                        "id":  "dad1d739-e3eb-438d-bb73-be0ee09185eb",
+                        "name":  "dad1d739-e3eb-438d-bb73-be0ee09185eb",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/dad1d739-e3eb-438d-bb73-be0ee09185eb/rotations/south.png"
+                    },
+                    {
+                        "id":  "5e5864d8-1932-476d-b7af-417d4b018fc0",
+                        "name":  "5e5864d8-1932-476d-b7af-417d4b018fc0",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/5e5864d8-1932-476d-b7af-417d4b018fc0/rotations/south.png"
+                    },
+                    {
+                        "id":  "40d0d495-a13b-45e8-b549-5325952207e5",
+                        "name":  "40d0d495-a13b-45e8-b549-5325952207e5",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/40d0d495-a13b-45e8-b549-5325952207e5/rotations/south.png"
+                    },
+                    {
+                        "id":  "850a318f-c5e6-48f2-8029-74e1c9a74c92",
+                        "name":  "850a318f-c5e6-48f2-8029-74e1c9a74c92",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/850a318f-c5e6-48f2-8029-74e1c9a74c92/rotations/south.png"
+                    },
+                    {
+                        "id":  "e232f3a4-a6bc-47f0-91ca-b56fe3cb557c",
+                        "name":  "e232f3a4-a6bc-47f0-91ca-b56fe3cb557c",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/e232f3a4-a6bc-47f0-91ca-b56fe3cb557c/rotations/south.png"
+                    },
+                    {
+                        "id":  "3fde0fd8-49e8-450a-a936-fc9a99676e2f",
+                        "name":  "3fde0fd8-49e8-450a-a936-fc9a99676e2f",
+                        "weight":  1,
+                        "south_path":  "res://assets/pixellab/3fde0fd8-49e8-450a-a936-fc9a99676e2f/rotations/south.png"
+                    }
+                ]
+}

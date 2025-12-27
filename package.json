@@ -1,0 +1,25 @@
+{
+  "name": "patchbound",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm -w server run dev\" \"npm -w client run dev\"",
+    "build": "npm -w client run build && npm -w server run build",
+    "test": "npm -w client test && npm -w server test",
+    "test:e2e": "npm -w client run test:e2e",
+    "assets:placeholders": "npm -w client run assets:placeholders"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "fast-glob": "^3.3.3",
+    "jimp": "^1.6.0",
+    "sharp": "^0.34.4"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "node-fetch": "^2.7.0"
+  }
+}

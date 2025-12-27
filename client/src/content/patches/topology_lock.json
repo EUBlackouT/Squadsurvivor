@@ -1,0 +1,7 @@
+{
+  "id": "topology_lock",
+  "name": "Topology Lock",
+  "rarity": "R",
+  "description": "Prevents loopback anomalies for next 2 rooms; +5% elite spawn"
+}
+

@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "context_stat_mult": {
+    "enemy": { "max_hp": 0.85, "attack_damage": 0.75 },
+    "recruit": { "max_hp": 1.0, "attack_damage": 1.0 }
+  },
+  "enemy_scaling": {
+    "hp_per_minute_mult": 0.08,
+    "damage_per_minute_mult": 0.05
+  },
+  "rarities": [
+    {
+      "id": "common",
+      "name": "Common",
+      "stat_mult": { "max_hp": 1.0, "attack_damage": 1.0, "move_speed": 1.0, "crit_chance_add": 0.00 },
+      "weight": { "enemy": 70, "recruit": 62 }
+    },
+    {
+      "id": "rare",
+      "name": "Rare",
+      "stat_mult": { "max_hp": 1.08, "attack_damage": 1.08, "move_speed": 1.03, "crit_chance_add": 0.02 },
+      "weight": { "enemy": 22, "recruit": 26 }
+    },
+    {
+      "id": "epic",
+      "name": "Epic",
+      "stat_mult": { "max_hp": 1.18, "attack_damage": 1.18, "move_speed": 1.06, "crit_chance_add": 0.04 },
+      "weight": { "enemy": 7, "recruit": 10 }
+    },
+    {
+      "id": "legendary",
+      "name": "Legendary",
+      "stat_mult": { "max_hp": 1.30, "attack_damage": 1.30, "move_speed": 1.08, "crit_chance_add": 0.07 },
+      "weight": { "enemy": 1, "recruit": 2 }
+    }
+  ],
+  "archetypes": [
+    {
+      "id": "bruiser",
+      "name": "Bruiser",
+      "class_hint": "GUARDIAN",
+      "base": {
+        "max_hp": 165,
+        "attack_damage": 10,
+        "attack_range": 260.0,
+        "attack_cooldown": 1.10,
+        "move_speed": 100.0,
+        "crit_chance": 0.02,
+        "crit_mult": 1.60
+      }
+    },
+    {
+      "id": "striker",
+      "name": "Striker",
+      "class_hint": "WARRIOR",
+      "base": {
+        "max_hp": 120,
+        "attack_damage": 14,
+        "attack_range": 290.0,
+        "attack_cooldown": 0.85,
+        "move_speed": 118.0,
+        "crit_chance": 0.05,
+        "crit_mult": 1.70
+      }
+    },
+    {
+      "id": "sniper",
+      "name": "Sniper",
+      "class_hint": "ROGUE",
+      "base": {
+        "max_hp": 95,
+        "attack_damage": 12,
+        "attack_range": 520.0,
+        "attack_cooldown": 1.05,
+        "move_speed": 120.0,
+        "crit_chance": 0.10,
+        "crit_mult": 1.90
+      }
+    },
+    {
+      "id": "caster",
+      "name": "Caster",
+      "class_hint": "MAGE",
+      "base": {
+        "max_hp": 105,
+        "attack_damage": 13,
+        "attack_range": 440.0,
+        "attack_cooldown": 1.00,
+        "move_speed": 112.0,
+        "crit_chance": 0.06,
+        "crit_mult": 1.75
+      }
+    },
+    {
+      "id": "support",
+      "name": "Support",
+      "class_hint": "HEALER",
+      "base": {
+        "max_hp": 115,
+        "attack_damage": 9,
+        "attack_range": 420.0,
+        "attack_cooldown": 0.95,
+        "move_speed": 116.0,
+        "crit_chance": 0.03,
+        "crit_mult": 1.60
+      }
+    },
+    {
+      "id": "summoner",
+      "name": "Summoner",
+      "class_hint": "SUMMONER",
+      "base": {
+        "max_hp": 110,
+        "attack_damage": 10,
+        "attack_range": 380.0,
+        "attack_cooldown": 0.95,
+        "move_speed": 114.0,
+        "crit_chance": 0.04,
+        "crit_mult": 1.65
+      }
+    }
+  ],
+  "passive_pools": {
+    "common": ["frost_tag", "piercing_rounds", "echo_strike", "bleed_edge"],
+    "rare": ["arc_chain", "frost_tag", "piercing_rounds", "echo_strike", "bleed_edge"],
+    "epic": ["arc_chain", "frost_tag", "piercing_rounds", "echo_strike", "bleed_edge"],
+    "legendary": ["arc_chain", "frost_tag", "piercing_rounds", "echo_strike", "bleed_edge"]
+  }
+}
+
+

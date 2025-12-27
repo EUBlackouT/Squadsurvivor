@@ -1,0 +1,10 @@
+{
+  "name": "tilesheet",
+  "tilewidth": 1,
+  "tileheight": 1,
+  "image": "tilesheet.png",
+  "imagewidth": 1,
+  "imageheight": 1,
+  "tilecount": 1,
+  "columns": 1
+}

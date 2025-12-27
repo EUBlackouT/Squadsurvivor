@@ -1,0 +1,115 @@
+# Infinite Horde Tactics – Game Design Document (Godot + Pixel Lab)
+
+## 1. High-Level Pitch
+
+- Top-down **auto-battler horde survival** built in **Godot 4**.
+- You control a **squad of 5–6 units** on a **large continuous map**.
+- The map is filled with **hundreds of visible enemies** at once – patrols, camps, swarms – not just spawns at the edge of your screen.
+- Every enemy type can be **captured** and turned into a **recruitable character** mid-run.
+- Characters come from **Pixel Lab**, giving you **effectively infinite unique sprites**; the game system maps those sprites onto a **finite but flexible rule set** (origins, classes, traits, abilities, tiers).
+- Combat is **automatic**: units auto-attack using projectiles, beams, AOEs, etc. No attack animations needed; all the juice comes from **VFX and numbers**.
+- Core gameplay: explore, kite big hordes, clear camps, **draft new characters**, create synergies, and try not to get overwhelmed.
+
+---
+
+## 2. Fantasy & Design Pillars
+
+### 2.1 Infinite Pixel Lab Characters
+
+- Pixel Lab generates **infinite static character sprites**.
+- Each Pixel Lab sprite is treated as a **“visual shell”**.
+- The game assigns dynamic data to each shell:
+  - `origin` (e.g. Undead, Machine, Beast…)
+  - `class` (Warrior, Mage, Rogue, Guardian, Healer, Summoner…)
+  - Allowed `tier` range (1–4)
+  - `passive_trait`
+  - `ability`
+- A **small, tight rule set** + infinite sprites = enormous variety without manual balancing of every single individual.
+
+### 2.2 Player Fantasy
+
+- You are a commander in a hostile world.
+- You **wade through huge hordes**, “harvesting” powerful individuals from the enemy ranks.
+- Your squad is a bizarre collage of creatures you’ve captured and fused across runs.
+
+### 2.3 Pillars
+
+1. **Big Hordes, Big Map**  
+   - You always **see** the danger in the distance: swarms moving, camps, patrols.
+
+2. **Drafting & Synergy**  
+   - The main fun is in **rolling, picking, merging and synergising** units.
+
+3. **Simple Visuals, Strong Feedback**  
+   - No attack animations required.  
+   - Projectiles, AOEs, beams, hit flashes, numbers, and camera shake carry the impact.
+
+---
+
+## 3. Core Gameloop & Character Acquisition
+
+### 3.1 Run Structure
+
+Target run length: **20–30 minutes**.
+
+#### 3.1.1 Early Game (0–3 min)
+
+- Start with **3 basic units** (Tier 1).
+- Spawn in a **low-threat zone** with sparse Tier-1 enemies.
+- Explore, kill small packs, build:
+  - **Capture Meter** (for drafts).
+  - **Squad XP** (for global boosts).
+
+#### 3.1.2 Mid Game (3–15 min)
+
+- Move into **higher-threat zones**:
+  - Denser enemies, Tier 2–3.
+  - Enemy camps with nests and elites.
+- Regularly earn:
+  - **Capture Meter drafts**.
+  - **Camp drafts**.
+  - Occasional **shard / elite drafts**.
+- Replace weak units, merge duplicates, build synergies.
+
+#### 3.1.3 Late Game (15–30 min)
+
+- Deep zones with **Tier 3–4 enemies** and very high density.
+- Fight **mini-bosses and bosses**.
+- Fewer, but higher-tier drafts.
+- Eventually you’re overwhelmed, or you hit a milestone (e.g. clear final boss, reach time limit).
+
+---
+
+### 3.2 Character Acquisition – Detailed
+
+You obtain new characters from **three main sources**:
+
+1. **Capture Meter (main drip)**
+2. **Camp Rewards**
+3. **Boss & Elite Rewards**
+
+#### 3.2.1 Capture Meter
+
+- Global **Capture Meter** from `0` to `100`.
+- Gain points from combat:
+  - Normal enemy kill: `+capture_normal` (tunable, e.g. 1.5).
+  - Elite enemy kill: `+capture_elite` (tunable, e.g. 10).
+  - Camp cleared: `+capture_camp` (tunable, e.g. 15–20).
+- When `CaptureMeter >= 100`:
+  - Time slows or briefly pauses.
+  - A **Recruit Draft** appears:
+    - Shows **3 randomly rolled characters**.
+  - Meter resets to `0`.
+
+**Pacing target:**  
+If the player is fighting efficiently, they should get **~1 Recruit Draft every 60–90 seconds**.  
+Over a 20–30 minute run: **~10–20 drafts** from Capture alone.
+
+**Recruit Draft rules:**
+
+- Draft size: 3 characters.
+- Tier distribution is based on **time/depth**:
+  - Early (0–5 min): mostly Tier 1, small chance Tier 2.
+  - Mid (5–15 min): Tier 2 common, chance Tier 3.
+  - Late (15+ min): Tier 3 common, small chance Tier 4.
+- Draft pool is biased towards:

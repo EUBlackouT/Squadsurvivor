@@ -1,0 +1,7 @@
+{
+  "id": "edge_wrap",
+  "name": "Edge Wrap",
+  "rarity": "R",
+  "description": "Player bullets wrap at screen edges; +15% crit if short path"
+}
+

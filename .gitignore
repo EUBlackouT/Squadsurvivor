@@ -1,0 +1,38 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Godot (cache + imported artifacts)
+godot/.godot/
+godot/**/.godot/
+godot/**/.import/
+godot/**/*.import
+
+# Logs / temp
+*.log
+tmp/
+temp/
+
+# Node
+node_modules/
+client/node_modules/
+server/node_modules/
+client/dist/
+server/dist/
+client/test-results/
+client/playwright-report/
+client/.tsbuildinfo
+**/*.tsbuildinfo
+
+# Misc
+*.zip
+
+node_modules/
+client/dist/
+server/dist/
+client/assets/
+**/.DS_Store
+**/Thumbs.db
+npm-debug.log*

@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "passives": [
+    {
+      "id": "arc_chain",
+      "name": "Arc Chain",
+      "description": "On hit, arcs lightning to up to 2 nearby enemies for 35% damage.",
+      "tags": ["lightning", "aoe"],
+      "params": { "radius": 220, "chain_count": 2, "damage_mult": 0.35 }
+    },
+    {
+      "id": "frost_tag",
+      "name": "Frost Tag",
+      "description": "On hit, slows the enemy's movement speed by 25% for 1.5 seconds.",
+      "tags": ["control", "slow"],
+      "params": { "slow_mult": 0.75, "duration": 1.5 }
+    },
+    {
+      "id": "bleed_edge",
+      "name": "Bleed Edge",
+      "description": "Melee hits apply a bleed that deals 15% damage per second for 3 seconds.",
+      "tags": ["melee", "dot"],
+      "params": { "damage_mult": 0.15, "duration": 3.0, "tick_interval": 0.5 }
+    },
+    {
+      "id": "piercing_rounds",
+      "name": "Piercing Rounds",
+      "description": "Projectiles pierce 1 additional enemy.",
+      "tags": ["ranged", "pierce"],
+      "params": { "pierce_count": 1 }
+    },
+    {
+      "id": "echo_strike",
+      "name": "Echo Strike",
+      "description": "Every 3rd attack instantly echoes for 50% damage.",
+      "tags": ["burst"],
+      "params": { "echo_interval": 3, "damage_mult": 0.5 }
+    }
+  ]
+}
+
+

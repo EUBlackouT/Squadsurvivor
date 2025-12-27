@@ -1,0 +1,7 @@
+{
+  "id": "clock_skips",
+  "name": "Clock Skips",
+  "rarity": "L",
+  "description": "Every 5s, freeze world 120ms (players unaffected)"
+}
+

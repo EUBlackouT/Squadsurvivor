@@ -1,0 +1,7 @@
+{
+  "id": "temporal_refund",
+  "name": "Temporal Refund",
+  "rarity": "L",
+  "description": "Enemy kills refund 0.5s of phase cooldown."
+}
+

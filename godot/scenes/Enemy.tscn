@@ -1,0 +1,56 @@
+[gd_scene load_steps=10 format=3 uid="uid://m20q1kq4r7yk"]
+
+[ext_resource type="Script" uid="uid://k3w1s8a0t5mz" path="res://scripts/Enemy.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/south_0.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/south_1.png" id="3"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/south_2.png" id="4"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/south_3.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/north_0.png" id="6"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/north_1.png" id="7"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/north_2.png" id="8"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/north_3.png" id="9"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/east_0.png" id="10"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/east_1.png" id="11"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/east_2.png" id="12"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/east_3.png" id="13"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/west_0.png" id="14"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/west_1.png" id="15"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/west_2.png" id="16"]
+[ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/west_3.png" id="17"]
+
+[sub_resource type="SpriteFrames" id="1"]
+animations = [{
+"frames": [ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13")],
+"loop": true,
+"name": "walk_east",
+"speed": 8.0
+}, {
+"frames": [ExtResource("14"), ExtResource("15"), ExtResource("16"), ExtResource("17")],
+"loop": true,
+"name": "walk_west",
+"speed": 8.0
+}, {
+"frames": [ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5")],
+"loop": true,
+"name": "walk_south",
+"speed": 8.0
+}, {
+"frames": [ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9")],
+"loop": true,
+"name": "walk_north",
+"speed": 8.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(16, 16)
+
+[node name="Enemy" type="CharacterBody2D"]
+script = ExtResource("1")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("1")
+animation = "walk_south"
+playing = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")

@@ -1,0 +1,7 @@
+{
+  "id": "packet_loss",
+  "name": "Packet Loss",
+  "rarity": "C",
+  "description": "5% chance to fizzle a shot; shots that fizzle chain lightning"
+}
+
