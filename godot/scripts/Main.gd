@@ -46,6 +46,11 @@ func _ready() -> void:
 	_init_rng()
 	run_start_time = Time.get_ticks_msec() / 1000.0
 
+	# Hard-disable editor debug overlays that can make gameplay unreadable.
+	# (Some run configurations can keep these on even when the menu checkbox looks off.)
+	get_tree().debug_collisions_hint = false
+	get_tree().debug_navigation_hint = false
+
 	# Ensure data systems are loaded early.
 	PixellabUtil.ensure_loaded()
 	UnitFactory.ensure_loaded()

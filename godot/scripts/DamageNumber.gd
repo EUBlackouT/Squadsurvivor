@@ -14,6 +14,12 @@ func _ready() -> void:
 		label = Label.new()
 		label.name = "Label"
 		add_child(label)
+	# Prevent any project/UI theme from giving the label a background “badge”.
+	# (This is the most common cause of the “orb with a number on it” look.)
+	label.theme = Theme.new()
+	var empty := StyleBoxEmpty.new()
+	label.add_theme_stylebox_override("normal", empty)
+	label.add_theme_stylebox_override("focus", empty)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 18)
