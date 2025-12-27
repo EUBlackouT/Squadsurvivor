@@ -41,6 +41,8 @@ var _victory: bool = false
 var capture_meter: CaptureMeter
 
 var _spawn_timer: float = 0.0
+var _dbg_cd: float = 0.0
+var _dbg_text: String = ""
 
 func _ready() -> void:
 	add_to_group("main")
@@ -597,6 +599,12 @@ func _setup_hud() -> void:
 	boss.text = ""
 	container.add_child(boss)
 
+	# Debug label to identify what is drawing the "orbs"
+	var dbg := Label.new()
+	dbg.name = "DebugLabel"
+	dbg.text = ""
+	container.add_child(dbg)
+
 func _update_hud_labels() -> void:
 	var hud := get_node_or_null("HUD/HUDVBox") as VBoxContainer
 	if hud == null:
@@ -615,6 +623,53 @@ func _update_hud_labels() -> void:
 			b.text = "Boss: %d%%" % int(round(r * 100.0))
 		else:
 			b.text = ""
+
+	# Debug: count collision shapes / particles to confirm source of circles.
+	var dbg := get_node_or_null("HUD/HUDVBox/DebugLabel") as Label
+	if dbg:
+		_dbg_cd -= get_process_delta_time()
+		if _dbg_cd <= 0.0:
+			_dbg_cd = 0.6
+			var info := _collect_debug_counts(self)
+			_dbg_text = "DBG CollisionShape2D:%d  CircleShape2D:%d  Particles:%d" % [
+				int(info.get("cshape2d", 0)),
+				int(info.get("circle2d", 0)),
+				int(info.get("particles2d", 0))
+			]
+			var samples: PackedStringArray = info.get("circle_paths", PackedStringArray())
+			if samples.size() > 0:
+				_dbg_text += "\nCircles: " + ", ".join(samples)
+		dbg.text = _dbg_text
+
+func _collect_debug_counts(root: Node) -> Dictionary:
+	var cshape2d: int = 0
+	var circle2d: int = 0
+	var particles2d: int = 0
+	var circle_paths := PackedStringArray()
+
+	var stack: Array[Node] = [root]
+	while stack.size() > 0:
+		var n := stack.pop_back()
+		if n is CollisionShape2D:
+			cshape2d += 1
+			var cs := n as CollisionShape2D
+			var sh := cs.shape
+			if sh is CircleShape2D:
+				circle2d += 1
+				if circle_paths.size() < 6:
+					circle_paths.append(cs.get_path())
+		elif n is GPUParticles2D or n is CPUParticles2D:
+			particles2d += 1
+		for ch in n.get_children():
+			if ch is Node:
+				stack.append(ch)
+
+	return {
+		"cshape2d": cshape2d,
+		"circle2d": circle2d,
+		"particles2d": particles2d,
+		"circle_paths": circle_paths
+	}
 
 	# End-of-run timer
 	if _elapsed_minutes() >= run_timer_max_minutes and not _victory:
