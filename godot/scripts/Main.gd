@@ -668,6 +668,10 @@ func _update_hud_labels() -> void:
 			var samples: PackedStringArray = samples_v if samples_v is PackedStringArray else PackedStringArray()
 			if samples.size() > 0:
 				_dbg_text += "\nCircles: " + ", ".join(samples)
+			var details_v: Variant = info.get("circle_details", PackedStringArray())
+			var details: PackedStringArray = details_v if details_v is PackedStringArray else PackedStringArray()
+			if details.size() > 0:
+				_dbg_text += "\nCircleSrc: " + " || ".join(details)
 		dbg.text = _dbg_text
 
 func _collect_debug_counts(root: Node) -> Dictionary:
@@ -675,6 +679,7 @@ func _collect_debug_counts(root: Node) -> Dictionary:
 	var circle2d: int = 0
 	var particles2d: int = 0
 	var circle_paths := PackedStringArray()
+	var circle_details := PackedStringArray()
 
 	var stack: Array[Node] = [root]
 	while stack.size() > 0:
@@ -687,6 +692,17 @@ func _collect_debug_counts(root: Node) -> Dictionary:
 				circle2d += 1
 				if circle_paths.size() < 6:
 					circle_paths.append(String(cs.get_path()))
+					var parent := cs.get_parent()
+					var ppath: String = "<no-parent>"
+					var ptype: String = "<no-parent>"
+					var scr_path: String = "<no-script>"
+					if parent != null:
+						ppath = String(parent.get_path())
+						ptype = parent.get_class()
+						var scr: Script = parent.get_script() as Script
+						if scr != null:
+							scr_path = String(scr.resource_path)
+					circle_details.append("%s | %s | %s" % [ppath, ptype, scr_path])
 		elif n is GPUParticles2D or n is CPUParticles2D:
 			particles2d += 1
 		for ch in n.get_children():
@@ -697,7 +713,8 @@ func _collect_debug_counts(root: Node) -> Dictionary:
 		"cshape2d": cshape2d,
 		"circle2d": circle2d,
 		"particles2d": particles2d,
-		"circle_paths": circle_paths
+		"circle_paths": circle_paths,
+		"circle_details": circle_details
 	}
 
 func _strip_circle_collision_shapes() -> void:
