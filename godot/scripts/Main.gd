@@ -44,6 +44,7 @@ var _spawn_timer: float = 0.0
 var _dbg_cd: float = 0.0
 var _dbg_text: String = ""
 var _hide_projectiles: bool = false
+var _strip_cd: float = 0.0
 
 func _ready() -> void:
 	add_to_group("main")
@@ -65,6 +66,10 @@ func _ready() -> void:
 
 	damage_numbers = DamageNumbersLayer.new()
 	add_child(damage_numbers)
+
+	# Safety: remove any unexpected CircleShape2D CollisionShape2D nodes (these match the "orb" visuals).
+	# Keep the RiftNode trigger intact.
+	_strip_circle_collision_shapes()
 
 	capture_meter = CaptureMeter.new()
 	add_child(capture_meter)
@@ -136,6 +141,10 @@ func _spawn_rifts() -> void:
 func _physics_process(delta: float) -> void:
 	if _game_over or _victory:
 		return
+	_strip_cd -= delta
+	if _strip_cd <= 0.0:
+		_strip_cd = 0.6
+		_strip_circle_collision_shapes()
 	_spawn_timer += delta
 	if _spawn_timer >= enemy_spawn_interval:
 		_spawn_timer = 0.0
@@ -684,6 +693,26 @@ func _collect_debug_counts(root: Node) -> Dictionary:
 		"particles2d": particles2d,
 		"circle_paths": circle_paths
 	}
+
+func _strip_circle_collision_shapes() -> void:
+	# Remove all CollisionShape2D nodes that have CircleShape2D shapes, except the RiftNode trigger.
+	var stack: Array[Node] = [self]
+	while stack.size() > 0:
+		var n: Node = stack.pop_back() as Node
+		if n is CollisionShape2D:
+			var cs := n as CollisionShape2D
+			var sh := cs.shape
+			if sh is CircleShape2D:
+				var parent := cs.get_parent()
+				var keep: bool = false
+				if parent != null and (parent.name == "RiftNode" or parent.get_script() == preload("res://scripts/RiftNode.gd")):
+					keep = true
+				if not keep:
+					cs.queue_free()
+					continue
+		for ch in n.get_children():
+			if ch is Node:
+				stack.append(ch)
 
 	# End-of-run timer
 	if _elapsed_minutes() >= run_timer_max_minutes and not _victory:
