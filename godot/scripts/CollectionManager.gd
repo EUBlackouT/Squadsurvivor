@@ -112,6 +112,30 @@ func load_save() -> void:
 		# Seed starter unlocks (so Menu isn't empty on first run)
 		unlocked = []
 		active_roster = []
+		# Deterministic starter pack so new installs feel consistent.
+		PixellabUtil.ensure_loaded()
+		UnitFactory.ensure_loaded()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 1337
+		var starters: Array[CharacterData] = []
+		var tries: int = 0
+		while starters.size() < 3 and tries < 50:
+			tries += 1
+			var south := PixellabUtil.pick_random_south_path(rng)
+			var cd := UnitFactory.build_character_data("recruit", rng, 0.0, south)
+			# Avoid duplicates by unlock_id
+			var uid := _make_unlock_id(cd)
+			var dup := false
+			for s in starters:
+				if _make_unlock_id(s) == uid:
+					dup = true
+					break
+			if dup:
+				continue
+			starters.append(cd)
+		for cd2 in starters:
+			unlocked.append({"id": _make_unlock_id(cd2), "data": _cd_to_dict(cd2)})
+			active_roster.append(_cd_to_dict(cd2))
 		save()
 		return
 	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)

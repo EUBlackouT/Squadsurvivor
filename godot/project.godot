@@ -18,6 +18,7 @@ config/features=PackedStringArray("4.4")
 [autoload]
 
 CollectionManager="*res://scripts/CollectionManager.gd"
+RunConfig="*res://scripts/RunConfig.gd"
 
 [display]
 

@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "maps": [
+    {
+      "id": "graveyard",
+      "name": "Graveyard (I)",
+      "tagline": "Chill opener. Learn the loop. Not the best farm.",
+      "enemy_hp_mult": 1.0,
+      "enemy_damage_mult": 1.0,
+      "enemy_speed_mult": 1.0,
+      "spawn_interval_mult": 1.0,
+      "max_enemies_mult": 1.0,
+      "initial_enemies_mult": 1.0,
+      "essence_mult": 1.0,
+      "recruit_scale_minutes": 12.0,
+      "recruit_hp_bonus_max": 0.10,
+      "recruit_dmg_bonus_max": 0.18,
+      "recruit_rarity_bias_minutes": 0.0
+    },
+    {
+      "id": "library",
+      "name": "Arcane Library (II)",
+      "tagline": "Harder baseline. Better rewards. Drafts start to spike.",
+      "enemy_hp_mult": 1.35,
+      "enemy_damage_mult": 1.18,
+      "enemy_speed_mult": 1.05,
+      "spawn_interval_mult": 0.92,
+      "max_enemies_mult": 1.12,
+      "initial_enemies_mult": 1.15,
+      "essence_mult": 1.25,
+      "recruit_scale_minutes": 11.0,
+      "recruit_hp_bonus_max": 0.18,
+      "recruit_dmg_bonus_max": 0.30,
+      "recruit_rarity_bias_minutes": 2.0
+    },
+    {
+      "id": "foundry",
+      "name": "Iron Foundry (III)",
+      "tagline": "Pressure cooker. You come here to high-roll.",
+      "enemy_hp_mult": 1.80,
+      "enemy_damage_mult": 1.35,
+      "enemy_speed_mult": 1.10,
+      "spawn_interval_mult": 0.85,
+      "max_enemies_mult": 1.22,
+      "initial_enemies_mult": 1.25,
+      "essence_mult": 1.45,
+      "recruit_scale_minutes": 10.0,
+      "recruit_hp_bonus_max": 0.25,
+      "recruit_dmg_bonus_max": 0.42,
+      "recruit_rarity_bias_minutes": 4.0
+    }
+  ]
+}
+
+

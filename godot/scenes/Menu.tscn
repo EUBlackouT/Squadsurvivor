@@ -83,6 +83,14 @@ theme_override_constants/separation = 8
 [node name="Spacer" type="Control" parent="Root/Right/RightPad/RightVBox"]
 size_flags_vertical = 3
 
+[node name="MapLabel" type="Label" parent="Root/Right/RightPad/RightVBox"]
+text = "Map"
+theme_override_font_sizes/font_size = 16
+
+[node name="MapSelect" type="OptionButton" parent="Root/Right/RightPad/RightVBox"]
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 18
+
 [node name="StartRun" type="Button" parent="Root/Right/RightPad/RightVBox"]
 text = "Start Run"
 custom_minimum_size = Vector2(0, 54)

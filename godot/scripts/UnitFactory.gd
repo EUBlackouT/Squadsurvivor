@@ -22,7 +22,7 @@ static func ensure_loaded() -> void:
 		return
 	_balance = parsed as Dictionary
 
-static func build_character_data(context: String, rng: RandomNumberGenerator, elapsed_minutes: float, south_path: String) -> CharacterData:
+static func build_character_data(context: String, rng: RandomNumberGenerator, elapsed_minutes: float, south_path: String, map_mod: Dictionary = {}) -> CharacterData:
 	ensure_loaded()
 	var cd := CharacterData.new()
 	cd.sprite_path = south_path
@@ -30,7 +30,7 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	# Try derive Pixellab id from path.
 	cd.pixellab_id = _pixellab_id_from_south_path(south_path)
 
-	var rarity_id := roll_rarity_id(context, rng, elapsed_minutes)
+	var rarity_id := roll_rarity_id(context, rng, elapsed_minutes, map_mod)
 	var archetype_id := roll_archetype_id(context, rng)
 	cd.rarity_id = rarity_id
 	cd.archetype_id = archetype_id
@@ -50,6 +50,13 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	var ctx_mult := (_balance.get("context_stat_mult", {}) as Dictionary).get(context, {}) as Dictionary
 	hp *= float(ctx_mult.get("max_hp", 1.0))
 	dmg *= float(ctx_mult.get("attack_damage", 1.0))
+	ms *= float(ctx_mult.get("move_speed", 1.0))
+
+	# Map multipliers (baseline difficulty & pacing lives here)
+	if context == "enemy":
+		hp *= float(map_mod.get("enemy_hp_mult", 1.0))
+		dmg *= float(map_mod.get("enemy_damage_mult", 1.0))
+		ms *= float(map_mod.get("enemy_speed_mult", 1.0))
 
 	# Apply rarity multipliers
 	var rarity := _get_rarity(rarity_id)
@@ -66,6 +73,16 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 		var dmg_mult := 1.0 + float(scaling.get("damage_per_minute_mult", 0.0)) * elapsed_minutes
 		hp *= hp_mult
 		dmg *= dmg_mult
+	elif context == "recruit":
+		# Draft scaling should NOT make Map 1 the main power farm.
+		# So: per-map caps from maps.json control how spicy drafts can get.
+		var scale_mins := float(map_mod.get("recruit_scale_minutes", 12.0))
+		var t := clampf(elapsed_minutes / maxf(0.1, scale_mins), 0.0, 1.0)
+		var curved := pow(t, 1.20)
+		var hp_bonus_max := float(map_mod.get("recruit_hp_bonus_max", 0.10))
+		var dmg_bonus_max := float(map_mod.get("recruit_dmg_bonus_max", 0.18))
+		hp *= 1.0 + hp_bonus_max * curved
+		dmg *= 1.0 + dmg_bonus_max * curved
 
 	cd.max_hp = int(round(hp))
 	cd.attack_damage = int(round(dmg))
@@ -100,12 +117,15 @@ static func rarity_color(rarity_id: String) -> Color:
 		_:
 			return Color(0.78, 0.82, 0.88)
 
-static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_minutes: float) -> String:
+static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_minutes: float, map_mod: Dictionary = {}) -> String:
 	ensure_loaded()
 	var rarities: Array = _balance.get("rarities", [])
 	if rarities.is_empty():
 		return "common"
 	# Build weights with a tiny time bias (helps variety later).
+	var eff_minutes := elapsed_minutes
+	if context == "recruit":
+		eff_minutes += float(map_mod.get("recruit_rarity_bias_minutes", 0.0))
 	var weights: Array[int] = []
 	var ids: Array[String] = []
 	for r in rarities:
@@ -117,11 +137,11 @@ static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_
 		var bonus := 0
 		if context == "recruit":
 			if id == "rare":
-				bonus = int(floor(elapsed_minutes * 0.4))
+				bonus = int(floor(eff_minutes * 0.4))
 			elif id == "epic":
-				bonus = int(floor(elapsed_minutes * 0.2))
+				bonus = int(floor(eff_minutes * 0.2))
 			elif id == "legendary":
-				bonus = int(floor(elapsed_minutes * 0.08))
+				bonus = int(floor(eff_minutes * 0.08))
 		weights.append(max(1, w0 + bonus))
 		ids.append(id)
 	return _weighted_pick(ids, weights, rng)

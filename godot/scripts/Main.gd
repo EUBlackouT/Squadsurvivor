@@ -3,22 +3,34 @@ extends Node2D
 @export var map_size: Vector2 = Vector2(4800, 3600)
 @export var random_seed: int = 0
 
-@export var initial_enemy_count: int = 16
-@export var max_enemies_alive: int = 90
-@export var enemy_spawn_interval: float = 1.15
-@export var enemy_spawn_burst: int = 1
+@export var initial_enemy_count: int = 5
+@export var max_enemies_alive: int = 90 # legacy cap, superseded by ramp below
+@export var enemy_spawn_interval: float = 1.15 # legacy interval, superseded by ramp below
+@export var enemy_spawn_burst: int = 1 # legacy burst, superseded by ramp below
+@export var difficulty_ramp_minutes: float = 12.0
+# >1.0 makes early game chill and midgame ramp faster (e.g. 2.0–3.0 is "chill then spicy").
+@export var ramp_curve_power: float = 2.85
+# "Vampire Survivors" target: early minutes are cleanable, midgame starts to pressure hard.
+@export var spawn_interval_start: float = 2.60
+@export var spawn_interval_end: float = 0.68
+@export var max_enemies_start: int = 18
+@export var max_enemies_end: int = 155
 @export var spawn_radius_min: float = 820.0
 @export var spawn_radius_max: float = 1300.0
 
 @export var run_timer_max_minutes: float = 18.0
 @export var boss_spawn_time_minutes: float = 14.0
 @export var enable_rifts: bool = false
+@export var debug_hud_enabled: bool = false
+@export var debug_collision_cleanup_enabled: bool = false
+@export var debug_perf_overlay_enabled: bool = false
 
 const PLAYER_SCENE: PackedScene = preload("res://scenes/Player.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://scenes/Enemy.tscn")
 const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
 
 var damage_numbers: DamageNumbersLayer
+var toast_layer: ToastLayer
 
 var rng: RandomNumberGenerator
 var run_start_time: float = 0.0
@@ -39,7 +51,17 @@ var _boss_node: Node2D = null
 var _game_over: bool = false
 var _victory: bool = false
 
-var capture_meter: CaptureMeter
+#
+# Draft system: RNG drops (no capture meter)
+#
+@export var draft_drop_chance_normal: float = 0.045 # ~1 in 22 kills baseline
+@export var draft_drop_chance_elite: float = 0.30   # elites feel exciting
+@export var draft_drop_pity_add_per_kill: float = 0.0045
+@export var draft_drop_pity_cap: float = 0.10
+@export var draft_drop_min_seconds_between: float = 12.0
+
+var _draft_pity: float = 0.0
+var _last_draft_time_s: float = -9999.0
 
 var _spawn_timer: float = 0.0
 var _dbg_cd: float = 0.0
@@ -48,6 +70,10 @@ var _hide_projectiles: bool = false
 var _strip_cd: float = 0.0
 var _dbg_reported: Dictionary = {}
 var _hide_debug_shapes_cd: float = 0.0
+var _perf_text: String = ""
+
+# Map tuning (data-driven via RunConfig + maps.json)
+var _map_mod: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("main")
@@ -64,19 +90,26 @@ func _ready() -> void:
 	PixellabUtil.ensure_loaded()
 	UnitFactory.ensure_loaded()
 	PassiveSystem.ensure_loaded()
+	var rc := get_node_or_null("/root/RunConfig")
+	if rc and is_instance_valid(rc):
+		if rc.has_method("ensure_loaded"):
+			rc.ensure_loaded()
+		if rc.has_method("get_selected_map"):
+			_map_mod = rc.get_selected_map()
 
 	_make_background()
 
 	damage_numbers = DamageNumbersLayer.new()
 	add_child(damage_numbers)
 
+	toast_layer = ToastLayer.new()
+	add_child(toast_layer)
+
 	# Safety: remove any unexpected CircleShape2D CollisionShape2D nodes (these match the "orb" visuals).
 	# Keep the RiftNode trigger intact.
 	_strip_circle_collision_shapes()
 
-	capture_meter = CaptureMeter.new()
-	add_child(capture_meter)
-	capture_meter.draft_ready.connect(_on_draft_ready)
+	# No capture meter; drafts come from RNG drops on kills.
 
 	_spawn_player()
 	_spawn_initial_enemies()
@@ -128,7 +161,9 @@ func _spawn_player() -> void:
 			cam.limit_bottom = int(map_size.y * 0.5)
 
 func _spawn_initial_enemies() -> void:
-	for i in range(initial_enemy_count):
+	var mult := float(_map_mod.get("initial_enemies_mult", 1.0))
+	var count: int = max(1, int(round(float(initial_enemy_count) * mult)))
+	for i in range(count):
 		_spawn_enemy(false, false, false)
 
 func _spawn_rifts() -> void:
@@ -145,16 +180,27 @@ func _spawn_rifts() -> void:
 func _physics_process(delta: float) -> void:
 	if _game_over or _victory:
 		return
-	_strip_cd -= delta
-	if _strip_cd <= 0.0:
-		_strip_cd = 0.6
-		_strip_circle_collision_shapes()
-	_hide_debug_shapes_cd -= delta
-	if _hide_debug_shapes_cd <= 0.0:
-		_hide_debug_shapes_cd = 0.4
-		_hide_collision_debug_visuals()
+
+	var t0_us: int = 0
+	if debug_perf_overlay_enabled:
+		t0_us = int(Time.get_ticks_usec())
+
+	# IMPORTANT PERFORMANCE NOTE:
+	# These operations traverse the whole scene tree and can cause rhythmic stutters.
+	# They are only needed for debugging the prior "orb" issue, so keep them opt-in.
+	if debug_collision_cleanup_enabled:
+		_strip_cd -= delta
+		if _strip_cd <= 0.0:
+			_strip_cd = 0.6
+			_strip_circle_collision_shapes()
+		_hide_debug_shapes_cd -= delta
+		if _hide_debug_shapes_cd <= 0.0:
+			_hide_debug_shapes_cd = 0.4
+			_hide_collision_debug_visuals()
+
 	_spawn_timer += delta
-	if _spawn_timer >= enemy_spawn_interval:
+	var spawn_interval := _current_spawn_interval()
+	if _spawn_timer >= spawn_interval:
 		_spawn_timer = 0.0
 		_tick_spawns()
 
@@ -162,6 +208,12 @@ func _physics_process(delta: float) -> void:
 	if (not _boss_spawned) and em >= boss_spawn_time_minutes:
 		_spawn_boss()
 	_update_hud_labels()
+
+	if debug_perf_overlay_enabled:
+		var total_ms: float = float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+		_perf_text = "PERF frame_logic: %.2fms  enemies:%d  squad:%d" % [
+			total_ms, live_enemies.size(), live_squad_units.size()
+		]
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Debug helper: toggle damage number layer to verify what's drawing the "orbs".
@@ -180,15 +232,52 @@ func _unhandled_input(event: InputEvent) -> void:
 				var n2 := p as Node2D
 				if n2:
 					n2.visible = not _hide_projectiles
+		# Ctrl+Shift+F11: toggle debug HUD counters (expensive)
+		if k.keycode == KEY_F11 and k.ctrl_pressed and k.shift_pressed:
+			debug_hud_enabled = not debug_hud_enabled
+		# Ctrl+Shift+F12: toggle collision cleanup scans (very expensive)
+		if k.keycode == KEY_F12 and k.ctrl_pressed and k.shift_pressed:
+			debug_collision_cleanup_enabled = not debug_collision_cleanup_enabled
 
 func _tick_spawns() -> void:
 	_prune_invalid_lists()
-	if live_enemies.size() >= max_enemies_alive:
+	var cap := _current_max_enemies()
+	if live_enemies.size() >= cap:
 		return
-	for i in range(enemy_spawn_burst):
-		if live_enemies.size() >= max_enemies_alive:
+	var burst := _current_spawn_burst()
+	for i in range(burst):
+		if live_enemies.size() >= cap:
 			break
 		_spawn_enemy(false, false, false)
+
+func _ramp01() -> float:
+	var t := _elapsed_minutes()
+	return clampf(t / maxf(0.001, difficulty_ramp_minutes), 0.0, 1.0)
+
+func _ramp01_curved() -> float:
+	# Ease-in: keep early minutes calmer, then accelerate.
+	var r := _ramp01()
+	return pow(r, maxf(0.10, ramp_curve_power))
+
+func _current_spawn_interval() -> float:
+	# Starts forgiving, ramps toward hectic.
+	var a := spawn_interval_start
+	var b := spawn_interval_end
+	var r := _ramp01_curved()
+	var base := lerpf(a, b, r)
+	return base * float(_map_mod.get("spawn_interval_mult", 1.0))
+
+func _current_max_enemies() -> int:
+	var a := max_enemies_start
+	var b := max_enemies_end
+	var r := _ramp01_curved()
+	var base := int(round(lerpf(float(a), float(b), r)))
+	return max(1, int(round(float(base) * float(_map_mod.get("max_enemies_mult", 1.0)))))
+
+func _current_spawn_burst() -> int:
+	# Keep early game at 1, later game occasionally uses 2.
+	var r := _ramp01_curved()
+	return 1 if r < 0.72 else 2
 
 func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	if ENEMY_SCENE == null:
@@ -204,7 +293,7 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 
 	# Random character pool -> random enemy skin
 	var south := PixellabUtil.pick_random_south_path(rng)
-	var cd := UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south)
+	var cd := UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south, _map_mod)
 	if is_elite:
 		cd.max_hp = int(round(float(cd.max_hp) * 1.55))
 		cd.attack_damage = int(round(float(cd.attack_damage) * 1.25))
@@ -261,15 +350,13 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	if _game_over or _victory:
 		return
 
-	# Capture meter -> draft pacing
-	if capture_meter:
-		if is_elite:
-			capture_meter.add_capture_elite()
-		else:
-			capture_meter.add_capture_normal()
+	# RNG draft drops (no capture bar)
+	_roll_draft_drop(is_elite, was_boss)
 
 	# Essence economy for rerolls
-	essence += 1 if not is_elite else 3
+	var base := 1 if not is_elite else 3
+	var mult := float(_map_mod.get("essence_mult", 1.0))
+	essence += max(1, int(round(float(base) * mult)))
 
 	# Trophy pool: store recent killed character variants for unlocks
 	if cd != null:
@@ -297,6 +384,33 @@ func _on_draft_ready() -> void:
 	# Pause game and show recruit draft UI
 	get_tree().paused = true
 	_show_recruit_draft()
+
+func _roll_draft_drop(is_elite: bool, was_boss: bool) -> void:
+	# Don't stack drafts.
+	if has_node("RecruitDraftUI"):
+		return
+
+	var now_s := float(Time.get_ticks_msec()) / 1000.0
+	if now_s - _last_draft_time_s < draft_drop_min_seconds_between:
+		return
+
+	# Boss: always draft (feels like a chest).
+	if was_boss:
+		_last_draft_time_s = now_s
+		_draft_pity = 0.0
+		_on_draft_ready()
+		return
+
+	var base := draft_drop_chance_elite if is_elite else draft_drop_chance_normal
+	var map_bonus := float(_map_mod.get("draft_drop_bonus", 0.0)) # optional per-map tuning
+	var chance := clampf(base + _draft_pity + map_bonus, 0.0, 0.85)
+
+	if rng.randf() < chance:
+		_last_draft_time_s = now_s
+		_draft_pity = 0.0
+		_on_draft_ready()
+	else:
+		_draft_pity = minf(draft_drop_pity_cap, _draft_pity + draft_drop_pity_add_per_kill)
 
 func _show_recruit_draft() -> void:
 	if has_node("RecruitDraftUI"):
@@ -432,13 +546,13 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 
 	# Option 3: random recruit roll (rift improves odds via elapsed minutes bias already)
 	var south := PixellabUtil.pick_random_south_path(rng)
-	var cd := UnitFactory.build_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), south)
+	var cd := UnitFactory.build_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), south, _map_mod)
 	options.append(cd)
 
 	# Ensure 3 cards
 	while options.size() < 3:
 		var s2 := PixellabUtil.pick_random_south_path(rng)
-		options.append(UnitFactory.build_character_data("recruit", rng, _elapsed_minutes(), s2))
+		options.append(UnitFactory.build_character_data("recruit", rng, _elapsed_minutes(), s2, _map_mod))
 
 	for c in options:
 		hbox.add_child(_create_character_card(c, ui))
@@ -590,7 +704,14 @@ func _select_character(cd: CharacterData, ui: CanvasLayer) -> void:
 	# Unlock into persistent collection (NOT directly into squad).
 	var cm := get_node_or_null("/root/CollectionManager")
 	if cm and is_instance_valid(cm) and cm.has_method("unlock_character"):
-		cm.unlock_character(cd)
+		var ok: bool = bool(cm.unlock_character(cd))
+		if toast_layer != null:
+			var rarity := UnitFactory.rarity_name(cd.rarity_id)
+			var col := UnitFactory.rarity_color(cd.rarity_id)
+			if ok:
+				toast_layer.show_toast("Unlocked: %s • %s" % [rarity, cd.archetype_id], col)
+			else:
+				toast_layer.show_toast("Already unlocked: %s • %s" % [rarity, cd.archetype_id], Color(0.7, 0.8, 0.9, 1.0))
 	_close_draft(ui)
 
 func _close_draft(ui: Node) -> void:
@@ -633,6 +754,11 @@ func _setup_hud() -> void:
 	dbg.text = ""
 	container.add_child(dbg)
 
+	var perf := Label.new()
+	perf.name = "PerfLabel"
+	perf.text = ""
+	container.add_child(perf)
+
 func _update_hud_labels() -> void:
 	var hud := get_node_or_null("HUD/HUDVBox") as VBoxContainer
 	if hud == null:
@@ -655,26 +781,36 @@ func _update_hud_labels() -> void:
 	# Debug: count collision shapes / particles to confirm source of circles.
 	var dbg := get_node_or_null("HUD/HUDVBox/DebugLabel") as Label
 	if dbg:
-		_dbg_cd -= get_process_delta_time()
-		if _dbg_cd <= 0.0:
-			_dbg_cd = 0.6
-			var info := _collect_debug_counts(self)
-			_dbg_text = "DBG CollisionShape2D:%d  CircleShape2D:%d  Particles:%d" % [
-				int(info.get("cshape2d", 0)),
-				int(info.get("circle2d", 0)),
-				int(info.get("particles2d", 0))
-			]
-			var proj_count: int = get_tree().get_nodes_in_group("projectiles").size()
-			_dbg_text += "  Projectiles:%d%s" % [proj_count, " (HIDDEN)" if _hide_projectiles else ""]
-			var samples_v: Variant = info.get("circle_paths", PackedStringArray())
-			var samples: PackedStringArray = samples_v if samples_v is PackedStringArray else PackedStringArray()
-			if samples.size() > 0:
-				_dbg_text += "\nCircles: " + ", ".join(samples)
-			var details_v: Variant = info.get("circle_details", PackedStringArray())
-			var details: PackedStringArray = details_v if details_v is PackedStringArray else PackedStringArray()
-			if details.size() > 0:
-				_dbg_text += "\nCircleSrc: " + " || ".join(details)
-		dbg.text = _dbg_text
+		if not debug_hud_enabled:
+			dbg.text = ""
+		else:
+			_dbg_cd -= get_process_delta_time()
+			if _dbg_cd <= 0.0:
+				_dbg_cd = 0.6
+				var info := _collect_debug_counts(self)
+				_dbg_text = "DBG CollisionShape2D:%d  CircleShape2D:%d  Particles:%d" % [
+					int(info.get("cshape2d", 0)),
+					int(info.get("circle2d", 0)),
+					int(info.get("particles2d", 0))
+				]
+				var proj_count: int = get_tree().get_nodes_in_group("projectiles").size()
+				_dbg_text += "  Projectiles:%d%s" % [proj_count, " (HIDDEN)" if _hide_projectiles else ""]
+				var samples_v: Variant = info.get("circle_paths", PackedStringArray())
+				var samples: PackedStringArray = samples_v if samples_v is PackedStringArray else PackedStringArray()
+				if samples.size() > 0:
+					_dbg_text += "\nCircles: " + ", ".join(samples)
+				var details_v: Variant = info.get("circle_details", PackedStringArray())
+				var details: PackedStringArray = details_v if details_v is PackedStringArray else PackedStringArray()
+				if details.size() > 0:
+					_dbg_text += "\nCircleSrc: " + " || ".join(details)
+			dbg.text = _dbg_text
+
+	var perf := get_node_or_null("HUD/HUDVBox/PerfLabel") as Label
+	if perf:
+		if not debug_perf_overlay_enabled:
+			perf.text = ""
+		else:
+			perf.text = _perf_text
 
 func _collect_debug_counts(root: Node) -> Dictionary:
 	var cshape2d: int = 0

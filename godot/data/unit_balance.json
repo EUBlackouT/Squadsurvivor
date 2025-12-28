@@ -1,36 +1,36 @@
 {
   "version": 1,
   "context_stat_mult": {
-    "enemy": { "max_hp": 0.85, "attack_damage": 0.75 },
-    "recruit": { "max_hp": 1.0, "attack_damage": 1.0 }
+    "enemy": { "max_hp": 0.70, "attack_damage": 0.70, "move_speed": 0.88 },
+    "recruit": { "max_hp": 1.0, "attack_damage": 1.08, "move_speed": 1.0 }
   },
   "enemy_scaling": {
-    "hp_per_minute_mult": 0.08,
-    "damage_per_minute_mult": 0.05
+    "hp_per_minute_mult": 0.06,
+    "damage_per_minute_mult": 0.035
   },
   "rarities": [
     {
       "id": "common",
       "name": "Common",
       "stat_mult": { "max_hp": 1.0, "attack_damage": 1.0, "move_speed": 1.0, "crit_chance_add": 0.00 },
-      "weight": { "enemy": 70, "recruit": 62 }
+      "weight": { "enemy": 86, "recruit": 62 }
     },
     {
       "id": "rare",
       "name": "Rare",
-      "stat_mult": { "max_hp": 1.08, "attack_damage": 1.08, "move_speed": 1.03, "crit_chance_add": 0.02 },
-      "weight": { "enemy": 22, "recruit": 26 }
+      "stat_mult": { "max_hp": 1.12, "attack_damage": 1.12, "move_speed": 1.03, "crit_chance_add": 0.02 },
+      "weight": { "enemy": 11, "recruit": 26 }
     },
     {
       "id": "epic",
       "name": "Epic",
-      "stat_mult": { "max_hp": 1.18, "attack_damage": 1.18, "move_speed": 1.06, "crit_chance_add": 0.04 },
-      "weight": { "enemy": 7, "recruit": 10 }
+      "stat_mult": { "max_hp": 1.28, "attack_damage": 1.28, "move_speed": 1.06, "crit_chance_add": 0.04 },
+      "weight": { "enemy": 2, "recruit": 10 }
     },
     {
       "id": "legendary",
       "name": "Legendary",
-      "stat_mult": { "max_hp": 1.30, "attack_damage": 1.30, "move_speed": 1.08, "crit_chance_add": 0.07 },
+      "stat_mult": { "max_hp": 1.50, "attack_damage": 1.50, "move_speed": 1.08, "crit_chance_add": 0.07 },
       "weight": { "enemy": 1, "recruit": 2 }
     }
   ],
@@ -121,10 +121,71 @@
     }
   ],
   "passive_pools": {
-    "common": ["frost_tag", "piercing_rounds", "echo_strike", "bleed_edge"],
-    "rare": ["arc_chain", "frost_tag", "piercing_rounds", "echo_strike", "bleed_edge"],
-    "epic": ["arc_chain", "frost_tag", "piercing_rounds", "echo_strike", "bleed_edge"],
-    "legendary": ["arc_chain", "frost_tag", "piercing_rounds", "echo_strike", "bleed_edge"]
+    "common": [
+      "frost_tag",
+      "bleed_edge",
+      "echo_strike",
+      "piercing_rounds",
+      "stagger",
+      "blood_siphon",
+      "shockwave",
+      "execute_mark"
+    ],
+    "rare": [
+      "arc_chain",
+      "frost_tag",
+      "bleed_edge",
+      "echo_strike",
+      "piercing_rounds",
+      "stagger",
+      "blood_siphon",
+      "shockwave",
+      "twin_shot",
+      "scattershot",
+      "execute_mark",
+      "hex_bomb",
+      "time_dilation"
+    ],
+    "epic": [
+      "arc_chain",
+      "overload",
+      "frost_tag",
+      "bleed_edge",
+      "echo_strike",
+      "piercing_rounds",
+      "stagger",
+      "blood_siphon",
+      "shockwave",
+      "twin_shot",
+      "scattershot",
+      "ricochet",
+      "execute_mark",
+      "hex_bomb",
+      "time_dilation",
+      "phase_step",
+      "pinpoint",
+      "vortex_tag"
+    ],
+    "legendary": [
+      "arc_chain",
+      "overload",
+      "frost_tag",
+      "bleed_edge",
+      "echo_strike",
+      "piercing_rounds",
+      "stagger",
+      "blood_siphon",
+      "shockwave",
+      "twin_shot",
+      "scattershot",
+      "ricochet",
+      "execute_mark",
+      "hex_bomb",
+      "time_dilation",
+      "phase_step",
+      "pinpoint",
+      "vortex_tag"
+    ]
   }
 }
 

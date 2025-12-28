@@ -285,6 +285,12 @@ func take_damage(amount: int) -> void:
 	if current_hp <= 0:
 		queue_free()
 
+func heal(amount: int) -> void:
+	if amount <= 0:
+		return
+	var max_hp_val := character_data.max_hp if character_data != null else 100
+	current_hp = min(max_hp_val, current_hp + amount)
+
 func _projectile_color_for_unit() -> Color:
 	if character_data == null:
 		return Color(0.75, 0.85, 1.0, 1.0)

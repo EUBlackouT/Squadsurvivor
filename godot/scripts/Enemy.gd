@@ -31,6 +31,7 @@ var _slow_mult: float = 1.0
 var _slow_cd: float = 0.0
 
 var _target: Node2D = null
+var _pulse_tw: Tween = null
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -46,7 +47,8 @@ func _ready() -> void:
 
 	if character_data != null:
 		current_hp = character_data.max_hp
-		contact_damage = max(2, int(round(float(character_data.attack_damage) * 0.30)))
+		# Tuned down: early swarm should be about count/positioning, not instant melting.
+		contact_damage = max(1, int(round(float(character_data.attack_damage) * 0.22)))
 	else:
 		current_hp = 30
 
@@ -66,6 +68,8 @@ func _apply_visuals() -> void:
 		anim.sprite_frames = frames
 	_current_anim = "walk_south"
 	anim.animation = _current_anim
+	# NOTE: Our SpriteFrames already include real east/west animations.
+	# Flipping here (or in _update_anim) will mirror the already-correct west frames and make enemies face the wrong way.
 	anim.flip_h = false
 	anim.play()
 	# Elites slightly larger
@@ -150,10 +154,8 @@ func _update_anim(dir: Vector2) -> void:
 	if desired != _current_anim and _anim_cooldown <= 0.0:
 		_current_anim = desired
 		anim.animation = _current_anim
-		if _current_anim == "walk_west":
-			anim.flip_h = true
-		elif _current_anim == "walk_east":
-			anim.flip_h = false
+		# Do not flip: we have dedicated frames per direction.
+		anim.flip_h = false
 		anim.play()
 		_anim_cooldown = 0.5
 	elif not anim.is_playing():
@@ -180,15 +182,82 @@ func take_damage(amount: int, is_crit: bool = false, source: String = "") -> voi
 	if current_hp <= 0:
 		_die()
 
+	# Local feedback pulse (non-circular; avoids spawning extra VFX nodes)
+	if amount > 0:
+		var tint: Color = Color(1.0, 1.0, 1.0, 1.0)
+		if source == "bleed" or source == "dot":
+			tint = Color(1.0, 0.25, 0.35, 1.0)
+		elif source == "arc":
+			tint = Color(0.55, 0.95, 1.0, 1.0)
+		elif source == "echo":
+			tint = Color(1.0, 0.85, 0.30, 1.0)
+		elif is_crit:
+			tint = Color(1.0, 0.85, 0.30, 1.0)
+		pulse_vfx(tint)
+
 func get_hp_ratio() -> float:
 	var m := float(character_data.max_hp) if character_data != null else 30.0
 	return float(current_hp) / maxf(1.0, m)
 
 func _die() -> void:
+	# Optional: explode if tagged by a passive (e.g., Hex Bomb)
+	_process_death_tags()
 	var main := get_tree().get_first_node_in_group("main") as Node2D
 	if main and is_instance_valid(main) and main.has_method("on_enemy_killed"):
 		main.on_enemy_killed(is_elite, character_data, bool(get_meta("rift", false)), bool(get_meta("boss", false)))
 	queue_free()
+
+func _process_death_tags() -> void:
+	# Hex Bomb: if armed recently, explode on death.
+	if not has_meta("_hex_bomb_until_ms"):
+		return
+	var until_ms: int = int(get_meta("_hex_bomb_until_ms", 0))
+	var now_ms: int = int(Time.get_ticks_msec())
+	if now_ms > until_ms:
+		return
+	var dmg: int = int(get_meta("_hex_bomb_dmg", 0))
+	var radius: float = float(get_meta("_hex_bomb_radius", 140.0))
+	if dmg <= 0:
+		return
+	var main := _main
+	if main == null or not is_instance_valid(main):
+		main = get_tree().get_first_node_in_group("main") as Node2D
+	var enemies: Array = []
+	if main and is_instance_valid(main) and main.has_method("get_cached_enemies"):
+		enemies = main.get_cached_enemies()
+	else:
+		enemies = get_tree().get_nodes_in_group("enemies")
+	var r2 := radius * radius
+	for e in enemies:
+		if not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null or n2 == self:
+			continue
+		if n2.global_position.distance_squared_to(global_position) <= r2:
+			if n2.has_method("take_damage"):
+				n2.take_damage(dmg, false, "blast")
+			# quick feedback pulse (non-circular)
+			if n2.has_method("pulse_vfx"):
+				n2.pulse_vfx(Color(0.75, 0.45, 1.0, 1.0))
+
+# Non-circular on-hit pulse for passive feedback.
+func pulse_vfx(tint: Color) -> void:
+	if anim == null:
+		return
+	if _pulse_tw != null and is_instance_valid(_pulse_tw):
+		_pulse_tw.kill()
+	var base_scale: Vector2 = Vector2(1.08, 1.08) if is_elite else Vector2(1.0, 1.0)
+	var bump_scale: Vector2 = base_scale * 1.06
+	_pulse_tw = create_tween()
+	_pulse_tw.set_trans(Tween.TRANS_SINE)
+	_pulse_tw.set_ease(Tween.EASE_OUT)
+	# Brief tint + scale pop, then return to normal.
+	anim.modulate = Color(1, 1, 1, 1)
+	_pulse_tw.parallel().tween_property(anim, "modulate", tint, 0.06)
+	_pulse_tw.parallel().tween_property(anim, "scale", bump_scale, 0.06)
+	_pulse_tw.tween_property(anim, "modulate", Color(1, 1, 1, 1), 0.10)
+	_pulse_tw.parallel().tween_property(anim, "scale", base_scale, 0.10)
 
 # --- Status API for PassiveSystem ---
 
