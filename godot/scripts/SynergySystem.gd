@@ -774,7 +774,7 @@ static func _effect_aura_heal(unit: Node2D, e: Dictionary) -> void:
 		if n2.has_method("heal") and n2.has_method("get_max_hp"):
 			var mh := int(n2.get_max_hp())
 			var amt: int = int(round(float(mh) * heal_frac))
-			n2.heal(max(1, amt))
+			n2.heal(maxi(1, amt))
 			if n2.has_method("pulse_vfx"):
 				n2.pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
 
@@ -831,7 +831,7 @@ static func _effect_sanctuary_heal(unit: Node2D, e: Dictionary) -> void:
 	if best != null and best.has_method("heal"):
 		var mh := int(best.get_max_hp()) if best.has_method("get_max_hp") else 100
 		var amt := int(round(float(mh) * heal_frac))
-		best.heal(max(1, amt))
+		best.heal(maxi(1, amt))
 		if best.has_method("pulse_vfx"):
 			best.pulse_vfx(Color(0.65, 0.85, 1.0, 1.0))
 		var world := _main_world(unit)
@@ -866,7 +866,7 @@ static func _effect_soul_feast(main: Node2D, is_elite: bool, e: Dictionary) -> v
 		var f := heal_frac + (elite_bonus if is_elite else 0.0)
 		var mh := int(best.get_max_hp()) if best.has_method("get_max_hp") else 100
 		var amt := int(round(float(mh) * f))
-		best.heal(max(1, amt))
+		best.heal(maxi(1, amt))
 		if best.has_method("pulse_vfx"):
 			best.pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
 		var pulse := VfxHolyPulse.new()

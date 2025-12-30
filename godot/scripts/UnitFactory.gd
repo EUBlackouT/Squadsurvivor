@@ -2,15 +2,29 @@ class_name UnitFactory
 extends Node
 
 # Builds CharacterData from balance tables and a chosen PixelLab south path.
-# Uses static caches so callers can use UnitFactory.* without instancing nodes.
+#
+# NOTE: Godot 4.4 strict typing: static functions cannot access instance vars.
+# These caches are static because most call sites are static (e.g., build_character_data()).
 
 static var _loaded: bool = false
 static var _balance: Dictionary = {}
 
 static func ensure_loaded() -> void:
-	if _loaded:
+	var main := Engine.get_main_loop() as SceneTree
+	if main == null:
 		return
-	_loaded = true
+	var n := main.get_first_node_in_group("__unit_factory") as UnitFactory
+	if n == null or not is_instance_valid(n):
+		n = UnitFactory.new()
+		n.name = "UnitFactory"
+		n.add_to_group("__unit_factory")
+		main.root.add_child(n)
+	n._ensure_loaded_impl()
+
+func _ensure_loaded_impl() -> void:
+	if UnitFactory._loaded:
+		return
+	UnitFactory._loaded = true
 	var path := "res://data/unit_balance.json"
 	if not ResourceLoader.exists(path):
 		push_warning("UnitFactory: missing %s" % path)
@@ -20,9 +34,9 @@ static func ensure_loaded() -> void:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		push_warning("UnitFactory: invalid JSON")
 		return
-	_balance = parsed as Dictionary
+	UnitFactory._balance = parsed as Dictionary
 
-static func build_character_data(context: String, rng: RandomNumberGenerator, elapsed_minutes: float, south_path: String, map_mod: Dictionary = {}) -> CharacterData:
+static func build_character_data(context: String, rng: RandomNumberGenerator, elapsed_minutes: float, south_path: String) -> CharacterData:
 	ensure_loaded()
 	var cd := CharacterData.new()
 	cd.sprite_path = south_path
@@ -30,7 +44,7 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	# Try derive Pixellab id from path.
 	cd.pixellab_id = _pixellab_id_from_south_path(south_path)
 
-	var rarity_id := roll_rarity_id(context, rng, elapsed_minutes, map_mod)
+	var rarity_id := roll_rarity_id(context, rng, elapsed_minutes)
 	var archetype_id := roll_archetype_id(context, rng)
 	cd.rarity_id = rarity_id
 	cd.archetype_id = archetype_id
@@ -50,13 +64,6 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	var ctx_mult := (_balance.get("context_stat_mult", {}) as Dictionary).get(context, {}) as Dictionary
 	hp *= float(ctx_mult.get("max_hp", 1.0))
 	dmg *= float(ctx_mult.get("attack_damage", 1.0))
-	ms *= float(ctx_mult.get("move_speed", 1.0))
-
-	# Map multipliers (baseline difficulty & pacing lives here)
-	if context == "enemy":
-		hp *= float(map_mod.get("enemy_hp_mult", 1.0))
-		dmg *= float(map_mod.get("enemy_damage_mult", 1.0))
-		ms *= float(map_mod.get("enemy_speed_mult", 1.0))
 
 	# Apply rarity multipliers
 	var rarity := _get_rarity(rarity_id)
@@ -73,16 +80,6 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 		var dmg_mult := 1.0 + float(scaling.get("damage_per_minute_mult", 0.0)) * elapsed_minutes
 		hp *= hp_mult
 		dmg *= dmg_mult
-	elif context == "recruit":
-		# Draft scaling should NOT make Map 1 the main power farm.
-		# So: per-map caps from maps.json control how spicy drafts can get.
-		var scale_mins := float(map_mod.get("recruit_scale_minutes", 12.0))
-		var t := clampf(elapsed_minutes / maxf(0.1, scale_mins), 0.0, 1.0)
-		var curved := pow(t, 1.20)
-		var hp_bonus_max := float(map_mod.get("recruit_hp_bonus_max", 0.10))
-		var dmg_bonus_max := float(map_mod.get("recruit_dmg_bonus_max", 0.18))
-		hp *= 1.0 + hp_bonus_max * curved
-		dmg *= 1.0 + dmg_bonus_max * curved
 
 	cd.max_hp = int(round(hp))
 	cd.attack_damage = int(round(dmg))
@@ -98,13 +95,7 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	# Best-effort class hint mapping
 	var hint := String(arch.get("class_hint", "WARRIOR"))
 	cd.class_type = _class_from_hint(hint)
-	# Origin is the "faction/species" tag used for synergies.
-	# Best-effort: if the PixelLab registry entry includes origin metadata, respect it; otherwise fallback to random.
-	var o_hint := PixellabUtil.origin_hint_from_south_path(south_path)
-	if o_hint >= 0:
-		cd.origin = o_hint
-	else:
-		cd.origin = rng.randi() % 6
+	cd.origin = rng.randi() % 6
 	return cd
 
 static func rarity_name(rarity_id: String) -> String:
@@ -123,15 +114,12 @@ static func rarity_color(rarity_id: String) -> Color:
 		_:
 			return Color(0.78, 0.82, 0.88)
 
-static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_minutes: float, map_mod: Dictionary = {}) -> String:
+static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_minutes: float) -> String:
 	ensure_loaded()
 	var rarities: Array = _balance.get("rarities", [])
 	if rarities.is_empty():
 		return "common"
 	# Build weights with a tiny time bias (helps variety later).
-	var eff_minutes := elapsed_minutes
-	if context == "recruit":
-		eff_minutes += float(map_mod.get("recruit_rarity_bias_minutes", 0.0))
 	var weights: Array[int] = []
 	var ids: Array[String] = []
 	for r in rarities:
@@ -143,12 +131,12 @@ static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_
 		var bonus := 0
 		if context == "recruit":
 			if id == "rare":
-				bonus = int(floor(eff_minutes * 0.4))
+				bonus = int(floor(elapsed_minutes * 0.4))
 			elif id == "epic":
-				bonus = int(floor(eff_minutes * 0.2))
+				bonus = int(floor(elapsed_minutes * 0.2))
 			elif id == "legendary":
-				bonus = int(floor(eff_minutes * 0.08))
-		weights.append(max(1, w0 + bonus))
+				bonus = int(floor(elapsed_minutes * 0.08))
+		weights.append(maxi(1, w0 + bonus))
 		ids.append(id)
 	return _weighted_pick(ids, weights, rng)
 
@@ -165,7 +153,7 @@ static func _weighted_pick(ids: Array[String], weights: Array[int], rng: RandomN
 	var total: int = 0
 	for w in weights:
 		total += w
-	var roll := rng.randi_range(1, max(1, total))
+	var roll := rng.randi_range(1, maxi(1, total))
 	var acc: int = 0
 	for i in range(ids.size()):
 		acc += weights[i]
@@ -231,17 +219,9 @@ static func _roll_passives(cd: CharacterData, rng: RandomNumberGenerator, _conte
 	if pool.is_empty():
 		cd.passive_ids = PackedStringArray()
 		return
-
-	# Rarity-driven passive count (with RNG high-rolls).
-	# This is a key part of the compulsion loop: commons are simple, legendaries feel stacked.
-	var want: int = _roll_passive_count(cd.rarity_id, rng)
-	if want <= 0:
-		cd.passive_ids = PackedStringArray()
-		return
-
 	var chosen: Array[String] = []
 	var attempts: int = 0
-	while chosen.size() < want and attempts < 80:
+	while chosen.size() < 4 and attempts < 50:
 		attempts += 1
 		var id := String(pool[rng.randi_range(0, pool.size() - 1)])
 		if chosen.has(id):
@@ -255,28 +235,3 @@ static func _pixellab_id_from_south_path(south_path: String) -> String:
 	if idx >= 0 and idx + 1 < parts.size():
 		return parts[idx + 1]
 	return ""
-
-static func _roll_passive_count(rarity_id: String, rng: RandomNumberGenerator) -> int:
-	# Weighted counts per rarity. Tuned so early units don't feel overloaded.
-	# Common: usually 1, sometimes 2
-	# Rare: usually 2, sometimes 3
-	# Epic: usually 3, sometimes 4
-	# Legendary: usually 4, sometimes 5
-	var roll := rng.randf()
-	match rarity_id:
-		"legendary":
-			return 5 if roll < 0.18 else 4
-		"epic":
-			if roll < 0.10:
-				return 4
-			return 3
-		"rare":
-			if roll < 0.15:
-				return 3
-			return 2
-		_:
-			if roll < 0.22:
-				return 2
-			return 1
-
-

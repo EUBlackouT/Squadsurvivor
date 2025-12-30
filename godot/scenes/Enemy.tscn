@@ -1,6 +1,6 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=10 format=3 uid="uid://m20q1kq4r7yk"]
 
-[ext_resource type="Script" path="res://scripts/Enemy.gd" id="1"]
+[ext_resource type="Script" uid="uid://k3w1s8a0t5mz" path="res://scripts/Enemy.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/south_0.png" id="2"]
 [ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/south_1.png" id="3"]
 [ext_resource type="Texture2D" path="res://assets/enemies/orc_brute/south_2.png" id="4"]

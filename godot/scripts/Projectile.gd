@@ -3,23 +3,19 @@ extends Area2D
 @export var speed: float = 520.0
 @export var damage: int = 10
 @export var pierce_count: int = 0
-@export var hit_radius: float = 14.0
 
 var target: Node2D = null
 var target_pos: Vector2 = Vector2.ZERO
 var has_hit: bool = false
 var is_crit: bool = false
 var passive_ids: PackedStringArray = PackedStringArray()
-var source_cd: CharacterData = null
 var _pierced_enemies: Array[Node2D] = []
-var _main: Node2D = null
 
 @onready var sprite: Sprite2D = get_node_or_null("Sprite2D")
+@onready var collision: CollisionShape2D = get_node_or_null("CollisionShape2D")
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_INHERIT
-	add_to_group("projectiles")
-	_main = get_tree().get_first_node_in_group("main") as Node2D
 
 	if sprite == null:
 		sprite = Sprite2D.new()
@@ -33,14 +29,20 @@ func _ready() -> void:
 	sprite.scale = Vector2(2.0, 2.0)
 	sprite.z_index = 20
 
-	# IMPORTANT:
-	# We do NOT use physics collision shapes for projectiles.
-	# The "orb" visuals the user sees match collision debug rendering, so we avoid it entirely.
-	monitoring = false
+	if collision == null:
+		collision = CollisionShape2D.new()
+		collision.name = "CollisionShape2D"
+		add_child(collision)
+		var shape := CircleShape2D.new()
+		shape.radius = 10.0
+		collision.shape = shape
+
+	# Physics: projectiles = layer 1, hit enemies layer 2
+	collision_layer = 1
+	collision_mask = 1 << 1
+	monitoring = true
 	monitorable = false
-	collision_layer = 0
-	collision_mask = 0
-	# (Projectile.tscn no longer includes a CollisionShape2D.)
+	body_entered.connect(_on_body_entered)
 
 	# Auto cleanup
 	await get_tree().create_timer(4.0).timeout
@@ -56,19 +58,14 @@ func setup(dest: Vector2, dmg: int) -> void:
 	damage = dmg
 	_update_rotation()
 
-func setup_target(t: Node2D, dmg: int, p_is_crit: bool, p_passive_ids: PackedStringArray, p_source_cd: CharacterData = null) -> void:
+func setup_target(t: Node2D, dmg: int, p_is_crit: bool, p_passive_ids: PackedStringArray) -> void:
 	target = t
 	target_pos = t.global_position if t != null and is_instance_valid(t) else target_pos
 	damage = dmg
 	is_crit = p_is_crit
 	passive_ids = p_passive_ids
-	source_cd = p_source_cd
 	pierce_count += PassiveSystem.extra_pierce_count(passive_ids)
 	_update_rotation()
-
-func add_pierce(n: int) -> void:
-	if n > 0:
-		pierce_count += n
 
 func _physics_process(delta: float) -> void:
 	if has_hit and pierce_count <= 0:
@@ -83,9 +80,15 @@ func _physics_process(delta: float) -> void:
 	dir = dir / dist
 	global_position += dir * speed * delta
 	rotation = dir.angle()
-	_manual_hit_check()
 	if dist < 12.0:
 		_explode()
+
+func _on_body_entered(body: Node) -> void:
+	if body == null or not is_instance_valid(body):
+		return
+	if not body.is_in_group("enemies"):
+		return
+	_hit_enemy(body as Node2D)
 
 func _hit_enemy(enemy: Node2D) -> void:
 	if enemy == null or not is_instance_valid(enemy):
@@ -99,8 +102,6 @@ func _hit_enemy(enemy: Node2D) -> void:
 		enemy.take_damage(damage, is_crit, "ranged")
 	_pierced_enemies.append(enemy)
 	PassiveSystem.on_projectile_hit(passive_ids, self, enemy, damage, is_crit)
-	if source_cd != null:
-		SynergySystem.on_projectile_hit(source_cd, self, enemy, damage, is_crit)
 
 	if pierce_count > 0:
 		pierce_count -= 1
@@ -116,23 +117,3 @@ func _update_rotation() -> void:
 	var dir := (target_pos - global_position)
 	if dir.length() > 0.0:
 		rotation = dir.angle()
-
-func _manual_hit_check() -> void:
-	# Check enemies within radius (fast enough for our current enemy counts).
-	var r2 := hit_radius * hit_radius
-	var enemies: Array = []
-	if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
-		enemies = _main.get_cached_enemies()
-	else:
-		enemies = get_tree().get_nodes_in_group("enemies")
-	for e in enemies:
-		if not is_instance_valid(e):
-			continue
-		var n2 := e as Node2D
-		if n2 == null:
-			continue
-		if _pierced_enemies.has(n2):
-			continue
-		if n2.global_position.distance_squared_to(global_position) <= r2:
-			_hit_enemy(n2)
-			return

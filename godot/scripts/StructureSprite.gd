@@ -53,10 +53,10 @@ func _ready() -> void:
 		return
 	var tex := load(sheet_path) as Texture2D
 	_detect_layout(tex)
-	frame_count = max(1, hframes * vframes)
+	frame_count = maxi(1, hframes * vframes)
 	# Use ceil division to avoid narrowing due to truncation
-	frame_w = int(ceil(float(tex.get_width()) / max(1, hframes)))
-	frame_h = int(ceil(float(tex.get_height()) / max(1, vframes)))
+	frame_w = int(ceil(float(tex.get_width()) / float(maxi(1, hframes))))
+	frame_h = int(ceil(float(tex.get_height()) / float(maxi(1, vframes))))
 	if anim != null:
 		# AnimatedSprite2D path
 		var frames := SpriteFrames.new()
@@ -96,10 +96,10 @@ func _ready() -> void:
 		var rh := frame_h
 		# optional padding to counter previous narrow cuts
 		if pad_px > 0:
-			rx = max(0, rx - pad_px)
-			ry = max(0, ry - pad_px)
-			rw = min(tex.get_width() - rx, rw + pad_px * 2)
-			rh = min(tex.get_height() - ry, rh + pad_px * 2)
+			rx = maxi(0, rx - pad_px)
+			ry = maxi(0, ry - pad_px)
+			rw = mini(tex.get_width() - rx, rw + pad_px * 2)
+			rh = mini(tex.get_height() - ry, rh + pad_px * 2)
 		sprite.region_rect = Rect2(rx, ry, rw, rh)
 		sprite.centered = true
 		sprite.position = Vector2(0, -frame_h / 2.0)

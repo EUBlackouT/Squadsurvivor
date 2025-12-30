@@ -11,8 +11,6 @@ func _ready() -> void:
 	var shape := CircleShape2D.new()
 	shape.radius = radius
 	cs.shape = shape
-	# Hide collision debug visuals if the editor/run instance is forcing them on.
-	cs.debug_color = Color(0, 0, 0, 0)
 	body_entered.connect(_on_body_entered)
 
 func _on_body_entered(body: Node) -> void:

@@ -57,13 +57,8 @@ func _make_tex() -> Texture2D:
 			var r := p.length()
 			var a := p.angle()
 
-			# IMPORTANT:
-			# Do NOT wrap into [0, sweep_rad] here (wrapf would map *every* angle into the range),
-			# which accidentally fills a full donut ring and shows as "orbs".
-			var delta := fposmod(a - start_angle, TAU)
-			if delta > sweep_rad:
-				continue
-			var t_angle := delta / sweep_rad
+			var normalized_angle := wrapf(a - start_angle, 0.0, sweep_rad)
+			var t_angle := normalized_angle / sweep_rad
 			var t_radial := clampf((r - r_in) / maxf(0.0001, (r_out - r_in)), 0.0, 1.0)
 
 			var alpha: float = (1.0 - t_radial) * (1.0 - absf(t_angle - 0.5) * 1.8)
@@ -104,7 +99,7 @@ func _make_tex() -> Texture2D:
 			var p := Vector2(float(x) + 0.5, float(y) + 0.5) - c
 			var r := p.length()
 			var inner_bias := clampf(1.0 - ((r - r_in) / maxf(0.0001, (r_out - r_in))), 0.0, 1.0)
-			var hl_a: float = cur.a * inner_bias * 0.60
+			var hl_a := cur.a * inner_bias * 0.60
 			if hl_a > 0.05:
 				out_img.set_pixel(x, y, Color(
 					maxf(cur.r, highlight_color.r),
@@ -114,5 +109,3 @@ func _make_tex() -> Texture2D:
 				))
 
 	return ImageTexture.create_from_image(out_img)
-
-

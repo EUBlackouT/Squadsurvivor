@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://menu_scene"]
 
 [ext_resource type="Script" path="res://scripts/Menu.gd" id="1"]
 [ext_resource type="Shader" path="res://shaders/ui_arcane_scifi_backdrop.gdshader" id="2"]
@@ -82,14 +82,6 @@ theme_override_constants/separation = 8
 
 [node name="Spacer" type="Control" parent="Root/Right/RightPad/RightVBox"]
 size_flags_vertical = 3
-
-[node name="MapLabel" type="Label" parent="Root/Right/RightPad/RightVBox"]
-text = "Map"
-theme_override_font_sizes/font_size = 16
-
-[node name="MapSelect" type="OptionButton" parent="Root/Right/RightPad/RightVBox"]
-custom_minimum_size = Vector2(0, 40)
-theme_override_font_sizes/font_size = 18
 
 [node name="StartRun" type="Button" parent="Root/Right/RightPad/RightVBox"]
 text = "Start Run"

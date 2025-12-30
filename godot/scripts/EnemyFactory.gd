@@ -64,7 +64,7 @@ static func roll_elite_affixes(rng: RandomNumberGenerator, elapsed_minutes: floa
 	# More affixes later.
 	var phase := _phase(elapsed_minutes)
 	var target := 1 if phase == "early" else (2 if phase == "mid" else 2)
-	target = min(max_count, target)
+	target = mini(max_count, target)
 
 	var picks: Array[String] = []
 	var weights: Array[int] = []
@@ -104,7 +104,7 @@ static func _weighted_pick(ids: Array[String], weights: Array[int], rng: RandomN
 	var total: int = 0
 	for w in weights:
 		total += w
-	var roll := rng.randi_range(1, max(1, total))
+	var roll := rng.randi_range(1, maxi(1, total))
 	var acc: int = 0
 	for i in range(ids.size()):
 		acc += weights[i]

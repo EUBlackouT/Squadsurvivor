@@ -17,10 +17,7 @@ config/features=PackedStringArray("4.4")
 
 [autoload]
 
-MetaProgression="*res://scripts/MetaProgression.gd"
 CollectionManager="*res://scripts/CollectionManager.gd"
-RunConfig="*res://scripts/RunConfig.gd"
-SfxSystem="*res://scripts/SfxSystem.gd"
 
 [display]
 
