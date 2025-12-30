@@ -10,6 +10,7 @@ var target_pos: Vector2 = Vector2.ZERO
 var has_hit: bool = false
 var is_crit: bool = false
 var passive_ids: PackedStringArray = PackedStringArray()
+var source_cd: CharacterData = null
 var _pierced_enemies: Array[Node2D] = []
 var _main: Node2D = null
 
@@ -55,14 +56,19 @@ func setup(dest: Vector2, dmg: int) -> void:
 	damage = dmg
 	_update_rotation()
 
-func setup_target(t: Node2D, dmg: int, p_is_crit: bool, p_passive_ids: PackedStringArray) -> void:
+func setup_target(t: Node2D, dmg: int, p_is_crit: bool, p_passive_ids: PackedStringArray, p_source_cd: CharacterData = null) -> void:
 	target = t
 	target_pos = t.global_position if t != null and is_instance_valid(t) else target_pos
 	damage = dmg
 	is_crit = p_is_crit
 	passive_ids = p_passive_ids
+	source_cd = p_source_cd
 	pierce_count += PassiveSystem.extra_pierce_count(passive_ids)
 	_update_rotation()
+
+func add_pierce(n: int) -> void:
+	if n > 0:
+		pierce_count += n
 
 func _physics_process(delta: float) -> void:
 	if has_hit and pierce_count <= 0:
@@ -93,6 +99,8 @@ func _hit_enemy(enemy: Node2D) -> void:
 		enemy.take_damage(damage, is_crit, "ranged")
 	_pierced_enemies.append(enemy)
 	PassiveSystem.on_projectile_hit(passive_ids, self, enemy, damage, is_crit)
+	if source_cd != null:
+		SynergySystem.on_projectile_hit(source_cd, self, enemy, damage, is_crit)
 
 	if pierce_count > 0:
 		pierce_count -= 1

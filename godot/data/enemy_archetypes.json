@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "archetypes": [
+    {
+      "id": "swarmer",
+      "name": "Swarmer",
+      "weights": { "early": 52, "mid": 28, "late": 16 },
+      "mods": { "hp_mult": 0.55, "dmg_mult": 0.70, "speed_mult": 1.35, "scale": 0.90 }
+    },
+    {
+      "id": "brute",
+      "name": "Brute",
+      "weights": { "early": 34, "mid": 26, "late": 18 },
+      "mods": { "hp_mult": 1.00, "dmg_mult": 1.00, "speed_mult": 1.00, "scale": 1.00 }
+    },
+    {
+      "id": "charger",
+      "name": "Charger",
+      "weights": { "early": 10, "mid": 22, "late": 22 },
+      "mods": { "hp_mult": 0.95, "dmg_mult": 1.10, "speed_mult": 1.08, "scale": 1.03 }
+    },
+    {
+      "id": "spitter",
+      "name": "Spitter",
+      "weights": { "early": 2, "mid": 16, "late": 22 },
+      "mods": { "hp_mult": 0.85, "dmg_mult": 0.90, "speed_mult": 0.95, "scale": 0.98 }
+    },
+    {
+      "id": "bomber",
+      "name": "Bomber",
+      "weights": { "early": 2, "mid": 8, "late": 22 },
+      "mods": { "hp_mult": 0.80, "dmg_mult": 1.00, "speed_mult": 0.92, "scale": 1.00 }
+    }
+  ],
+  "elite_affixes": [
+    { "id": "hasty", "weight": 30 },
+    { "id": "bulwark", "weight": 28 },
+    { "id": "volatile", "weight": 20 },
+    { "id": "vampiric", "weight": 14 },
+    { "id": "arcane", "weight": 8 }
+  ]
+}
+
+

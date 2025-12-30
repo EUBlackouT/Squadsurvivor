@@ -7,6 +7,12 @@ extends Control
 
 var _selected_unlock: Dictionary = {}
 var _toast: ToastLayer = null
+var _meta_card: PanelContainer = null
+var _meta_prog: ProgressBar = null
+var _meta_label_top: Label = null
+var _meta_label_bottom: Label = null
+var _meta_btn: Button = null
+var _last_run_label: RichTextLabel = null
 
 func _ready() -> void:
 	# Force load save
@@ -19,9 +25,173 @@ func _ready() -> void:
 	_refresh()
 
 	_setup_map_select()
+	_setup_meta_ui()
 
 	if start_btn:
-		start_btn.pressed.connect(_on_start_run)
+		start_btn.pressed.connect(func():
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and s.has_method("play_ui"):
+				s.play_ui("ui.confirm")
+			_on_start_run()
+		)
+
+func _meta_cap() -> int:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_roster_cap"):
+		return int(mp.get_roster_cap())
+	return 6
+
+func _setup_meta_ui() -> void:
+	var right := get_node_or_null("Root/Right/RightPad/RightVBox") as VBoxContainer
+	if right == null:
+		return
+	# Meta card
+	_meta_card = PanelContainer.new()
+	_meta_card.name = "MetaCard"
+	_meta_card.custom_minimum_size = Vector2(0, 210)
+	right.add_child(_meta_card)
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.08, 0.10, 0.95)
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(0.4, 0.8, 1.0, 0.18)
+	sb.corner_radius_top_left = 14
+	sb.corner_radius_top_right = 14
+	sb.corner_radius_bottom_left = 14
+	sb.corner_radius_bottom_right = 14
+	sb.shadow_color = Color(0, 0, 0, 0.55)
+	sb.shadow_size = 14
+	_meta_card.add_theme_stylebox_override("panel", sb)
+
+	var neon := ShaderMaterial.new()
+	neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
+	neon.set_shader_parameter("base_color", Color(0.07, 0.08, 0.10, 0.95))
+	neon.set_shader_parameter("glow_color", Color(0.4, 0.8, 1.0, 0.5))
+	neon.set_shader_parameter("glow_width", 0.02)
+	neon.set_shader_parameter("pulse_speed", 1.1)
+	_meta_card.material = neon
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 12)
+	pad.add_theme_constant_override("margin_right", 12)
+	pad.add_theme_constant_override("margin_top", 12)
+	pad.add_theme_constant_override("margin_bottom", 12)
+	_meta_card.add_child(pad)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	pad.add_child(v)
+
+	var title := Label.new()
+	title.text = "Meta Progress"
+	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
+	v.add_child(title)
+
+	_meta_label_top = Label.new()
+	_meta_label_top.add_theme_font_size_override("font_size", 14)
+	_meta_label_top.add_theme_color_override("font_color", Color(0.85, 0.90, 0.96, 0.95))
+	_meta_label_top.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(_meta_label_top)
+
+	_meta_prog = ProgressBar.new()
+	_meta_prog.custom_minimum_size = Vector2(0, 18)
+	_meta_prog.min_value = 0
+	_meta_prog.max_value = 100
+	v.add_child(_meta_prog)
+
+	_meta_label_bottom = Label.new()
+	_meta_label_bottom.add_theme_font_size_override("font_size", 13)
+	_meta_label_bottom.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
+	_meta_label_bottom.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(_meta_label_bottom)
+
+	_meta_btn = Button.new()
+	_meta_btn.name = "UnlockSlotBtn"
+	_meta_btn.custom_minimum_size = Vector2(0, 44)
+	_meta_btn.add_theme_font_size_override("font_size", 16)
+	v.add_child(_meta_btn)
+
+	_last_run_label = RichTextLabel.new()
+	_last_run_label.bbcode_enabled = true
+	_last_run_label.scroll_active = false
+	_last_run_label.fit_content = true
+	_last_run_label.add_theme_font_size_override("normal_font_size", 12)
+	_last_run_label.add_theme_color_override("default_color", Color(0.78, 0.82, 0.88, 0.95))
+	v.add_child(_last_run_label)
+
+	_meta_btn.pressed.connect(func():
+		var mp := get_node_or_null("/root/MetaProgression")
+		if mp == null or not is_instance_valid(mp):
+			return
+		if mp.has_method("unlock_next_slot") and bool(mp.unlock_next_slot()):
+			if _toast:
+				_toast.show_toast("Unlocked +1 Squad Slot!", Color(0.55, 1.0, 0.65, 1.0))
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and s.has_method("play_ui"):
+				s.play_ui("ui.confirm")
+		else:
+			var s2 := get_node_or_null("/root/SfxSystem")
+			if s2 and s2.has_method("play_ui"):
+				s2.play_ui("ui.cancel")
+		_refresh()
+	)
+
+	_refresh_meta_ui()
+
+func _refresh_meta_ui() -> void:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if _meta_label_top == null:
+		return
+	if mp == null or not is_instance_valid(mp):
+		_meta_label_top.text = ""
+		if _meta_btn: _meta_btn.visible = false
+		if _meta_prog: _meta_prog.visible = false
+		return
+	var slots := int(mp.get_squad_slots()) if mp.has_method("get_squad_slots") else 3
+	var roster_cap := int(mp.get_roster_cap()) if mp.has_method("get_roster_cap") else 6
+	var sig := int(mp.sigils) if "sigils" in mp else 0
+	var cost := int(mp.get_next_slot_cost()) if mp.has_method("get_next_slot_cost") else -1
+	_meta_label_top.text = "Sigils: %d    Squad Slots: %d    Roster Cap: %d" % [sig, slots, roster_cap]
+
+	# Progress to next slot
+	if _meta_prog:
+		if cost > 0:
+			_meta_prog.visible = true
+			_meta_prog.min_value = 0
+			_meta_prog.max_value = cost
+			_meta_prog.value = clampi(sig, 0, cost)
+		else:
+			_meta_prog.visible = false
+
+	if _meta_label_bottom:
+		if cost > 0:
+			_meta_label_bottom.text = "Next slot: %d → %d   Cost: %d sigils" % [slots, slots + 1, cost]
+		else:
+			_meta_label_bottom.text = "Max squad slots reached."
+
+	if _meta_btn:
+		_meta_btn.disabled = (cost <= 0) or (sig < cost)
+		_meta_btn.text = ("Unlock Squad Slot (%d)" % cost) if cost > 0 else "Max Squad Slots"
+
+	# Last run summary
+	if _last_run_label:
+		var lr: Dictionary = mp.last_run if "last_run" in mp else {}
+		if lr.is_empty():
+			_last_run_label.text = "[b]Last Run:[/b] —"
+		else:
+			var map_name := String(lr.get("map_name", ""))
+			var win := bool(lr.get("victory", false))
+			var mm := int(lr.get("minutes", 0))
+			var kills := int(lr.get("kills", 0))
+			var elites := int(lr.get("elite_kills", 0))
+			var drafts := int(lr.get("drafts", 0))
+			var earned := int(lr.get("sigils_earned", 0))
+			var status := "[color=#55ff99]VICTORY[/color]" if win else "[color=#ff6666]DEFEAT[/color]"
+			_last_run_label.text = "[b]Last Run:[/b] %s  %s\n[b]Time:[/b] %dm   [b]Kills:[/b] %d (elites %d)   [b]Drafts:[/b] %d\n[b]Sigils earned:[/b] %d" % [map_name, status, mm, kills, elites, drafts, earned]
 
 func _setup_map_select() -> void:
 	if map_select == null:
@@ -52,6 +222,9 @@ func _setup_map_select() -> void:
 
 	map_select.item_selected.connect(func(idx: int):
 		var id := String(map_select.get_item_metadata(idx))
+		var s := get_node_or_null("/root/SfxSystem")
+		if s and s.has_method("play_ui"):
+			s.play_ui("ui.click")
 		if rc.has_method("set_selected_map_id"):
 			rc.set_selected_map_id(id)
 		var m2: Dictionary = rc.get_map(id) if rc.has_method("get_map") else {}
@@ -62,6 +235,7 @@ func _setup_map_select() -> void:
 func _refresh() -> void:
 	_refresh_collection()
 	_refresh_roster()
+	_refresh_meta_ui()
 
 func _refresh_collection() -> void:
 	if collection_box == null:
@@ -126,7 +300,8 @@ func _refresh_roster() -> void:
 		return
 
 	var roster: Array = cm.active_roster
-	for i in range(6):
+	var cap := _meta_cap()
+	for i in range(cap):
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		roster_box.add_child(row)
@@ -157,11 +332,12 @@ func _add_unlock_to_roster(data: Dictionary) -> void:
 		cm = get_node_or_null("/root/CollectionManager")
 	if cm == null:
 		return
-	if cm.active_roster.size() >= 6:
+	var cap := _meta_cap()
+	if cm.active_roster.size() >= cap:
 		if _toast:
-			_toast.show_toast("Roster full (max 6). Remove someone first.", Color(1.0, 0.55, 0.45, 1.0))
+			_toast.show_toast("Roster full (max %d). Remove someone first." % cap, Color(1.0, 0.55, 0.45, 1.0))
 		return
-	var cd := cm._dict_to_cd(data) if cm.has_method("_dict_to_cd") else null
+	var cd: CharacterData = (cm._dict_to_cd(data) as CharacterData) if cm.has_method("_dict_to_cd") else null
 	if cd == null:
 		return
 	cm.add_to_roster(cd)

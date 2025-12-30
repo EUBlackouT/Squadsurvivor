@@ -47,6 +47,34 @@ static func passive_tags(id: String) -> PackedStringArray:
 		out.append(String(t))
 	return out
 
+static func passive_color(id: String) -> Color:
+	# UI helper: color-code passive names based on tags.
+	# Keep this deterministic and readable on dark backgrounds.
+	var tags := passive_tags(id)
+	if tags.has("lightning"):
+		return Color(1.00, 0.85, 0.30, 1.0)
+	if tags.has("control") or tags.has("slow"):
+		return Color(0.55, 0.85, 1.00, 1.0)
+	if tags.has("dot"):
+		return Color(1.00, 0.30, 0.40, 1.0)
+	if tags.has("sustain"):
+		return Color(0.55, 1.00, 0.65, 1.0)
+	if tags.has("mobility"):
+		return Color(0.70, 0.95, 0.90, 1.0)
+	if tags.has("execute"):
+		return Color(1.00, 0.60, 0.20, 1.0)
+	if tags.has("burst"):
+		return Color(1.00, 0.78, 0.32, 1.0)
+	if tags.has("aoe"):
+		return Color(0.82, 0.65, 1.00, 1.0)
+	if tags.has("ranged"):
+		return Color(0.60, 1.00, 0.80, 1.0)
+	if tags.has("melee"):
+		return Color(1.00, 0.55, 0.55, 1.0)
+	if tags.has("setup") or tags.has("proc"):
+		return Color(1.00, 0.55, 0.95, 1.0)
+	return Color(0.86, 0.90, 0.96, 1.0)
+
 static func extra_pierce_count(passive_ids: PackedStringArray) -> int:
 	# Only one passive currently affects pierce.
 	var extra: int = 0

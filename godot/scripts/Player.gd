@@ -22,13 +22,20 @@ var formation_offsets: Array[Vector2] = [
 	Vector2(-40, 30),
 	Vector2(40, 30),
 	Vector2(0, -60),
-	Vector2(0, 60)
+	Vector2(0, 60),
+	Vector2(-72, 0),
+	Vector2(72, 0)
 ]
 
 func _ready() -> void:
 	if cam:
 		cam.make_current()
 	add_to_group("player")
+
+	# Meta progression overrides squad size.
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
+		squad_size = int(mp.get_squad_slots())
 
 	# Player physics layer: 4, collide with enemies layer 2
 	collision_layer = 1 << 3
@@ -60,16 +67,34 @@ func _spawn_initial_squad() -> void:
 				if cm2.has_method("add_to_roster"):
 					cm2.add_to_roster(cd)
 
+	# Update synergy snapshot from roster.
+	SynergySystem.set_roster(roster)
+
 	for i in range(min(squad_size, formation_offsets.size(), roster.size())):
 		var cd2 := roster[i]
 		_spawn_squad_unit(cd2, formation_offsets[i])
 
 func add_squad_unit(character_data: CharacterData) -> void:
-	if squad_units.size() >= 6:
+	var cap := 6
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
+		cap = int(mp.get_squad_slots())
+	if squad_units.size() >= cap:
 		return
 	var idx := squad_units.size()
 	var offset := formation_offsets[idx] if idx < formation_offsets.size() else Vector2.ZERO
 	_spawn_squad_unit(character_data, offset)
+	_refresh_synergies()
+
+func _refresh_synergies() -> void:
+	var cds: Array = []
+	for u in squad_units:
+		if not is_instance_valid(u):
+			continue
+		var cd := (u as Node).get("character_data") as CharacterData
+		if cd != null:
+			cds.append(cd)
+	SynergySystem.set_roster(cds)
 
 func _spawn_squad_unit(cd: CharacterData, offset: Vector2) -> void:
 	if SQUAD_UNIT_SCENE == null:

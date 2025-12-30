@@ -8,7 +8,7 @@ extends CanvasLayer
 @export var toast_life: float = 2.2
 
 var _box: VBoxContainer
-var _active: Array[Dictionary] = [] # { "label": Label, "age": float, "life": float }
+var _active: Array[Dictionary] = [] # { "id": int, "life": float }
 
 func _ready() -> void:
 	layer = 180
@@ -29,9 +29,11 @@ func show_toast(text: String, color: Color = Color(0.9, 0.95, 1.0, 1.0)) -> void
 	# Cap number of visible toasts.
 	while _active.size() >= max_toasts:
 		var oldest: Dictionary = _active.pop_front()
-		var l_old: Label = oldest.get("label", null)
-		if l_old != null and is_instance_valid(l_old):
-			l_old.queue_free()
+		var old_id: int = int(oldest.get("id", 0))
+		if old_id != 0:
+			var obj := instance_from_id(old_id)
+			if obj != null and is_instance_valid(obj) and obj is Node:
+				(obj as Node).queue_free()
 
 	var l := Label.new()
 	l.text = text
@@ -60,16 +62,24 @@ func show_toast(text: String, color: Color = Color(0.9, 0.95, 1.0, 1.0)) -> void
 
 	l.modulate.a = 0.0
 	_box.add_child(l)
+	var my_id: int = l.get_instance_id()
 
 	var tw := create_tween()
 	tw.tween_property(l, "modulate:a", 1.0, 0.10)
 	tw.tween_property(l, "modulate:a", 1.0, maxf(0.05, toast_life - 0.25))
 	tw.tween_property(l, "modulate:a", 0.0, 0.15)
 	tw.finished.connect(func():
-		if l != null and is_instance_valid(l):
-			l.queue_free()
+		# Remove from active list first to avoid holding freed instances.
+		for i in range(_active.size() - 1, -1, -1):
+			if int(_active[i].get("id", 0)) == my_id:
+				_active.remove_at(i)
+				break
+		var obj := instance_from_id(my_id)
+		if obj != null and is_instance_valid(obj) and obj is Node:
+			(obj as Node).queue_free()
 	)
 
-	_active.append({"label": l, "age": 0.0, "life": toast_life})
+	_active.append({"id": my_id, "life": toast_life})
+
 
 

@@ -21,6 +21,7 @@ var _leader: Node2D = null
 var _offset: Vector2 = Vector2.ZERO
 
 var current_hp: int = 100
+var _max_hp_effective: int = 100
 
 enum FormationMode { TIGHT, SPREAD, WEDGE, RING }
 enum TargetMode { NEAREST, LOWEST_HP, ELITES_FIRST }
@@ -30,6 +31,8 @@ const TARGET_MODE_COUNT: int = 3
 
 var _current_anim: String = "walk_south"
 var _anim_cooldown: float = 0.0
+
+var _pulse_tw: Tween = null
 
 func _ready() -> void:
 	add_to_group("squad_units")
@@ -54,9 +57,13 @@ func _exit_tree() -> void:
 
 func _apply_from_data() -> void:
 	_attack_timer = 0.0
-	current_hp = character_data.max_hp
+	var mods := SynergySystem.mods_for_cd(character_data)
+	_max_hp_effective = int(round(float(character_data.max_hp) * float(mods.get("max_hp_mult", 1.0))))
+	_max_hp_effective = max(1, _max_hp_effective)
+	current_hp = _max_hp_effective
 
 func _apply_placeholder() -> void:
+	_max_hp_effective = 120
 	current_hp = 120
 
 func _apply_visuals() -> void:
@@ -102,6 +109,10 @@ func _physics_process(delta: float) -> void:
 	_attack_timer = maxf(_attack_timer - delta, 0.0)
 	_retarget_t -= delta
 
+	# Synergy tick (auras/procs with cooldown gating)
+	if character_data != null:
+		SynergySystem.tick_unit(character_data, self)
+
 	if _retarget_t <= 0.0 or _target_enemy == null or not is_instance_valid(_target_enemy):
 		_target_enemy = _find_target()
 		_retarget_t = retarget_interval
@@ -118,6 +129,9 @@ func _combat_step(_delta: float) -> void:
 	var dist := global_position.distance_to(tgt.global_position)
 	var attack_range := character_data.attack_range if character_data != null else 300.0
 	var move_speed := character_data.move_speed if character_data != null else 120.0
+	if character_data != null:
+		var mods := SynergySystem.mods_for_cd(character_data)
+		move_speed *= float(mods.get("move_speed_mult", 1.0))
 
 	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
 	var desired_range := 26.0 if is_melee else attack_range * 0.70
@@ -141,7 +155,11 @@ func _combat_step(_delta: float) -> void:
 	# Attack
 	if dist <= attack_range and _attack_timer <= 0.0:
 		_attack(tgt)
-		_attack_timer = character_data.attack_cooldown if character_data != null else 1.0
+		var cd_s := character_data.attack_cooldown if character_data != null else 1.0
+		if character_data != null:
+			var mods := SynergySystem.mods_for_cd(character_data)
+			cd_s *= float(mods.get("attack_cooldown_mult", 1.0))
+		_attack_timer = cd_s
 
 func _follow_leader(_delta: float) -> void:
 	if _leader == null or not is_instance_valid(_leader):
@@ -151,6 +169,9 @@ func _follow_leader(_delta: float) -> void:
 	var to := target_pos - global_position
 	if to.length() > 18.0:
 		var move_speed := character_data.move_speed if character_data != null else 120.0
+		if character_data != null:
+			var mods := SynergySystem.mods_for_cd(character_data)
+			move_speed *= float(mods.get("move_speed_mult", 1.0))
 		velocity = to.normalized() * move_speed
 		move_and_slide()
 		_update_anim(to.normalized())
@@ -202,6 +223,9 @@ func _attack(target: Node2D) -> void:
 
 	var is_crit: bool = false
 	var final_damage := character_data.attack_damage if character_data != null else 10
+	if character_data != null:
+		var mods := SynergySystem.mods_for_cd(character_data)
+		final_damage = int(round(float(final_damage) * float(mods.get("attack_damage_mult", 1.0))))
 	if character_data != null and character_data.crit_chance > 0.0 and randf() < character_data.crit_chance:
 		is_crit = true
 		final_damage = int(round(float(final_damage) * character_data.crit_mult))
@@ -229,6 +253,7 @@ func _attack(target: Node2D) -> void:
 					if n2.has_method("take_damage"):
 						n2.take_damage(int(round(float(final_damage) * melee_cleave_mult)), false, "melee_cleave")
 		PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, true)
+		SynergySystem.on_unit_attack(character_data, self, target, final_damage, is_crit, true)
 		return
 
 	# Ranged projectile
@@ -242,10 +267,17 @@ func _attack(target: Node2D) -> void:
 	if proj.has_method("set_vfx_color"):
 		proj.set_vfx_color(_projectile_color_for_unit())
 	if proj.has_method("setup_target"):
-		proj.setup_target(target, final_damage, is_crit, character_data.passive_ids)
+		# Synergy may add extra pierce (in addition to passives).
+		if proj.has_method("add_pierce"):
+			proj.add_pierce(SynergySystem.extra_pierce_for_cd(character_data))
+		proj.setup_target(target, final_damage, is_crit, character_data.passive_ids, character_data)
 	else:
 		proj.setup(target.global_position, final_damage)
+	var s := _main.get_node_or_null("/root/SfxSystem")
+	if s and s.has_method("play_event"):
+		s.play_event("player.shot", global_position, self)
 	PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, false)
+	SynergySystem.on_unit_attack(character_data, self, target, final_damage, is_crit, false)
 
 func _spawn_slash_vfx(pos: Vector2, dir: Vector2, tint: Color) -> void:
 	if _main == null or not is_instance_valid(_main):
@@ -256,6 +288,9 @@ func _spawn_slash_vfx(pos: Vector2, dir: Vector2, tint: Color) -> void:
 	_main.add_child(v)
 	if v.has_method("setup"):
 		v.setup(pos, dir, tint)
+	var s := _main.get_node_or_null("/root/SfxSystem")
+	if s and s.has_method("play_event"):
+		s.play_event("player.slash", pos, self)
 
 func _update_anim(dir: Vector2) -> void:
 	if anim == null:
@@ -277,7 +312,7 @@ func _update_anim(dir: Vector2) -> void:
 func _update_health_bar() -> void:
 	if health_bar == null:
 		return
-	var max_hp_val := character_data.max_hp if character_data != null else 100
+	var max_hp_val := _max_hp_effective if _max_hp_effective > 0 else (character_data.max_hp if character_data != null else 100)
 	health_bar.value = float(current_hp) / maxf(1.0, float(max_hp_val)) * 100.0
 
 func take_damage(amount: int) -> void:
@@ -288,8 +323,32 @@ func take_damage(amount: int) -> void:
 func heal(amount: int) -> void:
 	if amount <= 0:
 		return
-	var max_hp_val := character_data.max_hp if character_data != null else 100
+	var max_hp_val := _max_hp_effective if _max_hp_effective > 0 else (character_data.max_hp if character_data != null else 100)
 	current_hp = min(max_hp_val, current_hp + amount)
+	pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
+
+func get_max_hp() -> int:
+	return _max_hp_effective if _max_hp_effective > 0 else (character_data.max_hp if character_data != null else 100)
+
+func get_hp_ratio() -> float:
+	var mh := float(get_max_hp())
+	return float(current_hp) / maxf(1.0, mh)
+
+func pulse_vfx(tint: Color) -> void:
+	if anim == null:
+		return
+	if _pulse_tw != null and is_instance_valid(_pulse_tw):
+		_pulse_tw.kill()
+	_pulse_tw = create_tween()
+	_pulse_tw.set_trans(Tween.TRANS_SINE)
+	_pulse_tw.set_ease(Tween.EASE_OUT)
+	var base := Vector2(1.0, 1.0)
+	var bump := base * 1.05
+	anim.modulate = Color(1, 1, 1, 1)
+	_pulse_tw.parallel().tween_property(anim, "modulate", tint, 0.06)
+	_pulse_tw.parallel().tween_property(anim, "scale", bump, 0.06)
+	_pulse_tw.tween_property(anim, "modulate", Color(1, 1, 1, 1), 0.10)
+	_pulse_tw.parallel().tween_property(anim, "scale", base, 0.10)
 
 func _projectile_color_for_unit() -> Color:
 	if character_data == null:

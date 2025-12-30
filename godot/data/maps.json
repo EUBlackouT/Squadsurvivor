@@ -15,7 +15,8 @@
       "recruit_scale_minutes": 12.0,
       "recruit_hp_bonus_max": 0.10,
       "recruit_dmg_bonus_max": 0.18,
-      "recruit_rarity_bias_minutes": 0.0
+      "recruit_rarity_bias_minutes": 0.0,
+      "meta_sigils_mult": 1.0
     },
     {
       "id": "library",
@@ -31,7 +32,8 @@
       "recruit_scale_minutes": 11.0,
       "recruit_hp_bonus_max": 0.18,
       "recruit_dmg_bonus_max": 0.30,
-      "recruit_rarity_bias_minutes": 2.0
+      "recruit_rarity_bias_minutes": 2.0,
+      "meta_sigils_mult": 1.35
     },
     {
       "id": "foundry",
@@ -47,9 +49,11 @@
       "recruit_scale_minutes": 10.0,
       "recruit_hp_bonus_max": 0.25,
       "recruit_dmg_bonus_max": 0.42,
-      "recruit_rarity_bias_minutes": 4.0
+      "recruit_rarity_bias_minutes": 4.0,
+      "meta_sigils_mult": 1.75
     }
   ]
 }
+
 
 

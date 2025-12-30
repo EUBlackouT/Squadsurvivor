@@ -84,7 +84,11 @@ func add_to_roster(cd: CharacterData) -> bool:
 	if cd == null:
 		return false
 	# Cap roster size
-	if active_roster.size() >= 6:
+	var cap := 6
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_roster_cap"):
+		cap = int(mp.get_roster_cap())
+	if active_roster.size() >= cap:
 		return false
 	active_roster.append(_cd_to_dict(cd))
 	save()

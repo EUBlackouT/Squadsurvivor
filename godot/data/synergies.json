@@ -1,0 +1,341 @@
+{
+  "version": 1,
+  "synergies": [
+    {
+      "id": "warband",
+      "name": "Warband",
+      "count_tag": "class:warrior",
+      "applies_to_tags": [],
+      "tiers": [
+        { "count": 2, "mods": { "attack_damage_mult": 1.10 } },
+        { "count": 4, "mods": { "attack_damage_mult": 1.22 } }
+      ]
+    },
+    {
+      "id": "cabal",
+      "name": "Cabal",
+      "count_tag": "class:mage",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "attack_damage_mult": 1.08, "attack_cooldown_mult": 0.92 },
+          "effects": [
+            { "type": "arc_focus", "interval_hits": 6, "radius": 240, "chains": 2, "damage_mult": 0.30 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "attack_damage_mult": 1.16, "attack_cooldown_mult": 0.85 },
+          "effects": [
+            { "type": "arc_focus", "interval_hits": 5, "radius": 260, "chains": 3, "damage_mult": 0.32 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "count_tag": "class:guardian",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "max_hp_mult": 1.18 },
+          "effects": [
+            { "type": "bulwark_aura", "cooldown": 0.70, "radius": 95, "slow_mult": 0.86, "duration": 0.55 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "max_hp_mult": 1.35, "attack_damage_mult": 1.06 },
+          "effects": [
+            { "type": "bulwark_aura", "cooldown": 0.65, "radius": 110, "slow_mult": 0.82, "duration": 0.60 },
+            { "type": "aura_heal", "cooldown": 1.80, "heal_frac": 0.020 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "marksmen",
+      "name": "Marksmen",
+      "count_tag": "style:ranged",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 3,
+          "mods": { "attack_cooldown_mult": 0.92 },
+          "effects": [
+            { "type": "volley_shot", "interval_attacks": 4, "radius": 420, "damage_mult": 0.50 }
+          ]
+        },
+        {
+          "count": 5,
+          "mods": { "attack_cooldown_mult": 0.84 },
+          "effects": [
+            { "type": "volley_shot", "interval_attacks": 3, "radius": 460, "damage_mult": 0.55 },
+            { "type": "pierce_bonus", "extra_pierce": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "blades",
+      "name": "Blades",
+      "count_tag": "style:melee",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 3,
+          "mods": { "move_speed_mult": 1.10, "attack_damage_mult": 1.06 },
+          "effects": [
+            { "type": "shockstep", "interval_hits": 3, "radius": 130, "damage_mult": 0.22, "slow_mult": 0.88, "duration": 0.40 }
+          ]
+        },
+        {
+          "count": 5,
+          "mods": { "move_speed_mult": 1.18, "attack_damage_mult": 1.12 },
+          "effects": [
+            { "type": "shockstep", "interval_hits": 2, "radius": 145, "damage_mult": 0.24, "slow_mult": 0.85, "duration": 0.45 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "undying",
+      "name": "Undying",
+      "count_tag": "origin:undead",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "max_hp_mult": 1.10 },
+          "effects": [
+            { "type": "soul_feast", "heal_frac": 0.050, "elite_bonus": 0.020 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "max_hp_mult": 1.22, "attack_cooldown_mult": 0.92 },
+          "effects": [
+            { "type": "soul_feast", "heal_frac": 0.080, "elite_bonus": 0.030 },
+            { "type": "death_chill", "radius": 160, "slow_mult": 0.86, "duration": 0.70, "cooldown": 0.35 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "assassins",
+      "name": "Assassins",
+      "count_tag": "class:rogue",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "move_speed_mult": 1.05 },
+          "effects": [
+            { "type": "execute_protocol", "threshold": 0.35, "bonus_mult": 0.18, "cooldown": 0.08 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "move_speed_mult": 1.10 },
+          "effects": [
+            { "type": "execute_protocol", "threshold": 0.42, "bonus_mult": 0.22, "cooldown": 0.08 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clockwork",
+      "name": "Clockwork",
+      "count_tag": "origin:machine",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": {},
+          "effects": [
+            { "type": "ricochet_matrix", "chance": 0.28, "radius": 290, "damage_mult": 0.55, "cooldown": 0.20 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": {},
+          "effects": [
+            { "type": "ricochet_matrix", "chance": 0.38, "radius": 320, "damage_mult": 0.60, "cooldown": 0.18 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "covenant",
+      "name": "Covenant",
+      "count_tag": "class:summoner",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": {},
+          "effects": [
+            { "type": "wisp_bolt", "cooldown": 1.60, "radius": 520, "damage_mult": 0.35 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": {},
+          "effects": [
+            { "type": "wisp_bolt", "cooldown": 1.25, "radius": 560, "damage_mult": 0.38, "extra": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sanctum",
+      "name": "Sanctum",
+      "count_tag": "class:healer",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "attack_cooldown_mult": 0.97 },
+          "effects": [
+            { "type": "sanctuary_heal", "cooldown": 2.20, "heal_frac": 0.040 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "attack_cooldown_mult": 0.95 },
+          "effects": [
+            { "type": "sanctuary_heal", "cooldown": 1.80, "heal_frac": 0.055 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "striker_core",
+      "name": "Striker Core",
+      "count_tag": "arch:striker",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "attack_damage_mult": 1.08 },
+          "effects": [
+            { "type": "crit_arc", "chance": 0.35, "radius": 240, "damage_mult": 0.28, "cooldown": 0.20 }
+          ]
+        },
+        {
+          "count": 3,
+          "mods": { "attack_damage_mult": 1.14 },
+          "effects": [
+            { "type": "crit_arc", "chance": 0.45, "radius": 260, "damage_mult": 0.30, "cooldown": 0.18 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bruiser_wall",
+      "name": "Bruiser Wall",
+      "count_tag": "arch:bruiser",
+      "applies_to_tags": [],
+      "tiers": [
+        { "count": 2, "mods": { "max_hp_mult": 1.15 } },
+        { "count": 3, "mods": { "max_hp_mult": 1.26 } }
+      ]
+    }
+    ,
+    {
+      "id": "bannerlords",
+      "name": "Bannerlords",
+      "count_tag": "origin:human",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": {},
+          "effects": [
+            { "type": "focus_fire", "stacks": 6, "window": 1.2, "bonus_mult": 0.35, "cooldown": 0.10 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": {},
+          "effects": [
+            { "type": "focus_fire", "stacks": 5, "window": 1.35, "bonus_mult": 0.42, "cooldown": 0.10 },
+            { "type": "bounty", "chance": 0.14, "essence": 1, "elite_bonus": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "infernal",
+      "name": "Infernal",
+      "count_tag": "origin:demon",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "attack_damage_mult": 1.04 },
+          "effects": [
+            { "type": "hellfire_burn", "chance": 0.32, "dps_mult": 0.12, "duration": 2.5, "tick": 0.5, "cooldown": 0.10 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "attack_damage_mult": 1.08 },
+          "effects": [
+            { "type": "hellfire_burn", "chance": 0.42, "dps_mult": 0.15, "duration": 3.0, "tick": 0.5, "cooldown": 0.10 },
+            { "type": "inferno_blast", "interval_hits": 7, "radius": 140, "damage_mult": 0.22 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prismatic",
+      "name": "Prismatic",
+      "count_tag": "origin:elemental",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": {},
+          "effects": [
+            { "type": "prismatic_surge", "interval_hits": 6, "radius": 220, "damage_mult": 0.20, "slow_mult": 0.82, "slow_dur": 0.7, "burn_dps_mult": 0.10, "burn_dur": 2.2 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": {},
+          "effects": [
+            { "type": "prismatic_surge", "interval_hits": 5, "radius": 250, "damage_mult": 0.22, "slow_mult": 0.80, "slow_dur": 0.8, "burn_dps_mult": 0.12, "burn_dur": 2.6 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pack",
+      "name": "Pack",
+      "count_tag": "origin:beast",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "move_speed_mult": 1.04 },
+          "effects": [
+            { "type": "pack_maul", "interval_hits": 4, "radius": 120, "damage_mult": 0.18, "slow_mult": 0.90, "slow_dur": 0.45 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "move_speed_mult": 1.08 },
+          "effects": [
+            { "type": "pack_maul", "interval_hits": 3, "radius": 135, "damage_mult": 0.20, "slow_mult": 0.88, "slow_dur": 0.55 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+

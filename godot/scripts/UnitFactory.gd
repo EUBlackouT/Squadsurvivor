@@ -98,7 +98,13 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	# Best-effort class hint mapping
 	var hint := String(arch.get("class_hint", "WARRIOR"))
 	cd.class_type = _class_from_hint(hint)
-	cd.origin = rng.randi() % 6
+	# Origin is the "faction/species" tag used for synergies.
+	# Best-effort: if the PixelLab registry entry includes origin metadata, respect it; otherwise fallback to random.
+	var o_hint := PixellabUtil.origin_hint_from_south_path(south_path)
+	if o_hint >= 0:
+		cd.origin = o_hint
+	else:
+		cd.origin = rng.randi() % 6
 	return cd
 
 static func rarity_name(rarity_id: String) -> String:
@@ -225,9 +231,17 @@ static func _roll_passives(cd: CharacterData, rng: RandomNumberGenerator, _conte
 	if pool.is_empty():
 		cd.passive_ids = PackedStringArray()
 		return
+
+	# Rarity-driven passive count (with RNG high-rolls).
+	# This is a key part of the compulsion loop: commons are simple, legendaries feel stacked.
+	var want: int = _roll_passive_count(cd.rarity_id, rng)
+	if want <= 0:
+		cd.passive_ids = PackedStringArray()
+		return
+
 	var chosen: Array[String] = []
 	var attempts: int = 0
-	while chosen.size() < 4 and attempts < 50:
+	while chosen.size() < want and attempts < 80:
 		attempts += 1
 		var id := String(pool[rng.randi_range(0, pool.size() - 1)])
 		if chosen.has(id):
@@ -241,5 +255,28 @@ static func _pixellab_id_from_south_path(south_path: String) -> String:
 	if idx >= 0 and idx + 1 < parts.size():
 		return parts[idx + 1]
 	return ""
+
+static func _roll_passive_count(rarity_id: String, rng: RandomNumberGenerator) -> int:
+	# Weighted counts per rarity. Tuned so early units don't feel overloaded.
+	# Common: usually 1, sometimes 2
+	# Rare: usually 2, sometimes 3
+	# Epic: usually 3, sometimes 4
+	# Legendary: usually 4, sometimes 5
+	var roll := rng.randf()
+	match rarity_id:
+		"legendary":
+			return 5 if roll < 0.18 else 4
+		"epic":
+			if roll < 0.10:
+				return 4
+			return 3
+		"rare":
+			if roll < 0.15:
+				return 3
+			return 2
+		_:
+			if roll < 0.22:
+				return 2
+			return 1
 
 

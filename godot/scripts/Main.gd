@@ -54,11 +54,11 @@ var _victory: bool = false
 #
 # Draft system: RNG drops (no capture meter)
 #
-@export var draft_drop_chance_normal: float = 0.045 # ~1 in 22 kills baseline
-@export var draft_drop_chance_elite: float = 0.30   # elites feel exciting
-@export var draft_drop_pity_add_per_kill: float = 0.0045
-@export var draft_drop_pity_cap: float = 0.10
-@export var draft_drop_min_seconds_between: float = 12.0
+@export var draft_drop_chance_normal: float = 0.022 # ~1 in 45 kills baseline (with pity + cooldown)
+@export var draft_drop_chance_elite: float = 0.18   # elites feel exciting, but shouldn't spam drafts
+@export var draft_drop_pity_add_per_kill: float = 0.0022
+@export var draft_drop_pity_cap: float = 0.06
+@export var draft_drop_min_seconds_between: float = 20.0
 
 var _draft_pity: float = 0.0
 var _last_draft_time_s: float = -9999.0
@@ -69,6 +69,11 @@ var _dbg_text: String = ""
 var _hide_projectiles: bool = false
 var _strip_cd: float = 0.0
 var _dbg_reported: Dictionary = {}
+
+var _meta_awarded: bool = false
+var _run_kills: int = 0
+var _run_elite_kills: int = 0
+var _run_drafts: int = 0
 var _hide_debug_shapes_cd: float = 0.0
 var _perf_text: String = ""
 
@@ -90,6 +95,7 @@ func _ready() -> void:
 	PixellabUtil.ensure_loaded()
 	UnitFactory.ensure_loaded()
 	PassiveSystem.ensure_loaded()
+	EnemyFactory.ensure_loaded()
 	var rc := get_node_or_null("/root/RunConfig")
 	if rc and is_instance_valid(rc):
 		if rc.has_method("ensure_loaded"):
@@ -298,12 +304,25 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		cd.max_hp = int(round(float(cd.max_hp) * 1.55))
 		cd.attack_damage = int(round(float(cd.attack_damage) * 1.25))
 
+	# Enemy archetype + affixes (behavior variety)
+	var ai_id := EnemyFactory.roll_enemy_ai_id(rng, _elapsed_minutes())
+	var affixes := PackedStringArray()
+	if is_elite:
+		affixes = EnemyFactory.roll_elite_affixes(rng, _elapsed_minutes(), 2)
+	# Bosses lean toward spectacle.
+	if is_boss:
+		ai_id = "charger"
+		if affixes.is_empty():
+			affixes = PackedStringArray(["arcane", "volatile"])
+
 	# IMPORTANT: set exported fields BEFORE add_child so Enemy._ready() sees them.
 	e.set_meta("rift", from_rift)
 	e.set_meta("boss", is_boss)
 	e.character_data = cd
 	e.is_elite = is_elite
 	e.pixellab_south_path = south
+	e.ai_id = ai_id
+	e.affix_ids = affixes
 	add_child(e)
 	e.global_position = center + Vector2(cos(ang), sin(ang)) * dist
 
@@ -353,6 +372,14 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	# RNG draft drops (no capture bar)
 	_roll_draft_drop(is_elite, was_boss)
 
+	# Global synergy triggers (on-kill effects like Undying heal)
+	SynergySystem.on_enemy_killed(self, is_elite, was_boss)
+
+	# Run stats
+	_run_kills += 1
+	if is_elite:
+		_run_elite_kills += 1
+
 	# Essence economy for rerolls
 	var base := 1 if not is_elite else 3
 	var mult := float(_map_mod.get("essence_mult", 1.0))
@@ -383,6 +410,10 @@ func show_damage_number(source_id: int, channel: String, amount: int, world_pos:
 func _on_draft_ready() -> void:
 	# Pause game and show recruit draft UI
 	get_tree().paused = true
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and s.has_method("play_ui"):
+		s.play_ui("ui.open")
+	_run_drafts += 1
 	_show_recruit_draft()
 
 func _roll_draft_drop(is_elite: bool, was_boss: bool) -> void:
@@ -408,6 +439,9 @@ func _roll_draft_drop(is_elite: bool, was_boss: bool) -> void:
 	if rng.randf() < chance:
 		_last_draft_time_s = now_s
 		_draft_pity = 0.0
+		var s := get_node_or_null("/root/SfxSystem")
+		if s and s.has_method("play_ui"):
+			s.play_ui("ui.drop")
 		_on_draft_ready()
 	else:
 		_draft_pity = minf(draft_drop_pity_cap, _draft_pity + draft_drop_pity_add_per_kill)
@@ -517,6 +551,9 @@ func _show_recruit_draft() -> void:
 	reroll_btn.pressed.connect(func():
 		if essence < reroll_cost_essence:
 			return
+		var s := get_node_or_null("/root/SfxSystem")
+		if s and s.has_method("play_ui"):
+			s.play_ui("ui.reroll")
 		essence -= reroll_cost_essence
 		for c in hbox.get_children():
 			c.queue_free()
@@ -586,6 +623,73 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	v.add_theme_constant_override("separation", 8)
 	pad.add_child(v)
 
+	# Portrait (PixelLab south rotation)
+	var portrait_frame := PanelContainer.new()
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(0.06, 0.07, 0.09, 0.65)
+	psb.border_width_left = 1
+	psb.border_width_right = 1
+	psb.border_width_top = 1
+	psb.border_width_bottom = 1
+	psb.border_color = Color(1, 1, 1, 0.08)
+	psb.corner_radius_top_left = 10
+	psb.corner_radius_top_right = 10
+	psb.corner_radius_bottom_left = 10
+	psb.corner_radius_bottom_right = 10
+	portrait_frame.add_theme_stylebox_override("panel", psb)
+	portrait_frame.custom_minimum_size = Vector2(0, 92)
+	v.add_child(portrait_frame)
+
+	var portrait_pad := MarginContainer.new()
+	portrait_pad.add_theme_constant_override("margin_left", 6)
+	portrait_pad.add_theme_constant_override("margin_right", 6)
+	portrait_pad.add_theme_constant_override("margin_top", 6)
+	portrait_pad.add_theme_constant_override("margin_bottom", 6)
+	portrait_frame.add_child(portrait_pad)
+
+	# Animated portrait using a SubViewport so we can render AnimatedSprite2D inside UI.
+	var frames := PixellabUtil.walk_frames_from_south_path(cd.sprite_path)
+	if frames != null and frames.has_animation("walk_south") and frames.get_frame_count("walk_south") > 0:
+		var svc := SubViewportContainer.new()
+		svc.custom_minimum_size = Vector2(80, 80)
+		svc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		svc.stretch = true
+		svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		svc.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+		portrait_pad.add_child(svc)
+
+		var vp := SubViewport.new()
+		vp.size = Vector2i(96, 96)
+		vp.transparent_bg = true
+		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+		svc.add_child(vp)
+
+		var spr := AnimatedSprite2D.new()
+		spr.sprite_frames = frames
+		spr.animation = "walk_south"
+		spr.play()
+		spr.centered = true
+		spr.position = Vector2(vp.size.x * 0.5, vp.size.y * 0.5 + 6.0)
+		spr.scale = Vector2(1.8, 1.8)
+		spr.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+		vp.add_child(spr)
+	else:
+		# Fallback to static south portrait if frames missing.
+		var portrait := TextureRect.new()
+		portrait.custom_minimum_size = Vector2(80, 80)
+		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		portrait.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tex := PixellabUtil.load_rotation_texture(cd.sprite_path)
+		if tex == null and cd.pixellab_id != "":
+			tex = PixellabUtil.load_rotation_texture("res://assets/pixellab/%s/rotations/south.png" % cd.pixellab_id)
+		portrait.texture = tex
+		portrait_pad.add_child(portrait)
+
 	var name := Label.new()
 	name.text = "%s • %s" % [UnitFactory.rarity_name(cd.rarity_id), cd.archetype_id]
 	name.add_theme_font_size_override("font_size", 18)
@@ -603,15 +707,20 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	stats.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92, 0.95))
 	v.add_child(stats)
 
-	var pass_label := Label.new()
-	var lines: Array[String] = []
+	var pass_rich := RichTextLabel.new()
+	pass_rich.bbcode_enabled = true
+	pass_rich.scroll_active = false
+	pass_rich.fit_content = true
+	pass_rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pass_rich.add_theme_font_size_override("normal_font_size", 12)
+	pass_rich.add_theme_color_override("default_color", Color(0.82, 0.86, 0.92, 0.95))
+	var p_lines: Array[String] = []
 	for pid in cd.passive_ids:
-		lines.append("- %s: %s" % [PassiveSystem.passive_name(pid), PassiveSystem.passive_description(pid)])
-	pass_label.text = "Passives:\n%s" % "\n".join(lines)
-	pass_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	pass_label.add_theme_font_size_override("font_size", 12)
-	pass_label.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
-	v.add_child(pass_label)
+		var name_col := PassiveSystem.passive_color(pid)
+		var hex := "#" + name_col.to_html(false)
+		p_lines.append("- [color=%s]%s[/color]: %s" % [hex, PassiveSystem.passive_name(pid), PassiveSystem.passive_description(pid)])
+	pass_rich.text = "[b]Passives:[/b]\n%s" % "\n".join(p_lines)
+	v.add_child(pass_rich)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 8)
@@ -705,6 +814,9 @@ func _select_character(cd: CharacterData, ui: CanvasLayer) -> void:
 	var cm := get_node_or_null("/root/CollectionManager")
 	if cm and is_instance_valid(cm) and cm.has_method("unlock_character"):
 		var ok: bool = bool(cm.unlock_character(cd))
+		var s := get_node_or_null("/root/SfxSystem")
+		if s and s.has_method("play_ui"):
+			s.play_ui("ui.confirm" if ok else "ui.cancel")
 		if toast_layer != null:
 			var rarity := UnitFactory.rarity_name(cd.rarity_id)
 			var col := UnitFactory.rarity_color(cd.rarity_id)
@@ -743,6 +855,13 @@ func _setup_hud() -> void:
 	formation.text = "Formation: TIGHT   Tactics: NEAREST"
 	container.add_child(formation)
 
+	var syn := Label.new()
+	syn.name = "SynergyLabel"
+	syn.text = "Synergies: —"
+	syn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	syn.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
+	container.add_child(syn)
+
 	var boss := Label.new()
 	boss.name = "BossLabel"
 	boss.text = ""
@@ -777,6 +896,10 @@ func _update_hud_labels() -> void:
 			b.text = "Boss: %d%%" % int(round(r * 100.0))
 		else:
 			b.text = ""
+
+	var s := get_node_or_null("HUD/HUDVBox/SynergyLabel") as Label
+	if s:
+		s.text = SynergySystem.summary_text()
 
 	# Debug: count collision shapes / particles to confirm source of circles.
 	var dbg := get_node_or_null("HUD/HUDVBox/DebugLabel") as Label
@@ -909,41 +1032,170 @@ func _hide_collision_debug_visuals() -> void:
 func _show_game_over() -> void:
 	_game_over = true
 	get_tree().paused = true
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and s.has_method("play_ui"):
+		s.play_ui("ui.defeat")
+	_award_meta(false)
 	var ui := CanvasLayer.new()
 	ui.layer = 200
 	add_child(ui)
-	var bg := ColorRect.new()
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.85)
-	ui.add_child(bg)
-	var label := Label.new()
-	label.set_anchors_preset(Control.PRESET_CENTER)
-	label.offset_left = -220
-	label.offset_right = 220
-	label.offset_top = -40
-	label.offset_bottom = 40
-	label.text = "Run Failed"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 38)
-	ui.add_child(label)
+	_build_end_screen(ui, "Run Failed", false)
 
 func _show_victory() -> void:
 	_victory = true
 	get_tree().paused = true
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and s.has_method("play_ui"):
+		s.play_ui("ui.victory")
+	_award_meta(true)
 	var ui := CanvasLayer.new()
 	ui.layer = 200
 	add_child(ui)
+	_build_end_screen(ui, "Victory", true)
+
+func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> void:
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.85)
+	bg.color = Color(0, 0, 0, 0.82)
 	ui.add_child(bg)
-	var label := Label.new()
-	label.set_anchors_preset(Control.PRESET_CENTER)
-	label.offset_left = -260
-	label.offset_right = 260
-	label.offset_top = -40
-	label.offset_bottom = 40
-	label.text = "Victory"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 42)
-	ui.add_child(label)
+	var bgmat := ShaderMaterial.new()
+	bgmat.shader = preload("res://shaders/ui_arcane_scifi_backdrop.gdshader")
+	bg.material = bgmat
+
+	var card := PanelContainer.new()
+	card.set_anchors_preset(Control.PRESET_CENTER)
+	card.offset_left = -360
+	card.offset_right = 360
+	card.offset_top = -230
+	card.offset_bottom = 230
+	ui.add_child(card)
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.08, 0.10, 0.96)
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(0.4, 0.8, 1.0, 0.18) if victory else Color(1.0, 0.35, 0.35, 0.18)
+	sb.corner_radius_top_left = 16
+	sb.corner_radius_top_right = 16
+	sb.corner_radius_bottom_left = 16
+	sb.corner_radius_bottom_right = 16
+	sb.shadow_color = Color(0, 0, 0, 0.55)
+	sb.shadow_size = 18
+	card.add_theme_stylebox_override("panel", sb)
+
+	var neon := ShaderMaterial.new()
+	neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
+	neon.set_shader_parameter("base_color", sb.bg_color)
+	neon.set_shader_parameter("glow_color", Color(0.4, 0.8, 1.0, 0.55) if victory else Color(1.0, 0.35, 0.35, 0.50))
+	neon.set_shader_parameter("glow_width", 0.02)
+	neon.set_shader_parameter("pulse_speed", 1.1)
+	card.material = neon
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 18)
+	pad.add_theme_constant_override("margin_right", 18)
+	pad.add_theme_constant_override("margin_top", 16)
+	pad.add_theme_constant_override("margin_bottom", 16)
+	card.add_child(pad)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	pad.add_child(v)
+
+	var title := Label.new()
+	title.text = title_text
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 40 if victory else 36)
+	v.add_child(title)
+
+	var mp := get_node_or_null("/root/MetaProgression")
+	var lr: Dictionary = {}
+	if mp and is_instance_valid(mp) and "last_run" in mp:
+		lr = mp.last_run as Dictionary
+
+	var summary := RichTextLabel.new()
+	summary.bbcode_enabled = true
+	summary.scroll_active = false
+	summary.fit_content = true
+	summary.add_theme_font_size_override("normal_font_size", 14)
+	summary.add_theme_color_override("default_color", Color(0.85, 0.90, 0.96, 0.95))
+	if lr.is_empty():
+		summary.text = "Run stats unavailable."
+	else:
+		summary.text = "[b]Map:[/b] %s\n[b]Time:[/b] %dm   [b]Kills:[/b] %d (elites %d)   [b]Drafts:[/b] %d\n[b]Sigils earned:[/b] %d   [b]Total Sigils:[/b] %d" % [
+			String(lr.get("map_name", "")),
+			int(lr.get("minutes", 0)),
+			int(lr.get("kills", 0)),
+			int(lr.get("elite_kills", 0)),
+			int(lr.get("drafts", 0)),
+			int(lr.get("sigils_earned", 0)),
+			int(mp.sigils) if mp != null and "sigils" in mp else 0
+		]
+	v.add_child(summary)
+
+	# Progress to next slot
+	if mp and is_instance_valid(mp) and mp.has_method("get_next_slot_cost") and mp.has_method("get_squad_slots"):
+		var cost := int(mp.get_next_slot_cost())
+		if cost > 0:
+			var bar := ProgressBar.new()
+			bar.min_value = 0
+			bar.max_value = cost
+			bar.value = clampi(int(mp.sigils), 0, cost)
+			bar.custom_minimum_size = Vector2(0, 18)
+			v.add_child(bar)
+			var t := Label.new()
+			t.add_theme_font_size_override("font_size", 13)
+			t.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
+			t.text = "Next Squad Slot: %d → %d   (%d/%d sigils)" % [int(mp.get_squad_slots()), int(mp.get_squad_slots()) + 1, int(mp.sigils), cost]
+			v.add_child(t)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 10)
+	v.add_child(btn_row)
+	btn_row.add_spacer(true)
+	var btn := Button.new()
+	btn.text = "Return to Menu"
+	btn.custom_minimum_size = Vector2(220, 46)
+	btn.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/Menu.tscn"))
+	btn_row.add_child(btn)
+	btn_row.add_spacer(true)
+
+func _award_meta(victory: bool) -> void:
+	if _meta_awarded:
+		return
+	_meta_awarded = true
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or not mp.has_method("add_sigils"):
+		return
+	# Hard progression: meaningful but slow.
+	var mins := _elapsed_minutes()
+	var base := int(floor(mins * 18.0)) # ~18 per minute survived
+	var bonus := 0
+	if victory:
+		bonus += 220
+	# Map multiplier (harder maps => faster meta progress)
+	var mult := float(_map_mod.get("meta_sigils_mult", 1.0))
+	var total := int(round(float(base + bonus) * mult))
+	total = max(5, total)
+	mp.add_sigils(total)
+
+	# Persist last run summary for Menu UI.
+	if mp.has_method("set_last_run"):
+		var rc := get_node_or_null("/root/RunConfig")
+		var map_id := ""
+		if rc != null and is_instance_valid(rc):
+			map_id = String(rc.get("selected_map_id"))
+		var map_name := String(_map_mod.get("name", map_id))
+		var summary := {
+			"victory": victory,
+			"minutes": int(floor(_elapsed_minutes())),
+			"map_id": map_id,
+			"map_name": map_name,
+			"kills": _run_kills,
+			"elite_kills": _run_elite_kills,
+			"drafts": _run_drafts,
+			"sigils_earned": total
+		}
+		mp.set_last_run(summary)

@@ -60,6 +60,49 @@ static func pick_random_south_path(rng: RandomNumberGenerator) -> String:
 			return String(e.get("south_path", ""))
 	return String(_entries[0].get("south_path", ""))
 
+static func entry_from_south_path(south_path: String) -> Dictionary:
+	ensure_loaded()
+	for e in _entries:
+		if String(e.get("south_path", "")) == south_path:
+			return e
+	return {}
+
+static func entry_from_id(pid: String) -> Dictionary:
+	ensure_loaded()
+	for e in _entries:
+		if String(e.get("id", "")) == pid:
+			return e
+	return {}
+
+static func origin_hint_from_south_path(south_path: String) -> int:
+	# Best-effort mapping based on optional registry metadata.
+	# If your registry entries include "origin": "<undead|machine|beast|demon|elemental|human>", we will use it.
+	var e := entry_from_south_path(south_path)
+	var o := String(e.get("origin", ""))
+	if o == "":
+		# Also allow tags array like ["undead", "demon"]
+		var tags: Array = e.get("tags", [])
+		for t in tags:
+			var s := String(t).to_lower()
+			if s in ["undead", "machine", "beast", "demon", "elemental", "human"]:
+				o = s
+				break
+	match o.to_lower():
+		"undead":
+			return CharacterData.Origin.UNDEAD
+		"machine":
+			return CharacterData.Origin.MACHINE
+		"beast":
+			return CharacterData.Origin.BEAST
+		"demon":
+			return CharacterData.Origin.DEMON
+		"elemental":
+			return CharacterData.Origin.ELEMENTAL
+		"human":
+			return CharacterData.Origin.HUMAN
+		_:
+			return -1
+
 static func pixellab_id_from_south_path(south_path: String) -> String:
 	# Expected: res://assets/pixellab/<id>/rotations/south.png
 	var parts := south_path.split("/", false)
