@@ -3,6 +3,13 @@ extends Node2D
 @export var map_size: Vector2 = Vector2(4800, 3600)
 @export var random_seed: int = 0
 
+# Map visuals (removable). If disabled, uses the existing checkerboard background.
+@export var use_rich_map: bool = true
+@export var map_theme_id: String = "graveyard" # graveyard | arcane_ruins
+@export var map_prop_count: int = 42
+@export var map_fog_enabled: bool = true
+@export var map_fog_strength: float = 0.16
+
 @export var initial_enemy_count: int = 5
 @export var max_enemies_alive: int = 90 # legacy cap, superseded by ramp below
 @export var enemy_spawn_interval: float = 1.15 # legacy interval, superseded by ramp below
@@ -19,17 +26,25 @@ extends Node2D
 @export var spawn_radius_max: float = 1300.0
 
 @export var run_timer_max_minutes: float = 18.0
+@export var enable_bosses: bool = false
 @export var boss_spawn_time_minutes: float = 14.0
 @export var enable_rifts: bool = false
 @export var debug_hud_enabled: bool = false
 @export var debug_collision_cleanup_enabled: bool = false
 @export var debug_perf_overlay_enabled: bool = false
 
+# Autosave (run state)
+@export var autosave_enabled: bool = true
+@export var autosave_interval_seconds: float = 25.0
+
 const PLAYER_SCENE: PackedScene = preload("res://scenes/Player.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://scenes/Enemy.tscn")
 const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
 
-var damage_numbers: DamageNumbersLayer
+const DAMAGE_NUMBERS_LAYER_SCRIPT: Script = preload("res://scripts/DamageNumbersLayer.gd")
+const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
+
+var damage_numbers: Node = null
 var toast_layer: ToastLayer
 
 var rng: RandomNumberGenerator
@@ -80,6 +95,9 @@ var _perf_text: String = ""
 # Map tuning (data-driven via RunConfig + maps.json)
 var _map_mod: Dictionary = {}
 
+# Autosave node (ticks while paused)
+var _autosave_node: Node = null
+
 func _ready() -> void:
 	add_to_group("main")
 	_init_rng()
@@ -105,7 +123,8 @@ func _ready() -> void:
 
 	_make_background()
 
-	damage_numbers = DamageNumbersLayer.new()
+	# Avoid relying on global class lookup; preload is robust under strict typing.
+	damage_numbers = DAMAGE_NUMBERS_LAYER_SCRIPT.new()
 	add_child(damage_numbers)
 
 	toast_layer = ToastLayer.new()
@@ -123,6 +142,19 @@ func _ready() -> void:
 		_spawn_rifts()
 	_setup_hud()
 
+	# Global systems
+	var mm := get_node_or_null("/root/MusicManager")
+	if mm and is_instance_valid(mm) and mm.has_method("play"):
+		mm.play("combat")
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and is_instance_valid(tm) and tm.has_method("show_tip"):
+		tm.show_tip("movement")
+
+	# Resume run snapshot (if requested from Menu).
+	_try_apply_run_resume()
+
+	_setup_autosave()
+
 func _init_rng() -> void:
 	rng = RandomNumberGenerator.new()
 	if random_seed == 0:
@@ -134,6 +166,29 @@ func _elapsed_minutes() -> float:
 	return ((Time.get_ticks_msec() / 1000.0) - run_start_time) / 60.0
 
 func _make_background() -> void:
+	# Preferred: MapRenderer (procedural rich ground + fog + props).
+	if use_rich_map and MAP_RENDERER_SCENE != null:
+		var mr := MAP_RENDERER_SCENE.instantiate()
+		mr.name = "MapRenderer"
+		add_child(mr)
+		# Best-effort optional wiring, safe in strict typing mode.
+		for pd in mr.get_property_list():
+			var nm := StringName(String((pd as Dictionary).get("name", "")))
+			match nm:
+				&"map_size":
+					mr.set(nm, map_size)
+				&"theme_id":
+					mr.set(nm, map_theme_id)
+				&"prop_count":
+					mr.set(nm, map_prop_count)
+				&"fog_enabled":
+					mr.set(nm, map_fog_enabled)
+				&"fog_strength":
+					mr.set(nm, map_fog_strength)
+				&"seed":
+					mr.set(nm, random_seed)
+		return
+
 	var w := int(map_size.x)
 	var h := int(map_size.y)
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
@@ -168,7 +223,7 @@ func _spawn_player() -> void:
 
 func _spawn_initial_enemies() -> void:
 	var mult := float(_map_mod.get("initial_enemies_mult", 1.0))
-	var count: int = max(1, int(round(float(initial_enemy_count) * mult)))
+	var count: int = maxi(1, int(round(float(initial_enemy_count) * mult)))
 	for i in range(count):
 		_spawn_enemy(false, false, false)
 
@@ -211,7 +266,7 @@ func _physics_process(delta: float) -> void:
 		_tick_spawns()
 
 	var em := _elapsed_minutes()
-	if (not _boss_spawned) and em >= boss_spawn_time_minutes:
+	if enable_bosses and (not _boss_spawned) and em >= boss_spawn_time_minutes:
 		_spawn_boss()
 	_update_hud_labels()
 
@@ -225,6 +280,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Debug helper: toggle damage number layer to verify what's drawing the "orbs".
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k := event as InputEventKey
+		# Pause toggle
+		if k.keycode == KEY_ESCAPE and (not _game_over) and (not _victory):
+			# Don't open pause on top of draft UI (draft already pauses).
+			if has_node("RecruitDraftUI"):
+				return
+			_toggle_pause_menu()
+			return
 		# NOTE: F8 is an editor hotkey (can stop the running game). Use Ctrl+Shift+F9.
 		if k.keycode == KEY_F9 and k.ctrl_pressed and k.shift_pressed and damage_numbers != null:
 			damage_numbers.visible = not damage_numbers.visible
@@ -278,7 +340,7 @@ func _current_max_enemies() -> int:
 	var b := max_enemies_end
 	var r := _ramp01_curved()
 	var base := int(round(lerpf(float(a), float(b), r)))
-	return max(1, int(round(float(base) * float(_map_mod.get("max_enemies_mult", 1.0)))))
+	return maxi(1, int(round(float(base) * float(_map_mod.get("max_enemies_mult", 1.0)))))
 
 func _current_spawn_burst() -> int:
 	# Keep early game at 1, later game occasionally uses 2.
@@ -325,10 +387,28 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	e.affix_ids = affixes
 	add_child(e)
 	e.global_position = center + Vector2(cos(ang), sin(ang)) * dist
+	# SFX: elite spawns read as events (throttled).
+	if is_elite and (not is_boss):
+		var s := get_node_or_null("/root/SfxSystem")
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("enemy.elite_spawn", e.global_position, e)
 
 func _spawn_boss() -> void:
 	_boss_spawned = true
 	_spawn_enemy(true, false, true)
+	# Boss entrance feedback
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_event"):
+		var pos := Vector2.ZERO
+		if live_enemies.size() > 0 and is_instance_valid(live_enemies[live_enemies.size() - 1]):
+			pos = (live_enemies[live_enemies.size() - 1] as Node2D).global_position
+		s.play_event("boss.spawn", pos, self)
+	var ss := get_node_or_null("/root/ScreenShake")
+	if ss and is_instance_valid(ss):
+		if ss.has_method("shake"):
+			ss.shake(10.0, 0.20)
+		if ss.has_method("hit_stop"):
+			ss.hit_stop(0.06)
 	# Best-effort: last enemy spawned is boss
 	if live_enemies.size() > 0:
 		_boss_node = live_enemies[live_enemies.size() - 1]
@@ -372,6 +452,12 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	# RNG draft drops (no capture bar)
 	_roll_draft_drop(is_elite, was_boss)
 
+	# Micro feedback: small shake on kills (bigger on elites/bosses).
+	var ss := get_node_or_null("/root/ScreenShake")
+	if ss and is_instance_valid(ss) and ss.has_method("shake"):
+		var inten := 6.0 if (is_elite or was_boss) else 1.5
+		ss.shake(inten, 0.10)
+
 	# Global synergy triggers (on-kill effects like Undying heal)
 	SynergySystem.on_enemy_killed(self, is_elite, was_boss)
 
@@ -383,7 +469,7 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	# Essence economy for rerolls
 	var base := 1 if not is_elite else 3
 	var mult := float(_map_mod.get("essence_mult", 1.0))
-	essence += max(1, int(round(float(base) * mult)))
+	essence += maxi(1, int(round(float(base) * mult)))
 
 	# Trophy pool: store recent killed character variants for unlocks
 	if cd != null:
@@ -392,7 +478,7 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 			_recent_trophy_pool.pop_front()
 
 	# Boss victory
-	if was_boss:
+	if enable_bosses and was_boss:
 		_show_victory()
 
 func start_rift_encounter(_rift: Node) -> void:
@@ -408,6 +494,8 @@ func show_damage_number(source_id: int, channel: String, amount: int, world_pos:
 	damage_numbers.spawn_aggregated(source_id, channel, amount, world_pos, style, is_crit)
 
 func _on_draft_ready() -> void:
+	# Autosave immediately before pausing (so resume is reliable).
+	_request_autosave("draft")
 	# Pause game and show recruit draft UI
 	get_tree().paused = true
 	var s := get_node_or_null("/root/SfxSystem")
@@ -415,6 +503,23 @@ func _on_draft_ready() -> void:
 		s.play_ui("ui.open")
 	_run_drafts += 1
 	_show_recruit_draft()
+
+func _setup_autosave() -> void:
+	if has_node("AutosaveTicker"):
+		_autosave_node = get_node("AutosaveTicker")
+		return
+	var t := preload("res://scripts/AutosaveTicker.gd").new()
+	t.name = "AutosaveTicker"
+	add_child(t)
+	_autosave_node = t
+	if _autosave_node and is_instance_valid(_autosave_node) and _autosave_node.has_method("set_main"):
+		_autosave_node.set_main(self)
+
+func _request_autosave(reason: String = "") -> void:
+	if _autosave_node == null or not is_instance_valid(_autosave_node):
+		_setup_autosave()
+	if _autosave_node and is_instance_valid(_autosave_node) and _autosave_node.has_method("trigger_autosave"):
+		_autosave_node.trigger_autosave(reason)
 
 func _roll_draft_drop(is_elite: bool, was_boss: bool) -> void:
 	# Don't stack drafts.
@@ -570,7 +675,12 @@ func _show_recruit_draft() -> void:
 	close_btn.text = "Close (Select Later)"
 	close_btn.add_theme_font_size_override("font_size", 18)
 	close_btn.custom_minimum_size = Vector2(220, 46)
-	close_btn.pressed.connect(func(): _close_draft(draft_ui))
+	close_btn.pressed.connect(func():
+		var s := get_node_or_null("/root/SfxSystem")
+		if s and is_instance_valid(s) and s.has_method("play_ui"):
+			s.play_ui("ui.pause_close")
+		_close_draft(draft_ui)
+	)
 	btns.add_child(close_btn)
 
 func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool) -> void:
@@ -578,7 +688,7 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 
 	# Option 1-2: trophies from recent kills
 	_recent_trophy_pool.shuffle()
-	for i in range(min(2, _recent_trophy_pool.size())):
+	for i in range(mini(2, _recent_trophy_pool.size())):
 		options.append(_recent_trophy_pool[i])
 
 	# Option 3: random recruit roll (rift improves odds via elapsed minutes bias already)
@@ -816,7 +926,7 @@ func _select_character(cd: CharacterData, ui: CanvasLayer) -> void:
 		var ok: bool = bool(cm.unlock_character(cd))
 		var s := get_node_or_null("/root/SfxSystem")
 		if s and s.has_method("play_ui"):
-			s.play_ui("ui.confirm" if ok else "ui.cancel")
+			s.play_ui("ui.pick" if ok else "ui.cancel")
 		if toast_layer != null:
 			var rarity := UnitFactory.rarity_name(cd.rarity_id)
 			var col := UnitFactory.rarity_color(cd.rarity_id)
@@ -836,6 +946,21 @@ func _setup_hud() -> void:
 	hud.name = "HUD"
 	hud.layer = 10
 	add_child(hud)
+
+	# Tiny autosave indicator (top-right)
+	var autosave_lbl := Label.new()
+	autosave_lbl.name = "AutosaveLabel"
+	autosave_lbl.text = "Autosaving…"
+	autosave_lbl.visible = false
+	autosave_lbl.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	autosave_lbl.offset_left = -170
+	autosave_lbl.offset_right = -18
+	autosave_lbl.offset_top = 16
+	autosave_lbl.offset_bottom = 36
+	autosave_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	autosave_lbl.add_theme_font_size_override("font_size", 12)
+	autosave_lbl.add_theme_color_override("font_color", Color(0.78, 0.92, 1.0, 0.92))
+	hud.add_child(autosave_lbl)
 
 	var container := VBoxContainer.new()
 	container.name = "HUDVBox"
@@ -882,6 +1007,7 @@ func _update_hud_labels() -> void:
 	var hud := get_node_or_null("HUD/HUDVBox") as VBoxContainer
 	if hud == null:
 		return
+
 	var t := get_node_or_null("HUD/HUDVBox/RunTimerLabel") as Label
 	if t:
 		var secs := int(round(((Time.get_ticks_msec() / 1000.0) - run_start_time)))
@@ -1026,8 +1152,9 @@ func _hide_collision_debug_visuals() -> void:
 				stack.append(ch)
 
 	# End-of-run timer
-	if _elapsed_minutes() >= run_timer_max_minutes and not _victory:
-		_show_game_over()
+	if _elapsed_minutes() >= run_timer_max_minutes and not _victory and not _game_over:
+		# Survival victory (bosses are optional / later).
+		_show_victory()
 
 func _show_game_over() -> void:
 	_game_over = true
@@ -1035,6 +1162,13 @@ func _show_game_over() -> void:
 	var s := get_node_or_null("/root/SfxSystem")
 	if s and s.has_method("play_ui"):
 		s.play_ui("ui.defeat")
+	var mm := get_node_or_null("/root/MusicManager")
+	if mm and is_instance_valid(mm) and mm.has_method("play"):
+		mm.play("defeat", 0.35)
+	# Run is finished, don't offer resume.
+	var sv := get_node_or_null("/root/SaveManager")
+	if sv and is_instance_valid(sv) and sv.has_method("delete_run_save"):
+		sv.delete_run_save()
 	_award_meta(false)
 	var ui := CanvasLayer.new()
 	ui.layer = 200
@@ -1047,11 +1181,94 @@ func _show_victory() -> void:
 	var s := get_node_or_null("/root/SfxSystem")
 	if s and s.has_method("play_ui"):
 		s.play_ui("ui.victory")
+	var mm := get_node_or_null("/root/MusicManager")
+	if mm and is_instance_valid(mm) and mm.has_method("play"):
+		mm.play("victory", 0.35)
+	# Run is finished, don't offer resume.
+	var sv := get_node_or_null("/root/SaveManager")
+	if sv and is_instance_valid(sv) and sv.has_method("delete_run_save"):
+		sv.delete_run_save()
 	_award_meta(true)
 	var ui := CanvasLayer.new()
 	ui.layer = 200
 	add_child(ui)
 	_build_end_screen(ui, "Victory", true)
+
+func _toggle_pause_menu() -> void:
+	if get_tree().paused:
+		# If paused but no pause menu exists, unpause; else let the pause menu handle resume.
+		if has_node("PauseMenu"):
+			return
+		get_tree().paused = false
+		var s := get_node_or_null("/root/SfxSystem")
+		if s and is_instance_valid(s) and s.has_method("play_ui"):
+			s.play_ui("ui.pause_close")
+		return
+	# open
+	get_tree().paused = true
+	var s2 := get_node_or_null("/root/SfxSystem")
+	if s2 and is_instance_valid(s2) and s2.has_method("play_ui"):
+		s2.play_ui("ui.pause_open")
+	var layer := preload("res://scripts/PauseMenu.gd").new()
+	layer.name = "PauseMenu"
+	add_child(layer)
+
+func _try_apply_run_resume() -> void:
+	var sv := get_node_or_null("/root/SaveManager")
+	if sv == null or not is_instance_valid(sv):
+		return
+	if (not ("resume_next_run" in sv)) or (not bool(sv.get("resume_next_run"))):
+		return
+	if not sv.has_method("pop_cached_run"):
+		return
+	var d: Dictionary = sv.pop_cached_run()
+	if d.is_empty():
+		return
+
+	# Apply timers/state first.
+	var now_s := float(Time.get_ticks_msec()) / 1000.0
+	var elapsed_s := float(d.get("elapsed_s", 0.0))
+	run_start_time = now_s - maxf(0.0, elapsed_s)
+	essence = int(d.get("essence", essence))
+	_run_kills = int(d.get("kills", _run_kills))
+
+	var want_boss := bool(d.get("boss_spawned", false))
+	_boss_spawned = want_boss
+
+	# Move player + rebuild squad.
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player != null and is_instance_valid(player):
+		var ppos_v: Variant = d.get("player_pos", Vector2.ZERO)
+		if ppos_v is Vector2:
+			var ppos: Vector2 = ppos_v
+			player.global_position = ppos
+
+		# Remove current squad units
+		if "squad_units" in player:
+			var arr: Array = player.get("squad_units")
+			for u in arr:
+				if is_instance_valid(u):
+					(u as Node).queue_free()
+			player.set("squad_units", [])
+
+		# Spawn saved squad
+		var squad: Array = d.get("squad", [])
+		for cd in squad:
+			if cd is CharacterData and player.has_method("add_squad_unit"):
+				player.add_squad_unit(cd)
+
+	# If boss should be present, spawn it now if needed.
+	if want_boss and (_boss_node == null or not is_instance_valid(_boss_node)):
+		# Ensure we don't double-trigger _boss_spawned inside _spawn_boss.
+		_boss_spawned = false
+		_spawn_boss()
+
+	# Feedback: resume loaded
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_ui"):
+		s.play_ui("ui.resume_load")
+	if toast_layer != null:
+		toast_layer.show_toast("Resumed run.", Color(0.65, 0.85, 1.0, 1.0))
 
 func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> void:
 	var bg := ColorRect.new()
@@ -1178,7 +1395,7 @@ func _award_meta(victory: bool) -> void:
 	# Map multiplier (harder maps => faster meta progress)
 	var mult := float(_map_mod.get("meta_sigils_mult", 1.0))
 	var total := int(round(float(base + bonus) * mult))
-	total = max(5, total)
+	total = maxi(5, total)
 	mp.add_sigils(total)
 
 	# Persist last run summary for Menu UI.

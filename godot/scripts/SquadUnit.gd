@@ -59,7 +59,7 @@ func _apply_from_data() -> void:
 	_attack_timer = 0.0
 	var mods := SynergySystem.mods_for_cd(character_data)
 	_max_hp_effective = int(round(float(character_data.max_hp) * float(mods.get("max_hp_mult", 1.0))))
-	_max_hp_effective = max(1, _max_hp_effective)
+	_max_hp_effective = maxi(1, _max_hp_effective)
 	current_hp = _max_hp_effective
 
 func _apply_placeholder() -> void:

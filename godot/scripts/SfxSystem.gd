@@ -100,9 +100,10 @@ func _gate_emitter(emitter_key: String, event_id: String, min_ms: int, now_ms: i
 
 func _build_pool() -> void:
 	_pool.clear()
+	var bus_name := "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
 	for i in range(maxi(4, max_voices)):
 		var p := AudioStreamPlayer2D.new()
-		p.bus = "Master"
+		p.bus = bus_name
 		p.max_distance = 1200.0
 		p.attenuation = 2.0
 		p.panning_strength = 0.6
@@ -153,12 +154,18 @@ func _build_event_cfg() -> void:
 	_event_cfg["ui.drop"] = {"stream": "ui_drop", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 250, "min_ms_emitter": 250}
 	_event_cfg["ui.victory"] = {"stream": "ui_victory", "gain_db": 4.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 500, "min_ms_emitter": 500}
 	_event_cfg["ui.defeat"] = {"stream": "ui_defeat", "gain_db": 4.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 500, "min_ms_emitter": 500}
+	_event_cfg["ui.pause_open"] = {"stream": "ui_open", "gain_db": 0.5 + loud, "pitch": 0.98, "jitter": 0.03, "min_ms_global": 200, "min_ms_emitter": 200}
+	_event_cfg["ui.pause_close"] = {"stream": "ui_cancel", "gain_db": -1.0 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 120}
+	_event_cfg["ui.save"] = {"stream": "ui_confirm", "gain_db": 1.0 + loud, "pitch": 0.95, "jitter": 0.02, "min_ms_global": 250, "min_ms_emitter": 250}
+	_event_cfg["ui.resume_load"] = {"stream": "ui_confirm", "gain_db": 1.0 + loud, "pitch": 1.05, "jitter": 0.02, "min_ms_global": 250, "min_ms_emitter": 250}
+	_event_cfg["ui.pick"] = {"stream": "ui_confirm", "gain_db": 0.5 + loud, "pitch": 1.02, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 120}
 
 	# Core combat (very frequent -> per-emitter throttle)
 	_event_cfg["player.slash"] = {"stream": "player_slash", "gain_db": -1.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 0, "min_ms_emitter": 110}
 	_event_cfg["player.shot"] = {"stream": "player_shot", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 0, "min_ms_emitter": 90}
 	_event_cfg["enemy.die"] = {"stream": "enemy_die", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 25, "min_ms_emitter": 0}
 	_event_cfg["enemy.elite_spawn"] = {"stream": "enemy_spawn_elite", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 250, "min_ms_emitter": 250}
+	_event_cfg["boss.spawn"] = {"stream": "enemy_spawn_elite", "gain_db": 4.0 + loud, "pitch": 0.92, "jitter": 0.02, "min_ms_global": 600, "min_ms_emitter": 600}
 
 	# Synergy procs (big moments, but still throttled)
 	_event_cfg["syn.arc"] = {"stream": "arc_zap", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 90, "min_ms_emitter": 140}

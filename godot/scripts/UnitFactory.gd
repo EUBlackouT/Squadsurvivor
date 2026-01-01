@@ -278,5 +278,3 @@ static func _roll_passive_count(rarity_id: String, rng: RandomNumberGenerator) -
 			if roll < 0.22:
 				return 2
 			return 1
-
-

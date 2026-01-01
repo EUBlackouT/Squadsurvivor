@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3 uid="uid://map_renderer"]
+
+[ext_resource type="Script" path="res://scripts/MapRenderer.gd" id="1"]
+
+[node name="MapRenderer" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Ground" type="Sprite2D" parent="."]
+
+[node name="Fog" type="Sprite2D" parent="."]
+
+[node name="Props" type="Node2D" parent="."]

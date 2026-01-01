@@ -530,5 +530,3 @@ static func _spawn_arc(world: Node2D, a: Vector2, b: Vector2, color: Color) -> v
 		v.setup(a, b, color)
 
 ## Note: we intentionally do not spawn decal-like VFX (rings/crescents) for status effects.
-
-

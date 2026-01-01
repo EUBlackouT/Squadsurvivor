@@ -1,6 +1,9 @@
 extends Control
 
 @onready var start_btn: Button = get_node_or_null("Root/Right/StartRun") as Button
+@onready var resume_btn: Button = get_node_or_null("Root/Right/ResumeRun") as Button
+@onready var settings_btn: Button = get_node_or_null("Root/Right/SettingsBtn") as Button
+@onready var back_btn: Button = get_node_or_null("Root/Right/BackBtn") as Button
 @onready var roster_box: VBoxContainer = get_node_or_null("Root/Right/RosterBox") as VBoxContainer
 @onready var collection_box: VBoxContainer = get_node_or_null("Root/Left/CollectionBox") as VBoxContainer
 @onready var map_select: OptionButton = get_node_or_null("Root/Right/MapSelect") as OptionButton
@@ -27,6 +30,11 @@ func _ready() -> void:
 	_setup_map_select()
 	_setup_meta_ui()
 
+	# Menu music
+	var mm := get_node_or_null("/root/MusicManager")
+	if mm and is_instance_valid(mm) and mm.has_method("play"):
+		mm.play("menu", 0.35)
+
 	if start_btn:
 		start_btn.pressed.connect(func():
 			var s := get_node_or_null("/root/SfxSystem")
@@ -35,11 +43,55 @@ func _ready() -> void:
 			_on_start_run()
 		)
 
+	if settings_btn:
+		settings_btn.pressed.connect(func():
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and s.has_method("play_ui"):
+				s.play_ui("ui.click")
+			_open_settings()
+		)
+
+	if back_btn:
+		back_btn.pressed.connect(func():
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and s.has_method("play_ui"):
+				s.play_ui("ui.cancel")
+			get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+		)
+
+	var sv := get_node_or_null("/root/SaveManager")
+	if sv and is_instance_valid(sv) and sv.has_method("load_meta"):
+		# Optional: if meta_save.json exists, treat it as a higher-priority snapshot.
+		sv.load_meta()
+
+	# Resume run (if available)
+	if resume_btn:
+		var has := false
+		if sv and is_instance_valid(sv) and sv.has_method("has_saved_run"):
+			has = bool(sv.has_saved_run())
+		resume_btn.visible = has
+		if has:
+			resume_btn.pressed.connect(func():
+				var s := get_node_or_null("/root/SfxSystem")
+				if s and s.has_method("play_ui"):
+					s.play_ui("ui.resume_load")
+				if sv and is_instance_valid(sv) and sv.has_method("request_resume"):
+					if bool(sv.request_resume()):
+						_on_start_run()
+			)
+
 func _meta_cap() -> int:
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp and is_instance_valid(mp) and mp.has_method("get_roster_cap"):
 		return int(mp.get_roster_cap())
 	return 6
+
+func _open_settings() -> void:
+	if has_node("SettingsMenu"):
+		return
+	var sm := preload("res://scripts/SettingsMenu.gd").new()
+	sm.name = "SettingsMenu"
+	add_child(sm)
 
 func _setup_meta_ui() -> void:
 	var right := get_node_or_null("Root/Right/RightPad/RightVBox") as VBoxContainer

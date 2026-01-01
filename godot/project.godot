@@ -12,11 +12,20 @@ config_version=5
 
 config/name="SplitCodePilot"
 config/version="4.2"
-run/main_scene="res://scenes/Menu.tscn"
+run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.4")
+
+[audio]
+
+default_bus_layout="res://default_bus_layout.tres"
 
 [autoload]
 
+SettingsManager="*res://scripts/SettingsManager.gd"
+SaveManager="*res://scripts/SaveManager.gd"
+TutorialManager="*res://scripts/TutorialManager.gd"
+ScreenShake="*res://scripts/ScreenShake.gd"
+MusicManager="*res://scripts/MusicManager.gd"
 MetaProgression="*res://scripts/MetaProgression.gd"
 CollectionManager="*res://scripts/CollectionManager.gd"
 RunConfig="*res://scripts/RunConfig.gd"

@@ -114,5 +114,3 @@ func _make_tex() -> Texture2D:
 				))
 
 	return ImageTexture.create_from_image(out_img)
-
-

@@ -80,6 +80,3 @@ func show_toast(text: String, color: Color = Color(0.9, 0.95, 1.0, 1.0)) -> void
 	)
 
 	_active.append({"id": my_id, "life": toast_life})
-
-
-

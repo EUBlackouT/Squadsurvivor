@@ -1,0 +1,121 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/MainMenu.gd" id="1"]
+[ext_resource type="Shader" path="res://shaders/ui_arcane_scifi_backdrop.gdshader" id="2"]
+[ext_resource type="Shader" path="res://shaders/ui_neon_frame.gdshader" id="3"]
+
+[sub_resource type="ShaderMaterial" id="1"]
+shader = ExtResource("2")
+
+[sub_resource type="ShaderMaterial" id="2"]
+shader = ExtResource("3")
+shader_parameter/base_color = Color(0.07, 0.08, 0.1, 0.96)
+shader_parameter/glow_color = Color(0.4, 0.8, 1.0, 0.5)
+shader_parameter/glow_width = 0.02
+shader_parameter/pulse_speed = 1.1
+
+[node name="MainMenu" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.92)
+
+[node name="BackdropShader" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.0)
+mouse_filter = 2
+material = SubResource("1")
+
+[node name="Root" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Card" type="PanelContainer" parent="Root"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -250.0
+offset_right = 280.0
+offset_bottom = 250.0
+material = SubResource("2")
+
+[node name="Pad" type="MarginContainer" parent="Root/Card"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="Root/Card/Pad"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Root/Card/Pad/VBox"]
+text = "SplitCode"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 42
+
+[node name="Subtitle" type="Label" parent="Root/Card/Pad/VBox"]
+text = "Infinite Horde Tactics"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 16
+
+[node name="Spacer" type="Control" parent="Root/Card/Pad/VBox"]
+custom_minimum_size = Vector2(0, 8)
+
+[node name="Resume" type="Button" parent="Root/Card/Pad/VBox"]
+text = "Resume Run"
+visible = false
+custom_minimum_size = Vector2(0, 52)
+theme_override_font_sizes/font_size = 20
+
+[node name="MapLabel" type="Label" parent="Root/Card/Pad/VBox"]
+text = "Map"
+theme_override_font_sizes/font_size = 14
+
+[node name="MapSelect" type="OptionButton" parent="Root/Card/Pad/VBox"]
+custom_minimum_size = Vector2(0, 42)
+theme_override_font_sizes/font_size = 16
+
+[node name="MapTagline" type="Label" parent="Root/Card/Pad/VBox"]
+text = ""
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+
+[node name="Play" type="Button" parent="Root/Card/Pad/VBox"]
+text = "Play"
+custom_minimum_size = Vector2(0, 52)
+theme_override_font_sizes/font_size = 20
+
+[node name="Armory" type="Button" parent="Root/Card/Pad/VBox"]
+text = "Armory / Run Setup"
+custom_minimum_size = Vector2(0, 46)
+theme_override_font_sizes/font_size = 16
+
+[node name="Settings" type="Button" parent="Root/Card/Pad/VBox"]
+text = "Settings"
+custom_minimum_size = Vector2(0, 46)
+theme_override_font_sizes/font_size = 16
+
+[node name="Quit" type="Button" parent="Root/Card/Pad/VBox"]
+text = "Quit"
+custom_minimum_size = Vector2(0, 46)
+theme_override_font_sizes/font_size = 16
+
+

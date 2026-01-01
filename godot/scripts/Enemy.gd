@@ -1,5 +1,12 @@
 extends CharacterBody2D
 
+# DamageNumbersLayer styles (mirrors res://scripts/DamageNumbersLayer.gd)
+const DM_STYLE_DEFAULT := 0
+const DM_STYLE_CRIT := 1
+const DM_STYLE_DOT := 2
+const DM_STYLE_ARC := 3
+const DM_STYLE_ECHO := 4
+
 @export var is_elite: bool = false
 @export var pixellab_south_path: String = ""
 @export var character_data: CharacterData
@@ -75,7 +82,7 @@ func _ready() -> void:
 	if character_data != null:
 		current_hp = int(round(float(character_data.max_hp) * _hp_mult))
 		# Tuned down: early swarm should be about count/positioning, not instant melting.
-		contact_damage = max(1, int(round(float(character_data.attack_damage) * 0.22 * _dmg_mult)))
+		contact_damage = maxi(1, int(round(float(character_data.attack_damage) * 0.22 * _dmg_mult)))
 	else:
 		current_hp = int(round(30.0 * _hp_mult))
 
@@ -219,7 +226,7 @@ func _bomber_step(delta: float, dist: float, dir: Vector2) -> void:
 	move_and_slide()
 	if dist <= 66.0 and _attack_t <= 0.0:
 		_attack_t = 999.0
-		_explode(120.0, max(4, int(round(float(contact_damage) * 2.4))))
+		_explode(120.0, maxi(4, int(round(float(contact_damage) * 2.4))))
 		_die()
 
 func _fire_bolt(tgt: Node2D, tint: Color, dmg_mult: float) -> void:
@@ -234,7 +241,7 @@ func _fire_bolt(tgt: Node2D, tint: Color, dmg_mult: float) -> void:
 	world.add_child(bolt)
 	bolt.global_position = global_position
 	var dmg := int(round(float(contact_damage) * 1.15 * dmg_mult))
-	bolt.setup_target(tgt, max(1, dmg), tint, 560.0)
+	bolt.setup_target(tgt, maxi(1, dmg), tint, 560.0)
 	var s := world.get_node_or_null("/root/SfxSystem")
 	if s and s.has_method("play_event"):
 		s.play_event("enemy.spit", global_position, self)
@@ -301,7 +308,7 @@ func _arcane_zap() -> void:
 	if s and s.has_method("play_event"):
 		s.play_event("enemy.arcane", global_position, self)
 	if best.has_method("take_damage"):
-		best.take_damage(max(1, int(round(float(contact_damage) * 0.85))))
+		best.take_damage(maxi(1, int(round(float(contact_damage) * 0.85))))
 
 func _heal_from_hit(dmg: int) -> void:
 	if dmg <= 0:
@@ -309,7 +316,7 @@ func _heal_from_hit(dmg: int) -> void:
 	var amt := int(round(float(dmg) * 0.35))
 	if amt <= 0:
 		return
-	current_hp = min(current_hp + amt, int(round(float(character_data.max_hp) * _hp_mult)) if character_data != null else current_hp + amt)
+	current_hp = mini(current_hp + amt, int(round(float(character_data.max_hp) * _hp_mult)) if character_data != null else current_hp + amt)
 	var world := _main
 	if world != null:
 		var hp := VfxHolyPulse.new()
@@ -396,20 +403,20 @@ func _update_anim(dir: Vector2) -> void:
 
 func take_damage(amount: int, is_crit: bool = false, source: String = "") -> void:
 	var prev := current_hp
-	current_hp = max(0, current_hp - amount)
+	current_hp = maxi(0, current_hp - amount)
 
 	# Damage numbers (delegated to Main's DamageNumbersLayer)
 	var main := _main
 	if main == null or not is_instance_valid(main):
 		main = get_tree().get_first_node_in_group("main") as Node2D
 	if main and is_instance_valid(main) and main.has_method("show_damage_number"):
-		var style := DamageNumbersLayer.STYLE_DEFAULT
+		var style: int = DM_STYLE_DEFAULT
 		if source == "bleed" or source == "dot":
-			style = DamageNumbersLayer.STYLE_DOT
+			style = DM_STYLE_DOT
 		elif source == "arc":
-			style = DamageNumbersLayer.STYLE_ARC
+			style = DM_STYLE_ARC
 		elif source == "echo":
-			style = DamageNumbersLayer.STYLE_ECHO
+			style = DM_STYLE_ECHO
 		main.show_damage_number(get_instance_id(), source, amount, global_position + Vector2(0, -26), style, is_crit)
 
 	if current_hp <= 0:
@@ -437,7 +444,7 @@ func _die() -> void:
 	_process_death_tags()
 	# Volatile elites explode on death.
 	if _volatile_on_death:
-		_explode(92.0, max(3, int(round(float(contact_damage) * 1.8))))
+		_explode(92.0, maxi(3, int(round(float(contact_damage) * 1.8))))
 	# Death pop sound (global throttled)
 	var world := _main
 	if world == null:
@@ -538,7 +545,7 @@ func _tick_status(delta: float) -> void:
 			_bleed_cd = _bleed_tick
 			var dmg := _bleed_amount * _bleed_tick
 			_bleed_accum += dmg
-			current_hp = max(0, current_hp - int(round(dmg)))
+			current_hp = maxi(0, current_hp - int(round(dmg)))
 			if current_hp <= 0:
 				_die()
 				return
@@ -547,7 +554,7 @@ func _tick_status(delta: float) -> void:
 			var shown: int = int(round(_bleed_accum))
 			_bleed_accum = 0.0
 			_bleed_show_cd = 0.6
-			_main.show_damage_number(get_instance_id(), "bleed", shown, global_position + Vector2(0, -26), DamageNumbersLayer.STYLE_DOT, false)
+			_main.show_damage_number(get_instance_id(), "bleed", shown, global_position + Vector2(0, -26), DM_STYLE_DOT, false)
 
 	if _bleed_time_left <= 0.0:
 		_bleed_amount = 0.0
@@ -562,7 +569,7 @@ func _tick_status(delta: float) -> void:
 			_burn_cd = _burn_tick
 			var dmg2 := _burn_amount * _burn_tick
 			_burn_accum += dmg2
-			current_hp = max(0, current_hp - int(round(dmg2)))
+			current_hp = maxi(0, current_hp - int(round(dmg2)))
 			if current_hp <= 0:
 				_die()
 				return
@@ -570,7 +577,7 @@ func _tick_status(delta: float) -> void:
 			var shown2: int = int(round(_burn_accum))
 			_burn_accum = 0.0
 			_burn_show_cd = 0.6
-			_main.show_damage_number(get_instance_id(), "burn", shown2, global_position + Vector2(0, -26), DamageNumbersLayer.STYLE_DOT, false)
+			_main.show_damage_number(get_instance_id(), "burn", shown2, global_position + Vector2(0, -26), DM_STYLE_DOT, false)
 
 	if _burn_time_left <= 0.0:
 		_burn_amount = 0.0
