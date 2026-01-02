@@ -126,6 +126,41 @@
       "description": "Hits 'tag' enemies with a vortex. Tagged enemies take a small pulse if clustered.",
       "tags": ["aoe", "setup"],
       "params": { "radius": 140, "cluster_count": 3, "damage_mult": 0.22, "cooldown": 0.5 }
+    },
+    {
+      "id": "cinder_brand",
+      "name": "Cinder Brand",
+      "description": "Hits apply a burning brand that deals damage over time.",
+      "tags": ["dot", "burn"],
+      "params": { "damage_mult": 0.12, "duration": 3.2, "tick_interval": 0.5 }
+    },
+    {
+      "id": "vampiric_bullets",
+      "name": "Vampiric Bullets",
+      "description": "Projectile hits heal the attacker for a portion of damage dealt.",
+      "tags": ["ranged", "sustain"],
+      "params": { "heal_mult": 0.10 }
+    },
+    {
+      "id": "doomstack",
+      "name": "Doomstack",
+      "description": "Hits build Doom. At 4 stacks (within a short window), the target detonates for big bonus damage and a small AoE.",
+      "tags": ["setup", "aoe", "burst"],
+      "params": { "stacks": 4, "window": 2.0, "damage_mult": 0.65, "radius": 120.0 }
+    },
+    {
+      "id": "hailburst",
+      "name": "Hailburst",
+      "description": "Hitting a Frost-tagged enemy consumes the tag and shatters ice, damaging nearby enemies.",
+      "tags": ["control", "aoe", "proc"],
+      "params": { "radius": 120.0, "damage_mult": 0.40 }
+    },
+    {
+      "id": "predator_instinct",
+      "name": "Predator Instinct",
+      "description": "Bonus damage against enemies above 80% HP (great for opening hits).",
+      "tags": ["burst", "execute"],
+      "params": { "threshold": 0.80, "damage_mult": 0.20 }
     }
   ]
 }

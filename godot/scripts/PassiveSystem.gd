@@ -57,6 +57,8 @@ static func passive_color(id: String) -> Color:
 		return Color(0.55, 0.85, 1.00, 1.0)
 	if tags.has("dot"):
 		return Color(1.00, 0.30, 0.40, 1.0)
+	if tags.has("burn"):
+		return Color(1.00, 0.55, 0.20, 1.0)
 	if tags.has("sustain"):
 		return Color(0.55, 1.00, 0.65, 1.0)
 	if tags.has("mobility"):
@@ -74,6 +76,14 @@ static func passive_color(id: String) -> Color:
 	if tags.has("setup") or tags.has("proc"):
 		return Color(1.00, 0.55, 0.95, 1.0)
 	return Color(0.86, 0.90, 0.96, 1.0)
+
+static func _spawn_vfx(node: Node2D, vfx: Node2D) -> void:
+	if node == null or vfx == null:
+		return
+	var world := _main_world(node)
+	if world == null:
+		return
+	world.add_child(vfx)
 
 static func extra_pierce_count(passive_ids: PackedStringArray) -> int:
 	# Only one passive currently affects pierce.
@@ -142,6 +152,19 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 				_pinpoint_tag(target, damage)
 			"vortex_tag":
 				_vortex_tag(unit, target, damage)
+			"cinder_brand":
+				if is_melee:
+					_cinder_brand(target, damage)
+			"doomstack":
+				_doomstack(unit, target, damage)
+			"hailburst":
+				_hailburst(unit, target, damage)
+			"predator_instinct":
+				_predator_instinct(target, damage)
+			_:
+				pass
+	# Extra: if crit, allow certain passives to proc even for ranged via metadata on unit.
+	# (No-op for now)
 			_:
 				pass
 
@@ -169,6 +192,16 @@ static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, ene
 				_pinpoint_consume(enemy, damage)
 			"vortex_tag":
 				_vortex_tag(_proj, enemy, damage)
+			"cinder_brand":
+				_cinder_brand(enemy, damage)
+			"vampiric_bullets":
+				_vampiric_bullets(_proj, damage)
+			"doomstack":
+				_doomstack(_proj, enemy, damage)
+			"hailburst":
+				_hailburst(_proj, enemy, damage)
+			"predator_instinct":
+				_predator_instinct(enemy, damage)
 			_:
 				pass
 
@@ -490,7 +523,12 @@ static func _frost_tag(target: Node2D) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	if target.has_method("apply_slow"):
-		target.apply_slow(0.75, 1.5)
+		var mult := _param_f("frost_tag", "slow_mult", 0.75)
+		var dur := _param_f("frost_tag", "duration", 1.5)
+		target.apply_slow(mult, dur)
+		# Tag for combo passives (e.g., Hailburst)
+		var until_ms: int = int(Time.get_ticks_msec() + int(round(dur * 1000.0)))
+		target.set_meta("_frost_until_ms", until_ms)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.55, 0.85, 1.0, 1.0))
 
@@ -498,10 +536,153 @@ static func _bleed_edge(target: Node2D, damage: int) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	if target.has_method("apply_bleed"):
-		var dps := float(damage) * 0.15
-		target.apply_bleed(dps, 3.0, 0.5)
+		var mult := _param_f("bleed_edge", "damage_mult", 0.15)
+		var dur := _param_f("bleed_edge", "duration", 3.0)
+		var tick := _param_f("bleed_edge", "tick_interval", 0.5)
+		var dps := float(damage) * mult
+		target.apply_bleed(dps, dur, tick)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(1.0, 0.25, 0.35, 1.0))
+
+static func _cinder_brand(target: Node2D, damage: int) -> void:
+	# Applies burn (DOT) on hit.
+	if target == null or not is_instance_valid(target):
+		return
+	if not target.has_method("apply_burn"):
+		return
+	var mult := _param_f("cinder_brand", "damage_mult", 0.12)
+	var dur := _param_f("cinder_brand", "duration", 3.2)
+	var tick := _param_f("cinder_brand", "tick_interval", 0.5)
+	var dps := float(damage) * mult
+	if dps <= 0.0:
+		return
+	target.apply_burn(dps, dur, tick)
+	# Tag for potential combos
+	var until_ms: int = int(Time.get_ticks_msec() + int(round(dur * 1000.0)))
+	target.set_meta("_burn_until_ms", until_ms)
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(1.0, 0.55, 0.20, 1.0))
+	# VFX: ember burst on application
+	var fb := VfxFlameBurst.new()
+	fb.setup((target as Node2D).global_position + Vector2(0, -22), Color(1.0, 0.55, 0.18, 1.0), 24.0, 10, 0.20, Vector2(0, -1))
+	_spawn_vfx(target as Node2D, fb)
+
+static func _vampiric_bullets(proj: Node2D, damage: int) -> void:
+	# Heal shooter on projectile hit. Requires Projectile to carry source_unit.
+	if proj == null:
+		return
+	var su: Node2D = proj.get("source_unit") as Node2D
+	if su == null or not is_instance_valid(su):
+		return
+	if not su.has_method("heal"):
+		return
+	var mult := _param_f("vampiric_bullets", "heal_mult", 0.10)
+	var heal := int(round(float(damage) * mult))
+	if heal <= 0:
+		return
+	su.heal(heal)
+	# VFX: leech beam + green pulse at the healer
+	var world: Node2D = _main_world(proj)
+	if world != null:
+		var start := (proj as Node2D).global_position
+		_spawn_arc(world, start, su.global_position, Color(0.55, 1.0, 0.65, 0.95))
+	var hp := VfxHolyPulse.new()
+	hp.setup(su.global_position + Vector2(0, -18), Color(0.55, 1.0, 0.65, 1.0), 14.0, 38.0, 0.20)
+	_spawn_vfx(su, hp)
+
+static func _doomstack(from: Node2D, target: Node2D, damage: int) -> void:
+	# Stacking mark: after N hits, detonate for bonus damage + small AoE.
+	if target == null or not is_instance_valid(target):
+		return
+	var window := _param_f("doomstack", "window", 2.0)
+	var stacks_need := _param_i("doomstack", "stacks", 4)
+	var mult := _param_f("doomstack", "damage_mult", 0.65)
+	var rad := _param_f("doomstack", "radius", 120.0)
+
+	var now_ms: int = int(Time.get_ticks_msec())
+	var until_ms: int = int(target.get_meta("_doom_until_ms", 0))
+	var stacks: int = int(target.get_meta("_doom_stacks", 0))
+	if now_ms > until_ms:
+		stacks = 0
+	stacks += 1
+	target.set_meta("_doom_stacks", stacks)
+	target.set_meta("_doom_until_ms", now_ms + int(round(window * 1000.0)))
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.75, 0.45, 1.0, 1.0))
+	# VFX: show stack brackets briefly
+	var fm := VfxFocusMark.new()
+	fm.setup((target as Node2D).global_position + Vector2(0, -18), Color(0.82, 0.65, 1.0, 1.0), 18.0, stacks, 0.18)
+	_spawn_vfx(target as Node2D, fm)
+	if stacks < stacks_need:
+		return
+	# Detonate
+	target.set_meta("_doom_stacks", 0)
+	target.set_meta("_doom_until_ms", 0)
+	var boom := int(round(float(damage) * mult))
+	if boom <= 0:
+		return
+	if target.has_method("take_damage"):
+		target.take_damage(boom, false, "blast")
+	# VFX: detonation shockwave
+	var sw := VfxShockwave.new()
+	sw.setup((target as Node2D).global_position, Color(0.82, 0.65, 1.0, 1.0), 18.0, rad * 0.9, 5.0, 0.22)
+	_spawn_vfx(target as Node2D, sw)
+	var origin := (target as Node2D).global_position
+	var victims := _nearby_enemies(from if from != null else target, origin, rad, target as Node2D)
+	for v in victims:
+		if v.has_method("take_damage"):
+			v.take_damage(int(round(float(boom) * 0.45)), false, "blast")
+		if v.has_method("pulse_vfx"):
+			v.pulse_vfx(Color(0.75, 0.45, 1.0, 1.0))
+
+static func _hailburst(from: Node2D, target: Node2D, damage: int) -> void:
+	# Combo: if target is Frost-tagged, consume it and shatter for AoE.
+	if target == null or not is_instance_valid(target):
+		return
+	var until_ms: int = int(target.get_meta("_frost_until_ms", 0))
+	if until_ms <= 0 or int(Time.get_ticks_msec()) > until_ms:
+		return
+	# Consume
+	target.set_meta("_frost_until_ms", 0)
+	var rad := _param_f("hailburst", "radius", 120.0)
+	var mult := _param_f("hailburst", "damage_mult", 0.40)
+	var boom := int(round(float(damage) * mult))
+	if boom <= 0:
+		return
+	var origin := (target as Node2D).global_position
+	var victims := _nearby_enemies(from if from != null else target, origin, rad, null)
+	# VFX: frost nova on shatter
+	var nova := VfxFrostNova.new()
+	nova.setup(origin, Color(0.55, 0.85, 1.0, 1.0), rad, 10, 0.24)
+	_spawn_vfx(target as Node2D, nova)
+	for v in victims:
+		if v.has_method("take_damage"):
+			v.take_damage(boom, false, "blast")
+		if v.has_method("pulse_vfx"):
+			v.pulse_vfx(Color(0.55, 0.85, 1.0, 1.0))
+
+static func _predator_instinct(target: Node2D, damage: int) -> void:
+	# Bonus damage against healthy targets (good for opening waves).
+	if target == null or not is_instance_valid(target):
+		return
+	if not target.has_method("get_hp_ratio"):
+		return
+	var th := _param_f("predator_instinct", "threshold", 0.80)
+	var mult := _param_f("predator_instinct", "damage_mult", 0.20)
+	var r := float(target.get_hp_ratio())
+	if r < th:
+		return
+	var bonus := int(round(float(damage) * mult))
+	if bonus <= 0:
+		return
+	if target.has_method("take_damage"):
+		target.take_damage(bonus, false, "echo")
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(1.0, 0.85, 0.30, 1.0))
+	# VFX: focus brackets
+	var fm := VfxFocusMark.new()
+	fm.setup((target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.85, 0.30, 1.0), 18.0, 0, 0.16)
+	_spawn_vfx(target as Node2D, fm)
 
 static func _echo_strike(unit: Node2D, target: Node2D, damage: int, _is_crit: bool) -> void:
 	if unit == null or target == null:

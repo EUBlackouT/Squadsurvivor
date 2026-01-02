@@ -1,26 +1,32 @@
 extends Control
 
-@onready var resume_btn: Button = get_node_or_null("Root/Card/VBox/Resume") as Button
-@onready var map_select: OptionButton = get_node_or_null("Root/Card/VBox/MapSelect") as OptionButton
-@onready var map_tagline: Label = get_node_or_null("Root/Card/VBox/MapTagline") as Label
-@onready var play_btn: Button = get_node_or_null("Root/Card/VBox/Play") as Button
-@onready var armory_btn: Button = get_node_or_null("Root/Card/VBox/Armory") as Button
-@onready var settings_btn: Button = get_node_or_null("Root/Card/VBox/Settings") as Button
-@onready var quit_btn: Button = get_node_or_null("Root/Card/VBox/Quit") as Button
+@onready var resume_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Resume") as Button
+@onready var play_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Play") as Button
+@onready var armory_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Armory") as Button
+@onready var settings_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Settings") as Button
+@onready var quit_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Quit") as Button
+
+@onready var map_overlay: Control = get_node_or_null("MapOverlay") as Control
+@onready var map_list: ItemList = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapList") as ItemList
+@onready var map_tagline: Label = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapTagline") as Label
+@onready var map_back_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Back") as Button
+@onready var map_start_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Start") as Button
+
+var _map_ids: Array[String] = []
 
 func _ready() -> void:
 	# Menu music
 	var mm := get_node_or_null("/root/MusicManager")
 	if mm and is_instance_valid(mm) and mm.has_method("play"):
-		mm.play("menu", 0.35)
+		mm.play("menu", 1.0)
 
 	if play_btn:
 		play_btn.pressed.connect(func():
 			_play_ui("ui.confirm")
-			get_tree().change_scene_to_file("res://scenes/Main.tscn")
+			_open_map_overlay()
 		)
 
-	_setup_map_select()
+	_setup_map_select_overlay()
 
 	# Resume run (if available)
 	var sv := get_node_or_null("/root/SaveManager")
@@ -55,8 +61,8 @@ func _ready() -> void:
 			get_tree().quit()
 		)
 
-func _setup_map_select() -> void:
-	if map_select == null:
+func _setup_map_select_overlay() -> void:
+	if map_list == null:
 		return
 	var rc := get_node_or_null("/root/RunConfig")
 	if rc == null or not is_instance_valid(rc):
@@ -64,32 +70,50 @@ func _setup_map_select() -> void:
 	if rc.has_method("ensure_loaded"):
 		rc.ensure_loaded()
 
-	map_select.clear()
-	var ids: Array[String] = []
+	map_list.clear()
+	_map_ids.clear()
 	if rc.has_method("get_map_ids"):
-		ids = rc.get_map_ids()
-	for i in range(ids.size()):
-		var m: Dictionary = rc.get_map(ids[i]) if rc.has_method("get_map") else {}
-		var name := String(m.get("name", ids[i]))
-		map_select.add_item(name, i)
-		map_select.set_item_metadata(i, ids[i])
+		_map_ids = rc.get_map_ids()
+	for i in range(_map_ids.size()):
+		var m: Dictionary = rc.get_map(_map_ids[i]) if rc.has_method("get_map") else {}
+		var name := String(m.get("name", _map_ids[i]))
+		var tagline := String(m.get("tagline", ""))
+		var mult := float(m.get("meta_sigils_mult", 1.0))
+		var desc := tagline
+		if desc != "":
+			desc += "  "
+		desc += "(x%.2f Sigils)" % mult
+		map_list.add_item("%s\n%s" % [name, desc])
 
 	# Select current
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
-	for i in range(map_select.item_count):
-		if String(map_select.get_item_metadata(i)) == cur:
-			map_select.select(i)
+	for i in range(_map_ids.size()):
+		if _map_ids[i] == cur:
+			map_list.select(i)
 			break
 
 	_update_map_tagline(rc)
 
-	map_select.item_selected.connect(func(idx: int):
-		var id := String(map_select.get_item_metadata(idx))
+	map_list.item_selected.connect(func(idx: int):
+		if idx < 0 or idx >= _map_ids.size():
+			return
+		var id := _map_ids[idx]
 		_play_ui("ui.click")
 		if rc.has_method("set_selected_map_id"):
 			rc.set_selected_map_id(id)
 		_update_map_tagline(rc)
 	)
+
+	if map_back_btn:
+		map_back_btn.pressed.connect(func():
+			_play_ui("ui.cancel")
+			_close_map_overlay()
+		)
+	if map_start_btn:
+		map_start_btn.pressed.connect(func():
+			_play_ui("ui.confirm")
+			_start_run_with_selected_map()
+		)
 
 func _update_map_tagline(rc: Node) -> void:
 	if map_tagline == null:
@@ -102,6 +126,35 @@ func _update_map_tagline(rc: Node) -> void:
 		map_tagline.text = ""
 	else:
 		map_tagline.text = "%s\nSigils multiplier: x%.2f" % [t, mult]
+
+func _open_map_overlay() -> void:
+	if map_overlay == null:
+		# Fallback: if overlay is missing, still start the run.
+		_start_run_with_selected_map()
+		return
+	map_overlay.visible = true
+	if map_list:
+		map_list.grab_focus()
+	elif map_start_btn:
+		map_start_btn.grab_focus()
+
+func _close_map_overlay() -> void:
+	if map_overlay == null:
+		return
+	map_overlay.visible = false
+	if play_btn:
+		play_btn.grab_focus()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		var k := event as InputEventKey
+		if k.keycode == KEY_ESCAPE and map_overlay and map_overlay.visible:
+			_close_map_overlay()
+			get_viewport().set_input_as_handled()
+
+func _start_run_with_selected_map() -> void:
+	# RunConfig already holds selected_map_id; Main.gd reads it on _ready.
+	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 func _play_ui(id: String) -> void:
 	var s := get_node_or_null("/root/SfxSystem")

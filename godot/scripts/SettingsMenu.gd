@@ -15,7 +15,8 @@ var _shake_toggle: CheckButton = null
 var _shake_slider: HSlider = null
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	# Always active; this menu is used both in MainMenu and while paused.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 240
 	_build_ui()
 	_sync_from_settings()
@@ -35,6 +36,7 @@ func _settings() -> Node:
 func _build_ui() -> void:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(root)
 
 	_backdrop = ColorRect.new()
@@ -42,10 +44,6 @@ func _build_ui() -> void:
 	_backdrop.color = Color(0, 0, 0, 0.72)
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.add_child(_backdrop)
-	_backdrop.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed:
-			close()
-	)
 
 	_panel = PanelContainer.new()
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
@@ -73,6 +71,7 @@ func _build_ui() -> void:
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pad.mouse_filter = Control.MOUSE_FILTER_PASS
 	pad.add_theme_constant_override("margin_left", 18)
 	pad.add_theme_constant_override("margin_right", 18)
 	pad.add_theme_constant_override("margin_top", 16)
@@ -80,11 +79,13 @@ func _build_ui() -> void:
 	_panel.add_child(pad)
 
 	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_PASS
 	v.add_theme_constant_override("separation", 12)
 	pad.add_child(v)
 
 	var title := Label.new()
 	title.text = "Settings"
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
 	v.add_child(title)
@@ -106,6 +107,7 @@ func _build_ui() -> void:
 	)
 
 	var sep := HSeparator.new()
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(sep)
 
 	_fullscreen_toggle = _make_toggle_row(v, "Fullscreen", func(on: bool):
@@ -134,15 +136,17 @@ func _build_ui() -> void:
 
 	var hint := Label.new()
 	hint.text = "Press Esc to close"
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.85))
 	v.add_child(hint)
 
-	var close := Button.new()
-	close.text = "Close"
-	close.custom_minimum_size = Vector2(0, 44)
-	close.pressed.connect(func(): close())
-	v.add_child(close)
+	var close_btn := Button.new()
+	close_btn.text = "Close"
+	close_btn.custom_minimum_size = Vector2(0, 44)
+	close_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	close_btn.pressed.connect(func(): close())
+	v.add_child(close_btn)
 
 func _sync_from_settings() -> void:
 	var s := _settings()
@@ -161,15 +165,18 @@ func _sync_from_settings() -> void:
 
 func _make_slider_row(parent: VBoxContainer, label_text: String, on_change: Callable) -> HSlider:
 	var row := VBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_theme_constant_override("separation", 4)
 	parent.add_child(row)
 
 	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_PASS
 	top.add_theme_constant_override("separation", 10)
 	row.add_child(top)
 
 	var l := Label.new()
 	l.text = label_text
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.add_theme_font_size_override("font_size", 14)
 	l.add_theme_color_override("font_color", Color(0.85, 0.90, 0.96, 0.95))
@@ -177,6 +184,7 @@ func _make_slider_row(parent: VBoxContainer, label_text: String, on_change: Call
 
 	var val_label := Label.new()
 	val_label.text = "0%"
+	val_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	val_label.add_theme_font_size_override("font_size", 13)
 	val_label.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.95))
 	top.add_child(val_label)
@@ -185,6 +193,10 @@ func _make_slider_row(parent: VBoxContainer, label_text: String, on_change: Call
 	s.min_value = 0
 	s.max_value = 100
 	s.step = 1
+	s.editable = true
+	s.mouse_filter = Control.MOUSE_FILTER_STOP
+	s.focus_mode = Control.FOCUS_ALL
+	s.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(s)
 
@@ -196,21 +208,27 @@ func _make_slider_row(parent: VBoxContainer, label_text: String, on_change: Call
 
 func _make_toggle_row(parent: VBoxContainer, label_text: String, on_toggle: Callable) -> CheckButton:
 	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
 
 	var l := Label.new()
 	l.text = label_text
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.add_theme_font_size_override("font_size", 14)
 	l.add_theme_color_override("font_color", Color(0.85, 0.90, 0.96, 0.95))
 	row.add_child(l)
 
 	var b := CheckButton.new()
+	b.mouse_filter = Control.MOUSE_FILTER_STOP
+	b.focus_mode = Control.FOCUS_ALL
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	row.add_child(b)
 	b.toggled.connect(func(on: bool):
 		on_toggle.call(on)
 	)
 	return b
+
 
 

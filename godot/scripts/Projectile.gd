@@ -11,6 +11,7 @@ var has_hit: bool = false
 var is_crit: bool = false
 var passive_ids: PackedStringArray = PackedStringArray()
 var source_cd: CharacterData = null
+var source_unit: Node2D = null
 var _pierced_enemies: Array[Node2D] = []
 var _main: Node2D = null
 
@@ -56,13 +57,14 @@ func setup(dest: Vector2, dmg: int) -> void:
 	damage = dmg
 	_update_rotation()
 
-func setup_target(t: Node2D, dmg: int, p_is_crit: bool, p_passive_ids: PackedStringArray, p_source_cd: CharacterData = null) -> void:
+func setup_target(t: Node2D, dmg: int, p_is_crit: bool, p_passive_ids: PackedStringArray, p_source_cd: CharacterData = null, p_source_unit: Node2D = null) -> void:
 	target = t
 	target_pos = t.global_position if t != null and is_instance_valid(t) else target_pos
 	damage = dmg
 	is_crit = p_is_crit
 	passive_ids = p_passive_ids
 	source_cd = p_source_cd
+	source_unit = p_source_unit
 	pierce_count += PassiveSystem.extra_pierce_count(passive_ids)
 	_update_rotation()
 
@@ -97,6 +99,7 @@ func _hit_enemy(enemy: Node2D) -> void:
 
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(damage, is_crit, "ranged")
+		_spawn_hit_vfx(enemy)
 	_pierced_enemies.append(enemy)
 	PassiveSystem.on_projectile_hit(passive_ids, self, enemy, damage, is_crit)
 	if source_cd != null:
@@ -108,6 +111,29 @@ func _hit_enemy(enemy: Node2D) -> void:
 			_explode()
 	else:
 		_explode()
+
+func _spawn_hit_vfx(enemy: Node2D) -> void:
+	if enemy == null or not is_instance_valid(enemy):
+		return
+	var main := _main
+	if main == null or not is_instance_valid(main):
+		main = get_tree().get_first_node_in_group("main") as Node2D
+	if main == null:
+		return
+	var pos := enemy.global_position + Vector2(0, -18)
+	var dir := (enemy.global_position - global_position).normalized()
+
+	# Small impact spark (uses FlameBurst as generic spark burst)
+	var c := sprite.modulate if sprite != null else Color(0.85, 0.92, 1.0, 1.0)
+	var fb := VfxFlameBurst.new()
+	fb.setup(pos, Color(c.r, c.g, c.b, 0.9), 18.0, 7, 0.16, dir)
+	main.add_child(fb)
+
+	# Crit marker
+	if is_crit:
+		var fm := VfxFocusMark.new()
+		fm.setup(pos, Color(1.0, 0.85, 0.30, 1.0), 16.0, 0, 0.16)
+		main.add_child(fm)
 
 func _explode() -> void:
 	queue_free()

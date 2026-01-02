@@ -94,8 +94,8 @@ func _pick_bus() -> String:
 
 func _build_procedural_streams() -> void:
 	_proc_streams.clear()
-	# Loops (12s)
-	_proc_streams["menu"] = _make_menu_loop(12.0)
+	# Loops
+	_proc_streams["menu"] = _make_menu_loop(32.0)
 	_proc_streams["combat"] = _make_combat_loop(12.0)
 	# Stingers (3–4s)
 	_proc_streams["victory"] = _make_victory_stinger(3.2)
@@ -140,46 +140,146 @@ func _note_hz(midi: int) -> float:
 	return 440.0 * pow(2.0, (float(midi) - 69.0) / 12.0)
 
 func _make_menu_loop(dur: float) -> AudioStreamWAV:
-	# Dark ambient pad + sparse bell. Theme fit: arcane/graveyard.
+	# Menu music: should be catchy but not fatiguing.
+	# Structure: 8 bars (A/B sections), restrained lead, consistent groove, seamless loop.
+	# No noise sources (player reported "static").
 	var n := int(round(dur * float(SAMPLE_RATE)))
 	var out := PackedFloat32Array()
 	out.resize(n)
 
-	var root: int = 45 # A2-ish
-	var fifth: int = root + 7
-	var minor3: int = root + 3
-	var bell_notes: Array[int] = [root + 12, minor3 + 12, fifth + 12, minor3 + 24]
+	var bpm := 112.0
+	var spb := 60.0 / bpm
+	var step_len := spb / 4.0 # 16ths
+	var bar_len := spb * 4.0
 
+	# Chord progression (8 bars): Dm → Bb → C → A → Dm → Gm → Bb → A
+	# NOTE: GDScript does not support nested typed collections like Array[Array[int]].
+	# Keep it untyped and cast when reading.
+	var chords: Array = [
+		[50, 53, 57], # D3 F3 A3
+		[46, 50, 53], # Bb2 D3 F3
+		[48, 52, 55], # C3 E3 G3
+		[45, 49, 52], # A2 C#3 E3 (harmonic minor lift)
+		[50, 53, 57], # Dm
+		[43, 46, 50], # Gm (G2 Bb2 D3)
+		[46, 50, 53], # Bb
+		[45, 49, 52], # A
+	]
+
+	# Hook motifs (relative degrees). Two variants for A/B sections.
+	# A: iconic, simple, leaves breathing room.
+	var hook_a: Array[int] = [0, 2, 4, 2, -1, 4, 7, 4, 0, 2, 4, 9, -1, 7, 4, 2]
+	# B: answer phrase, slightly different contour.
+	var hook_b: Array[int] = [0, 4, 2, 0, -1, 7, 4, 2, 0, 9, 7, 4, -1, 2, 0, -1]
+
+	# Simple echo (delay) for polish. Keep subtle to avoid muddiness.
+	var delay_s := int(round(0.18 * float(SAMPLE_RATE)))
+	var delay := PackedFloat32Array()
+	delay.resize(maxi(1, delay_s))
+	var di := 0
+	var echo_fb := 0.22
+	var echo_lp := 0.0
+
+	var lp: float = 0.0 # one-pole lowpass to soften digital edge
 	for i in range(n):
 		var t := float(i) / float(SAMPLE_RATE)
-		# slow drift
-		var lfo := sin(TAU * 0.08 * t) * 0.5 + sin(TAU * 0.031 * t) * 0.5
+		var bar_idx := int(floor(fmod(t, bar_len * float(chords.size())) / bar_len))
+		var chord: Array = chords[clampi(bar_idx, 0, chords.size() - 1)] as Array
 
-		var f0 := _note_hz(root) * (1.0 + lfo * 0.002)
-		var f1 := _note_hz(fifth) * (1.0 - lfo * 0.0015)
-		var f2 := _note_hz(minor3) * (1.0 + lfo * 0.0012)
+		# Step sequencer
+		var step := int(floor(t / step_len))
+		var st := t - float(step) * step_len
+		var step_in_bar := int(floor(fmod(t, bar_len) / step_len))
 
-		var pad := sin(TAU * f0 * t) * 0.28
-		pad += sin(TAU * f1 * t) * 0.18
-		pad += sin(TAU * f2 * t) * 0.14
-		pad += sin(TAU * f0 * 0.5 * t) * 0.08
+		# Light swing on off-16ths (subtle)
+		if (step_in_bar % 2) == 1:
+			st = maxf(0.0, st - step_len * 0.06)
 
-		# "grave dust" noise (cheap hash noise)
-		var hn: float = sin(float(i) * 12.9898) * 43758.5453
-		var noise: float = (hn - floor(hn)) * 2.0 - 1.0
-		pad += noise * 0.015 * (0.4 + 0.6 * (0.5 + 0.5 * sin(TAU * 0.05 * t)))
+		# Bass: 8ths (root + occasional fifth)
+		var bass_step_len := spb / 2.0
+		var bstep := int(floor(t / bass_step_len))
+		var bt := t - float(bstep) * bass_step_len
+		var bass_midi: int = int(chord[0])
+		if (bstep % 4) == 2:
+			bass_midi = int(chord[2]) - 12
+		var bhz := _note_hz(bass_midi)
+		var bass_env := _env(bt, bass_step_len, 0.002, bass_step_len * 0.95)
+		var bass := sin(TAU * bhz * bt) * bass_env * 0.30
+		bass += sin(TAU * bhz * 0.5 * bt) * bass_env * 0.10
+		bass += _pulse(fmod(bhz * bt, 1.0), 0.22) * bass_env * 0.04
 
-		# Sparse bell every 2.0s with long decay
-		var bell := 0.0
-		var beat_len := 2.0
-		var k := int(floor(t / beat_len))
-		var tk := t - float(k) * beat_len
-		var midi: int = bell_notes[k % bell_notes.size()]
-		var bf := _note_hz(midi)
-		bell += sin(TAU * bf * tk) * _env(tk, beat_len, 0.01, 1.4) * 0.28
-		bell += sin(TAU * bf * 2.01 * tk) * _env(tk, beat_len, 0.01, 1.2) * 0.12
+		# Arp bed: plucky triad arpeggio on 16ths (keeps it moving without spamming a lead)
+		var arp := 0.0
+		var arp_pick := [0, 1, 2, 1]
+		var arp_note := int(chord[arp_pick[step_in_bar % 4]])
+		var ahz := _note_hz(arp_note + 12)
+		var aenv := _env(st, step_len, 0.001, step_len * 0.80)
+		arp += _pulse(fmod(ahz * st, 1.0), 0.18) * aenv * 0.08
+		arp += sin(TAU * ahz * st) * aenv * 0.03
 
-		out[i] = _soft_clip(pad + bell)
+		# Lead hook: only on bars 0-1 and 4-5 (leave breathing room), with rests (-1).
+		var hook := hook_a if bar_idx < 4 else hook_b
+		var deg := hook[step_in_bar % 16]
+		var lead := 0.0
+		if deg != -1 and (bar_idx == 0 or bar_idx == 1 or bar_idx == 4 or bar_idx == 5):
+			var lead_midi: int = int(chord[0]) + 24 + int(deg)
+			var lhz := _note_hz(lead_midi)
+			var lead_env := _env(st, step_len, 0.001, step_len * 0.82)
+			lead += _pulse(fmod(lhz * st, 1.0), 0.14) * lead_env * 0.07
+			lead += sin(TAU * lhz * st) * lead_env * 0.05
+
+		# Simple pad: very low sine triad to glue it together (no noise)
+		var pad := 0.0
+		for ni in range(chord.size()):
+			var p_hz := _note_hz(int(chord[ni]))
+			pad += sin(TAU * p_hz * t) * 0.028
+			pad += sin(TAU * p_hz * 0.5 * t) * 0.012
+
+		# Drums: kick/snare + "hat" using high pulse (no noise source)
+		var drum := 0.0
+		var beat_in_bar := int(floor(fmod(t, bar_len) / spb))
+		var beat_t := fmod(t, spb)
+
+		# Kick on 0 and 2
+		if beat_in_bar == 0 or beat_in_bar == 2:
+			var kt := beat_t
+			var kf := lerpf(120.0, 52.0, clampf(kt / 0.09, 0.0, 1.0))
+			drum += sin(TAU * kf * kt) * _env(kt, spb, 0.001, 0.16) * 0.55
+
+		# Snare on 1 and 3 (tone burst)
+		if beat_in_bar == 1 or beat_in_bar == 3:
+			var nt := beat_t
+			drum += sin(TAU * 220.0 * nt) * _env(nt, spb, 0.001, 0.10) * 0.20
+			drum += sin(TAU * 330.0 * nt) * _env(nt, spb, 0.001, 0.08) * 0.12
+
+		# Hats on off-16ths: very short high pulse, then lowpass will soften
+		var hat := 0.0
+		if (step_in_bar % 2) == 1:
+			var hh := 7800.0
+			var hph := fmod(hh * st, 1.0)
+			hat = _pulse(hph, 0.10) * _env(st, step_len, 0.0005, 0.02) * 0.06
+		drum += hat
+
+		# Tiny fill on last bar (bar 7): extra hats on 16ths
+		if bar_idx == 7:
+			var hh2 := 8200.0
+			drum += _pulse(fmod(hh2 * st, 1.0), 0.08) * _env(st, step_len, 0.0005, 0.018) * 0.04
+
+		var mix := bass + arp + lead + pad + drum
+		# Lowpass to reduce "digital edge"
+		lp = lerpf(lp, mix, 0.06)
+		var dry := _soft_clip(lp * 1.05)
+
+		# Echo (feedback delay, lightly lowpassed)
+		var dly := delay[di]
+		echo_lp = lerpf(echo_lp, dly, 0.18)
+		var wet := echo_lp * 0.28
+		delay[di] = dry + echo_lp * echo_fb
+		di += 1
+		if di >= delay.size():
+			di = 0
+
+		out[i] = _soft_clip(dry + wet)
 
 	return _to_wav(out, true)
 

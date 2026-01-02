@@ -237,6 +237,7 @@ func _attack(target: Node2D) -> void:
 		_spawn_slash_vfx(target.global_position, dir, _projectile_color_for_unit())
 		if target.has_method("take_damage"):
 			target.take_damage(final_damage, is_crit, "melee")
+		_spawn_melee_hit_vfx(target, dir, is_crit)
 		# tiny cleave
 		if melee_cleave_radius > 0.0 and melee_cleave_mult > 0.0:
 			var enemies: Array = []
@@ -270,7 +271,7 @@ func _attack(target: Node2D) -> void:
 		# Synergy may add extra pierce (in addition to passives).
 		if proj.has_method("add_pierce"):
 			proj.add_pierce(SynergySystem.extra_pierce_for_cd(character_data))
-		proj.setup_target(target, final_damage, is_crit, character_data.passive_ids, character_data)
+		proj.setup_target(target, final_damage, is_crit, character_data.passive_ids, character_data, self)
 	else:
 		proj.setup(target.global_position, final_damage)
 	var s := _main.get_node_or_null("/root/SfxSystem")
@@ -291,6 +292,22 @@ func _spawn_slash_vfx(pos: Vector2, dir: Vector2, tint: Color) -> void:
 	var s := _main.get_node_or_null("/root/SfxSystem")
 	if s and s.has_method("play_event"):
 		s.play_event("player.slash", pos, self)
+
+func _spawn_melee_hit_vfx(target: Node2D, dir: Vector2, is_crit: bool) -> void:
+	if _main == null or not is_instance_valid(_main):
+		_main = get_tree().get_first_node_in_group("main") as Node2D
+	if _main == null or target == null or not is_instance_valid(target):
+		return
+	var pos := (target as Node2D).global_position + Vector2(0, -18)
+	# Small impact spark
+	var fb := VfxFlameBurst.new()
+	fb.setup(pos, Color(1.0, 0.55, 0.45, 0.9), 16.0, 7, 0.14, dir)
+	_main.add_child(fb)
+	# Crit: add a shockwave for punch
+	if is_crit:
+		var sw := VfxShockwave.new()
+		sw.setup(pos, Color(1.0, 0.85, 0.30, 1.0), 12.0, 46.0, 4.0, 0.18)
+		_main.add_child(sw)
 
 func _update_anim(dir: Vector2) -> void:
 	if anim == null:

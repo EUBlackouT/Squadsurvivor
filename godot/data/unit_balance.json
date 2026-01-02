@@ -124,17 +124,20 @@
     "common": [
       "frost_tag",
       "bleed_edge",
+      "cinder_brand",
       "echo_strike",
       "piercing_rounds",
       "stagger",
       "blood_siphon",
       "shockwave",
-      "execute_mark"
+      "execute_mark",
+      "predator_instinct"
     ],
     "rare": [
       "arc_chain",
       "frost_tag",
       "bleed_edge",
+      "cinder_brand",
       "echo_strike",
       "piercing_rounds",
       "stagger",
@@ -142,15 +145,19 @@
       "shockwave",
       "twin_shot",
       "scattershot",
+      "vampiric_bullets",
       "execute_mark",
+      "predator_instinct",
       "hex_bomb",
-      "time_dilation"
+      "time_dilation",
+      "doomstack"
     ],
     "epic": [
       "arc_chain",
       "overload",
       "frost_tag",
       "bleed_edge",
+      "cinder_brand",
       "echo_strike",
       "piercing_rounds",
       "stagger",
@@ -159,18 +166,23 @@
       "twin_shot",
       "scattershot",
       "ricochet",
+      "vampiric_bullets",
       "execute_mark",
+      "predator_instinct",
       "hex_bomb",
       "time_dilation",
       "phase_step",
       "pinpoint",
-      "vortex_tag"
+      "vortex_tag",
+      "doomstack",
+      "hailburst"
     ],
     "legendary": [
       "arc_chain",
       "overload",
       "frost_tag",
       "bleed_edge",
+      "cinder_brand",
       "echo_strike",
       "piercing_rounds",
       "stagger",
@@ -179,12 +191,16 @@
       "twin_shot",
       "scattershot",
       "ricochet",
+      "vampiric_bullets",
       "execute_mark",
+      "predator_instinct",
       "hex_bomb",
       "time_dilation",
       "phase_step",
       "pinpoint",
-      "vortex_tag"
+      "vortex_tag",
+      "doomstack",
+      "hailburst"
     ]
   }
 }

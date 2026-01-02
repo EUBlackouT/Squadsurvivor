@@ -1,12 +1,12 @@
 extends Control
 
-@onready var start_btn: Button = get_node_or_null("Root/Right/StartRun") as Button
-@onready var resume_btn: Button = get_node_or_null("Root/Right/ResumeRun") as Button
-@onready var settings_btn: Button = get_node_or_null("Root/Right/SettingsBtn") as Button
-@onready var back_btn: Button = get_node_or_null("Root/Right/BackBtn") as Button
-@onready var roster_box: VBoxContainer = get_node_or_null("Root/Right/RosterBox") as VBoxContainer
-@onready var collection_box: VBoxContainer = get_node_or_null("Root/Left/CollectionBox") as VBoxContainer
-@onready var map_select: OptionButton = get_node_or_null("Root/Right/MapSelect") as OptionButton
+@onready var start_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/StartRun") as Button
+@onready var resume_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/ResumeRun") as Button
+@onready var settings_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/SettingsBtn") as Button
+@onready var back_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/BackBtn") as Button
+@onready var roster_box: VBoxContainer = get_node_or_null("Root/Right/RightPad/RightVBox/RosterBox") as VBoxContainer
+@onready var collection_box: VBoxContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/CollectionScroll/CollectionBox") as VBoxContainer
+@onready var map_select: OptionButton = get_node_or_null("Root/Right/RightPad/RightVBox/MapSelect") as OptionButton
 
 var _selected_unlock: Dictionary = {}
 var _toast: ToastLayer = null
@@ -314,8 +314,13 @@ func _refresh_collection() -> void:
 		var d: Dictionary = e
 		var data: Dictionary = d.get("data", {}) as Dictionary
 		var row := HBoxContainer.new()
+		# Allow mouse wheel to reach ScrollContainer for smooth scrolling.
+		row.mouse_filter = Control.MOUSE_FILTER_PASS
 		row.add_theme_constant_override("separation", 8)
 		collection_box.add_child(row)
+
+		# Small animated portrait preview (makes the collection feel alive).
+		row.add_child(_make_collection_preview(data))
 
 		var name := Label.new()
 		var rarity := String(data.get("rarity_id", "common"))
@@ -338,6 +343,97 @@ func _refresh_collection() -> void:
 		add.pressed.connect(func():
 			_add_unlock_to_roster(data)
 		)
+
+func _make_collection_preview(data: Dictionary) -> Control:
+	var rarity := String(data.get("rarity_id", "common"))
+
+	var frame := PanelContainer.new()
+	frame.custom_minimum_size = Vector2(56, 56)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.11, 0.92)
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.border_color = UnitFactory.rarity_color(rarity)
+	sb.corner_radius_top_left = 10
+	sb.corner_radius_top_right = 10
+	sb.corner_radius_bottom_left = 10
+	sb.corner_radius_bottom_right = 10
+	frame.add_theme_stylebox_override("panel", sb)
+
+	var pad := MarginContainer.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_theme_constant_override("margin_left", 4)
+	pad.add_theme_constant_override("margin_right", 4)
+	pad.add_theme_constant_override("margin_top", 4)
+	pad.add_theme_constant_override("margin_bottom", 4)
+	frame.add_child(pad)
+
+	var sprite_path := String(data.get("sprite_path", ""))
+	var frames := PixellabUtil.walk_frames_from_south_path(sprite_path)
+
+	# Animated preview (preferred)
+	if frames != null and frames.has_animation("walk_south") and frames.get_frame_count("walk_south") > 0:
+		var svc := SubViewportContainer.new()
+		svc.custom_minimum_size = Vector2(48, 48)
+		svc.stretch = true
+		svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pad.add_child(svc)
+
+		var vp := SubViewport.new()
+		vp.size = Vector2i(48, 48)
+		vp.transparent_bg = true
+		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		svc.add_child(vp)
+
+		var spr := AnimatedSprite2D.new()
+		spr.sprite_frames = frames
+		spr.animation = "walk_south"
+		spr.centered = true
+		# Framing: push DOWN (bigger Y) so heads fit in the 48×48 preview window.
+		# Also scale down a touch so tall sprites don't clip at the top.
+		spr.position = Vector2(24, 32)
+		spr.scale = Vector2.ONE * 0.90
+		spr.play()
+		vp.add_child(spr)
+		return frame
+
+	# Static fallback
+	var tex := PixellabUtil.load_rotation_texture(sprite_path)
+	if tex == null:
+		var pid := String(data.get("pixellab_id", ""))
+		if pid != "":
+			tex = PixellabUtil.load_rotation_texture("res://assets/pixellab/%s/rotations/south.png" % pid)
+	if tex != null:
+		# Use SubViewport even for static so we can bias upward.
+		var svc2 := SubViewportContainer.new()
+		svc2.custom_minimum_size = Vector2(48, 48)
+		svc2.stretch = true
+		svc2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pad.add_child(svc2)
+
+		var vp2 := SubViewport.new()
+		vp2.size = Vector2i(48, 48)
+		vp2.transparent_bg = true
+		vp2.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		svc2.add_child(vp2)
+
+		var spr2 := Sprite2D.new()
+		spr2.texture = tex
+		spr2.centered = true
+		# Match animated framing: push DOWN so heads fit.
+		spr2.position = Vector2(24, 32)
+		# Scale to fit nicely in the box.
+		var ts := tex.get_size()
+		var max_dim := maxf(1.0, maxf(ts.x, ts.y))
+		# Slightly smaller than before to avoid head clipping on tall sprites.
+		var scale := (40.0 / max_dim)
+		spr2.scale = Vector2.ONE * scale
+		vp2.add_child(spr2)
+	return frame
 
 func _refresh_roster() -> void:
 	if roster_box == null:
@@ -403,7 +499,7 @@ func _on_start_run() -> void:
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 func _show_details(data: Dictionary) -> void:
-	# Simple modal (reuses draft-style content but lightweight).
+	# Polished details modal (portrait + stat chips + styled passive list).
 	if has_node("DetailsModal"):
 		get_node("DetailsModal").queue_free()
 	var layer := CanvasLayer.new()
@@ -419,26 +515,21 @@ func _show_details(data: Dictionary) -> void:
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.offset_left = -360
-	panel.offset_top = -240
-	panel.offset_right = 360
-	panel.offset_bottom = 240
+	panel.offset_left = -420
+	panel.offset_top = -260
+	panel.offset_right = 420
+	panel.offset_bottom = 260
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
 	var rarity := String(data.get("rarity_id", "common"))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.11, 0.95)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = UnitFactory.rarity_color(rarity)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
-	panel.add_theme_stylebox_override("panel", sb)
+	var neon := ShaderMaterial.new()
+	neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
+	neon.set_shader_parameter("base_color", Color(0.08, 0.09, 0.11, 0.96))
+	neon.set_shader_parameter("glow_color", UnitFactory.rarity_color(rarity))
+	neon.set_shader_parameter("glow_width", 0.022)
+	neon.set_shader_parameter("pulse_speed", 1.1)
+	panel.material = neon
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -455,37 +546,279 @@ func _show_details(data: Dictionary) -> void:
 	var arch := String(data.get("archetype_id", "bruiser"))
 	var style := "MELEE" if int(data.get("attack_style", 1)) == 0 else "RANGED"
 
+	# Header row
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 14)
+	v.add_child(header)
+
+	var portrait := _make_detail_portrait(data)
+	header.add_child(portrait)
+
+	var header_right := VBoxContainer.new()
+	header_right.add_theme_constant_override("separation", 6)
+	header_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(header_right)
+
 	var t := Label.new()
 	t.text = "%s • %s • %s" % [UnitFactory.rarity_name(rarity), arch, style]
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	t.add_theme_font_size_override("font_size", 24)
 	t.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
-	v.add_child(t)
+	header_right.add_child(t)
 
-	var stats := Label.new()
-	stats.text = "HP %d  DMG %d  CD %.2f  RNG %d\nCrit %.0f%%  x%.2f" % [
-		int(data.get("max_hp", 100)),
-		int(data.get("attack_damage", 10)),
-		float(data.get("attack_cooldown", 1.0)),
-		int(float(data.get("attack_range", 300.0))),
-		float(data.get("crit_chance", 0.0)) * 100.0,
-		float(data.get("crit_mult", 1.5))
-	]
-	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(stats)
+	var stats_grid := GridContainer.new()
+	stats_grid.columns = 3
+	stats_grid.add_theme_constant_override("h_separation", 8)
+	stats_grid.add_theme_constant_override("v_separation", 8)
+	header_right.add_child(stats_grid)
 
-	var p := Label.new()
-	var lines: Array[String] = []
+	_add_stat_chip(stats_grid, "HP", str(int(data.get("max_hp", 100))), Color(0.55, 1.0, 0.65, 1.0))
+	_add_stat_chip(stats_grid, "DMG", str(int(data.get("attack_damage", 10))), Color(1.0, 0.55, 0.45, 1.0))
+	_add_stat_chip(stats_grid, "CD", "%.2f" % float(data.get("attack_cooldown", 1.0)), Color(0.75, 0.80, 0.86, 1.0))
+	_add_stat_chip(stats_grid, "RNG", str(int(float(data.get("attack_range", 300.0)))), Color(0.60, 1.0, 0.80, 1.0))
+	_add_stat_chip(stats_grid, "CRIT", "%.0f%%" % (float(data.get("crit_chance", 0.0)) * 100.0), Color(1.0, 0.85, 0.30, 1.0))
+	_add_stat_chip(stats_grid, "MULT", "x%.2f" % float(data.get("crit_mult", 1.5)), Color(1.0, 0.85, 0.30, 1.0))
+
+	var sep := HSeparator.new()
+	v.add_child(sep)
+
+	var ptitle := Label.new()
+	ptitle.text = "Passives"
+	ptitle.add_theme_font_size_override("font_size", 16)
+	ptitle.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
+	v.add_child(ptitle)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 160)
+	v.add_child(scroll)
+
+	var pbox := VBoxContainer.new()
+	pbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pbox.add_theme_constant_override("separation", 8)
+	scroll.add_child(pbox)
+
 	var pids: Array = data.get("passive_ids", [])
-	for pid in pids:
-		lines.append("• %s\n  %s" % [PassiveSystem.passive_name(String(pid)), PassiveSystem.passive_description(String(pid))])
-	p.text = "Passives:\n%s" % "\n".join(lines)
-	p.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(p)
+	if pids.is_empty():
+		var none := Label.new()
+		none.text = "(No passives)"
+		none.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.9))
+		pbox.add_child(none)
+	else:
+		for pid in pids:
+			pbox.add_child(_make_passive_row(String(pid)))
 
 	var close := Button.new()
 	close.text = "Close"
 	close.pressed.connect(func(): layer.queue_free())
 	v.add_child(close)
+
+func _make_detail_portrait(data: Dictionary) -> Control:
+	# Larger portrait for details modal.
+	var rarity := String(data.get("rarity_id", "common"))
+	var frame := PanelContainer.new()
+	frame.custom_minimum_size = Vector2(110, 110)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.11, 0.92)
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.border_color = UnitFactory.rarity_color(rarity)
+	sb.corner_radius_top_left = 14
+	sb.corner_radius_top_right = 14
+	sb.corner_radius_bottom_left = 14
+	sb.corner_radius_bottom_right = 14
+	frame.add_theme_stylebox_override("panel", sb)
+
+	var pad := MarginContainer.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_theme_constant_override("margin_left", 6)
+	pad.add_theme_constant_override("margin_right", 6)
+	pad.add_theme_constant_override("margin_top", 6)
+	pad.add_theme_constant_override("margin_bottom", 6)
+	frame.add_child(pad)
+
+	var sprite_path := String(data.get("sprite_path", ""))
+	var frames := PixellabUtil.walk_frames_from_south_path(sprite_path)
+	if frames != null and frames.has_animation("walk_south") and frames.get_frame_count("walk_south") > 0:
+		var svc := SubViewportContainer.new()
+		svc.custom_minimum_size = Vector2(96, 96)
+		svc.stretch = true
+		svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pad.add_child(svc)
+
+		var vp := SubViewport.new()
+		vp.size = Vector2i(96, 96)
+		vp.transparent_bg = true
+		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		svc.add_child(vp)
+
+		var spr := AnimatedSprite2D.new()
+		spr.sprite_frames = frames
+		spr.animation = "walk_south"
+		spr.centered = true
+		# Framing: keep head visible.
+		spr.position = Vector2(48, 64)
+		spr.scale = Vector2.ONE * 1.10
+		spr.play()
+		vp.add_child(spr)
+		return frame
+
+	# Static fallback
+	var tex := PixellabUtil.load_rotation_texture(sprite_path)
+	if tex == null:
+		var pid := String(data.get("pixellab_id", ""))
+		if pid != "":
+			tex = PixellabUtil.load_rotation_texture("res://assets/pixellab/%s/rotations/south.png" % pid)
+	if tex != null:
+		var svc2 := SubViewportContainer.new()
+		svc2.custom_minimum_size = Vector2(96, 96)
+		svc2.stretch = true
+		svc2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pad.add_child(svc2)
+
+		var vp2 := SubViewport.new()
+		vp2.size = Vector2i(96, 96)
+		vp2.transparent_bg = true
+		vp2.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		svc2.add_child(vp2)
+
+		var spr2 := Sprite2D.new()
+		spr2.texture = tex
+		spr2.centered = true
+		spr2.position = Vector2(48, 64)
+		var ts := tex.get_size()
+		var max_dim := maxf(1.0, maxf(ts.x, ts.y))
+		var scale := (86.0 / max_dim)
+		spr2.scale = Vector2.ONE * scale
+		vp2.add_child(spr2)
+	return frame
+
+func _add_stat_chip(parent: Control, label: String, value: String, tint: Color) -> void:
+	var chip := PanelContainer.new()
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.07, 0.09, 0.92)
+	sb.border_width_left = 1
+	sb.border_width_right = 1
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.border_color = tint * Color(1, 1, 1, 0.55)
+	sb.corner_radius_top_left = 10
+	sb.corner_radius_top_right = 10
+	sb.corner_radius_bottom_left = 10
+	sb.corner_radius_bottom_right = 10
+	chip.add_theme_stylebox_override("panel", sb)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 8)
+	pad.add_theme_constant_override("margin_right", 8)
+	pad.add_theme_constant_override("margin_top", 6)
+	pad.add_theme_constant_override("margin_bottom", 6)
+	chip.add_child(pad)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	pad.add_child(v)
+
+	var l := Label.new()
+	l.text = label
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.95))
+	v.add_child(l)
+
+	var val := Label.new()
+	val.text = value
+	val.add_theme_font_size_override("font_size", 14)
+	val.add_theme_color_override("font_color", tint)
+	v.add_child(val)
+
+	parent.add_child(chip)
+
+func _make_passive_row(pid: String) -> Control:
+	var row := PanelContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.07, 0.09, 0.92)
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.border_color = PassiveSystem.passive_color(pid) * Color(1, 1, 1, 0.55)
+	sb.corner_radius_top_left = 12
+	sb.corner_radius_top_right = 12
+	sb.corner_radius_bottom_left = 12
+	sb.corner_radius_bottom_right = 12
+	row.add_theme_stylebox_override("panel", sb)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 10)
+	pad.add_theme_constant_override("margin_right", 10)
+	pad.add_theme_constant_override("margin_top", 8)
+	pad.add_theme_constant_override("margin_bottom", 8)
+	row.add_child(pad)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	pad.add_child(v)
+
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
+	v.add_child(top)
+
+	var name := Label.new()
+	name.text = PassiveSystem.passive_name(pid)
+	name.add_theme_font_size_override("font_size", 14)
+	name.add_theme_color_override("font_color", PassiveSystem.passive_color(pid))
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(name)
+
+	# Tag pills
+	var tags := PassiveSystem.passive_tags(pid)
+	for t in tags:
+		if String(t) == "":
+			continue
+		top.add_child(_make_tag_pill(String(t)))
+
+	var desc := Label.new()
+	desc.text = PassiveSystem.passive_description(pid)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 12)
+	desc.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
+	v.add_child(desc)
+	return row
+
+func _make_tag_pill(tag: String) -> Control:
+	var pill := PanelContainer.new()
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.11, 0.13, 0.95)
+	sb.border_width_left = 1
+	sb.border_width_right = 1
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.border_color = Color(0.4, 0.8, 1.0, 0.18)
+	sb.corner_radius_top_left = 10
+	sb.corner_radius_top_right = 10
+	sb.corner_radius_bottom_left = 10
+	sb.corner_radius_bottom_right = 10
+	pill.add_theme_stylebox_override("panel", sb)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 7)
+	pad.add_theme_constant_override("margin_right", 7)
+	pad.add_theme_constant_override("margin_top", 3)
+	pad.add_theme_constant_override("margin_bottom", 3)
+	pill.add_child(pad)
+
+	var l := Label.new()
+	l.text = tag.to_upper()
+	l.add_theme_font_size_override("font_size", 10)
+	l.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.9))
+	pad.add_child(l)
+	return pill
 
 

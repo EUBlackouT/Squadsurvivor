@@ -44,6 +44,10 @@ const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
 const DAMAGE_NUMBERS_LAYER_SCRIPT: Script = preload("res://scripts/DamageNumbersLayer.gd")
 const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
 
+@export var use_tileset_map: bool = false
+@export var tileset_tile_size: int = 32
+@export var tileset_prop_density: float = 0.020
+
 var damage_numbers: Node = null
 var toast_layer: ToastLayer
 
@@ -166,6 +170,24 @@ func _elapsed_minutes() -> float:
 	return ((Time.get_ticks_msec() / 1000.0) - run_start_time) / 60.0
 
 func _make_background() -> void:
+	# Optional: TileMap renderer using user-provided tilesets (removable).
+	if use_tileset_map:
+		var tr := preload("res://scripts/MapTilesetRenderer.gd").new()
+		tr.name = "MapTilesetRenderer"
+		add_child(tr)
+		# Best-effort wiring
+		if "theme_id" in tr:
+			tr.set("theme_id", map_theme_id)
+		if "tile_size" in tr:
+			tr.set("tile_size", tileset_tile_size)
+		if "map_size" in tr:
+			tr.set("map_size", map_size)
+		if "seed" in tr:
+			tr.set("seed", random_seed)
+		if "prop_density" in tr:
+			tr.set("prop_density", tileset_prop_density)
+		return
+
 	# Preferred: MapRenderer (procedural rich ground + fog + props).
 	if use_rich_map and MAP_RENDERER_SCENE != null:
 		var mr := MAP_RENDERER_SCENE.instantiate()
