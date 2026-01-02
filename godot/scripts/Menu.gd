@@ -8,6 +8,17 @@ extends Control
 @onready var collection_box: VBoxContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/CollectionScroll/CollectionBox") as VBoxContainer
 @onready var map_select: OptionButton = get_node_or_null("Root/Right/RightPad/RightVBox/MapSelect") as OptionButton
 
+@onready var _search: LineEdit = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Search") as LineEdit
+@onready var _search_clear: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Clear") as Button
+
+@onready var _inspector_card: PanelContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard") as PanelContainer
+@onready var _inspector_portrait: Control = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorPortrait") as Control
+@onready var _inspector_name: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorName") as Label
+@onready var _inspector_stats: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorStats") as Label
+@onready var _inspector_passives: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorPassives") as Label
+@onready var _inspector_details_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorDetails") as Button
+@onready var _inspector_primary_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorPrimary") as Button
+
 var _selected_unlock: Dictionary = {}
 var _toast: ToastLayer = null
 var _meta_card: PanelContainer = null
@@ -25,10 +36,32 @@ func _ready() -> void:
 
 	_toast = ToastLayer.new()
 	add_child(_toast)
+	_apply_skin()
 	_refresh()
 
 	_setup_map_select()
 	_setup_meta_ui()
+
+	if _search:
+		_search.text_changed.connect(func(_t: String):
+			_refresh_collection()
+		)
+	if _search_clear:
+		_search_clear.pressed.connect(func():
+			if _search: _search.text = ""
+			_refresh_collection()
+		)
+
+	if _inspector_details_btn:
+		_inspector_details_btn.pressed.connect(func():
+			if not _selected_unlock.is_empty():
+				_show_details(_selected_unlock)
+		)
+	if _inspector_primary_btn:
+		_inspector_primary_btn.pressed.connect(func():
+			if not _selected_unlock.is_empty():
+				_add_unlock_to_roster(_selected_unlock)
+		)
 
 	# Menu music
 	var mm := get_node_or_null("/root/MusicManager")
@@ -103,20 +136,7 @@ func _setup_meta_ui() -> void:
 	_meta_card.custom_minimum_size = Vector2(0, 210)
 	right.add_child(_meta_card)
 
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.07, 0.08, 0.10, 0.95)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(0.4, 0.8, 1.0, 0.18)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
-	sb.shadow_color = Color(0, 0, 0, 0.55)
-	sb.shadow_size = 14
-	_meta_card.add_theme_stylebox_override("panel", sb)
+	_meta_card.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
 
 	var neon := ShaderMaterial.new()
 	neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
@@ -308,41 +328,83 @@ func _refresh_collection() -> void:
 		collection_box.add_child(l)
 		return
 
+	var q := _search.text.strip_edges().to_lower() if _search != null else ""
+
 	for e in unlocked:
 		if typeof(e) != TYPE_DICTIONARY:
 			continue
 		var d: Dictionary = e
 		var data: Dictionary = d.get("data", {}) as Dictionary
-		var row := HBoxContainer.new()
-		# Allow mouse wheel to reach ScrollContainer for smooth scrolling.
-		row.mouse_filter = Control.MOUSE_FILTER_PASS
-		row.add_theme_constant_override("separation", 8)
-		collection_box.add_child(row)
+		if not _matches_query(data, q):
+			continue
 
-		# Small animated portrait preview (makes the collection feel alive).
-		row.add_child(_make_collection_preview(data))
-
-		var name := Label.new()
 		var rarity := String(data.get("rarity_id", "common"))
 		var arch := String(data.get("archetype_id", "bruiser"))
+
+		# Card row (reads better than a naked HBox).
+		var card := PanelContainer.new()
+		card.mouse_filter = Control.MOUSE_FILTER_PASS
+		card.add_theme_stylebox_override("panel", UiSkin.panel_style(UnitFactory.rarity_color(rarity), false))
+		collection_box.add_child(card)
+
+		card.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+				_select_unlock(data)
+		)
+
+		var pad := MarginContainer.new()
+		pad.add_theme_constant_override("margin_left", 10)
+		pad.add_theme_constant_override("margin_right", 10)
+		pad.add_theme_constant_override("margin_top", 8)
+		pad.add_theme_constant_override("margin_bottom", 8)
+		card.add_child(pad)
+
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_theme_constant_override("separation", 10)
+		pad.add_child(row)
+
+		row.add_child(_make_collection_preview(data))
+
+		var mid := VBoxContainer.new()
+		mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mid.add_theme_constant_override("separation", 2)
+		row.add_child(mid)
+
+		var name := Label.new()
 		name.text = "%s • %s" % [UnitFactory.rarity_name(rarity), arch]
+		name.add_theme_font_size_override("font_size", 15)
 		name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
-		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(name)
+		mid.add_child(name)
+
+		var small := Label.new()
+		small.text = "HP %d  DMG %d  CD %.2f  RNG %d" % [
+			int(data.get("max_hp", 100)),
+			int(data.get("attack_damage", 10)),
+			float(data.get("attack_cooldown", 1.0)),
+			int(float(data.get("attack_range", 300.0)))
+		]
+		small.add_theme_font_size_override("font_size", 11)
+		small.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+		mid.add_child(small)
+
+		var btns := VBoxContainer.new()
+		btns.add_theme_constant_override("separation", 6)
+		row.add_child(btns)
 
 		var details := Button.new()
 		details.text = "Details"
-		row.add_child(details)
-		details.pressed.connect(func():
-			_show_details(data)
-		)
+		details.custom_minimum_size = Vector2(92, 34)
+		UiSkin.style_secondary_button(details)
+		btns.add_child(details)
+		details.pressed.connect(func(): _show_details(data))
 
 		var add := Button.new()
 		add.text = "Add"
-		row.add_child(add)
-		add.pressed.connect(func():
-			_add_unlock_to_roster(data)
-		)
+		add.custom_minimum_size = Vector2(92, 34)
+		UiSkin.style_primary_button(add)
+		btns.add_child(add)
+		add.pressed.connect(func(): _add_unlock_to_roster(data))
 
 func _make_collection_preview(data: Dictionary) -> Control:
 	var rarity := String(data.get("rarity_id", "common"))
@@ -351,18 +413,7 @@ func _make_collection_preview(data: Dictionary) -> Control:
 	frame.custom_minimum_size = Vector2(56, 56)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.11, 0.92)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = UnitFactory.rarity_color(rarity)
-	sb.corner_radius_top_left = 10
-	sb.corner_radius_top_right = 10
-	sb.corner_radius_bottom_left = 10
-	sb.corner_radius_bottom_right = 10
-	frame.add_theme_stylebox_override("panel", sb)
+	frame.add_theme_stylebox_override("panel", UiSkin.panel_style(UnitFactory.rarity_color(rarity), false))
 
 	var pad := MarginContainer.new()
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -450,9 +501,20 @@ func _refresh_roster() -> void:
 	var roster: Array = cm.active_roster
 	var cap := _meta_cap()
 	for i in range(cap):
+		var row_card := PanelContainer.new()
+		row_card.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, false))
+		roster_box.add_child(row_card)
+
+		var pad := MarginContainer.new()
+		pad.add_theme_constant_override("margin_left", 10)
+		pad.add_theme_constant_override("margin_right", 10)
+		pad.add_theme_constant_override("margin_top", 8)
+		pad.add_theme_constant_override("margin_bottom", 8)
+		row_card.add_child(pad)
+
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		roster_box.add_child(row)
+		row.add_theme_constant_override("separation", 10)
+		pad.add_child(row)
 
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -460,7 +522,10 @@ func _refresh_roster() -> void:
 			var d: Dictionary = roster[i]
 			var rarity := String(d.get("rarity_id", "common"))
 			var arch := String(d.get("archetype_id", "bruiser"))
+			# Portrait
+			row.add_child(_make_collection_preview(d))
 			label.text = "%d) %s • %s" % [i + 1, UnitFactory.rarity_name(rarity), arch]
+			label.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
 		else:
 			label.text = "%d) (empty)" % [i + 1]
 		row.add_child(label)
@@ -468,6 +533,8 @@ func _refresh_roster() -> void:
 		if i < roster.size():
 			var remove := Button.new()
 			remove.text = "Remove"
+			remove.custom_minimum_size = Vector2(110, 34)
+			UiSkin.style_secondary_button(remove)
 			row.add_child(remove)
 			remove.pressed.connect(func():
 				cm.remove_from_roster(i)
@@ -494,6 +561,111 @@ func _add_unlock_to_roster(data: Dictionary) -> void:
 		var arch := String(data.get("archetype_id", "bruiser"))
 		_toast.show_toast("Added to roster: %s • %s" % [UnitFactory.rarity_name(rarity), arch], UnitFactory.rarity_color(rarity))
 	_refresh()
+
+func _select_unlock(data: Dictionary) -> void:
+	_selected_unlock = data
+	_refresh_inspector()
+
+func _refresh_inspector() -> void:
+	if _inspector_name == null or _inspector_primary_btn == null:
+		return
+	# Clear portrait slot
+	if _inspector_portrait != null:
+		for ch in _inspector_portrait.get_children():
+			ch.queue_free()
+
+	if _selected_unlock.is_empty():
+		_inspector_name.text = "Click a character to preview."
+		_inspector_stats.text = ""
+		_inspector_passives.text = ""
+		_inspector_primary_btn.disabled = true
+		return
+
+	var rarity := String(_selected_unlock.get("rarity_id", "common"))
+	var arch := String(_selected_unlock.get("archetype_id", "bruiser"))
+	_inspector_name.text = "%s • %s" % [UnitFactory.rarity_name(rarity), arch]
+	_inspector_name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
+	_inspector_stats.text = "HP %d  DMG %d  CD %.2f  RNG %d" % [
+		int(_selected_unlock.get("max_hp", 100)),
+		int(_selected_unlock.get("attack_damage", 10)),
+		float(_selected_unlock.get("attack_cooldown", 1.0)),
+		int(float(_selected_unlock.get("attack_range", 300.0)))
+	]
+
+	var pids: Array = _selected_unlock.get("passive_ids", [])
+	var pnames: Array[String] = []
+	for pid in pids:
+		pnames.append(PassiveSystem.passive_name(String(pid)))
+	_inspector_passives.text = "Passives: " + (", ".join(pnames) if not pnames.is_empty() else "—")
+
+	if _inspector_portrait != null:
+		var p := _make_detail_portrait(_selected_unlock)
+		p.custom_minimum_size = Vector2(92, 92)
+		_inspector_portrait.add_child(p)
+
+	# Determine primary action: Add if not in roster, else show hint.
+	var cm := get_node_or_null("/root/CollectionManager")
+	var in_roster := false
+	if cm and is_instance_valid(cm):
+		for r in cm.active_roster:
+			if typeof(r) == TYPE_DICTIONARY:
+				var rd := r as Dictionary
+				if String(rd.get("pixellab_id", "")) == String(_selected_unlock.get("pixellab_id", "")) and String(_selected_unlock.get("pixellab_id", "")) != "":
+					in_roster = true
+					break
+	if in_roster:
+		_inspector_primary_btn.text = "Already in Roster"
+		_inspector_primary_btn.disabled = true
+		UiSkin.style_secondary_button(_inspector_primary_btn)
+	else:
+		_inspector_primary_btn.text = "Add to Roster"
+		_inspector_primary_btn.disabled = false
+		UiSkin.style_primary_button(_inspector_primary_btn)
+
+func _matches_query(data: Dictionary, q: String) -> bool:
+	if q == "":
+		return true
+	var parts := q.split(" ", false)
+	var hay := PackedStringArray()
+	hay.append(String(data.get("rarity_id", "")))
+	hay.append(String(data.get("archetype_id", "")))
+	hay.append(String(data.get("class_type", "")))
+	for pid in data.get("passive_ids", []):
+		hay.append(PassiveSystem.passive_name(String(pid)).to_lower())
+		hay.append(String(pid).to_lower())
+	var blob := " ".join(hay).to_lower()
+	for p in parts:
+		if p == "":
+			continue
+		if blob.find(p.to_lower()) < 0:
+			return false
+	return true
+
+func _apply_skin() -> void:
+	# Apply Neon Protocol look consistently.
+	var left_panel := get_node_or_null("Root/Left") as PanelContainer
+	var right_panel := get_node_or_null("Root/Right") as PanelContainer
+	if left_panel:
+		left_panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
+	if right_panel:
+		right_panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
+
+	# Inspector card panel
+	if _inspector_card:
+		_inspector_card.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, false))
+
+	# Buttons
+	UiSkin.style_primary_button(start_btn)
+	UiSkin.style_secondary_button(resume_btn)
+	UiSkin.style_secondary_button(settings_btn)
+	UiSkin.style_secondary_button(back_btn)
+	UiSkin.style_secondary_button(_search_clear)
+	UiSkin.style_secondary_button(_inspector_details_btn)
+	UiSkin.style_primary_button(_inspector_primary_btn)
+
+	# OptionButton styling (inherits Button)
+	if map_select:
+		UiSkin.style_secondary_button(map_select as Button)
 
 func _on_start_run() -> void:
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")

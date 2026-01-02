@@ -25,6 +25,10 @@ const DM_STYLE_ECHO := 4
 var _main: Node2D = null
 var _current_anim: String = "walk_south"
 var _anim_cooldown: float = 0.0
+var _last_facing: Vector2 = Vector2(0, 1)
+var _anim_base_pos: Vector2 = Vector2.ZERO
+var _anim_base_scale: Vector2 = Vector2.ONE
+var _walk_bob_t: float = 0.0
 var _retarget_t: float = 0.0
 var _contact_t: float = 0.0
 var _attack_t: float = 0.0
@@ -106,6 +110,8 @@ func _apply_visuals() -> void:
 	# Flipping here (or in _update_anim) will mirror the already-correct west frames and make enemies face the wrong way.
 	anim.flip_h = false
 	anim.play()
+	_anim_base_pos = anim.position
+	_anim_base_scale = anim.scale
 	# Elites slightly larger
 	var base := 1.08 if is_elite else 1.0
 	anim.scale = Vector2(base, base) * _scale_mult
@@ -156,7 +162,9 @@ func _physics_process(delta: float) -> void:
 	else:
 		_melee_step(delta, dist, dir)
 
-	_update_anim(dir)
+	# Use real motion for walking direction; when idle (e.g. spitter holds distance),
+	# face the target without playing the walk cycle.
+	_update_anim_from_motion(velocity, dir)
 
 	# Contact damage when close (no pushing "inside")
 	if dist <= 28.0 and _contact_t <= 0.0:
@@ -380,26 +388,83 @@ func _find_target() -> Node2D:
 			return player
 	return null
 
-func _update_anim(dir: Vector2) -> void:
-	if anim == null:
+func _update_anim_from_motion(motion: Vector2, look_dir: Vector2) -> void:
+	if anim == null or anim.sprite_frames == null:
 		return
-	var ax: float = absf(dir.x)
-	var ay: float = absf(dir.y)
-	var desired: String = _current_anim
-	var threshold: float = 0.15
-	if ax > ay + threshold:
-		desired = "walk_east" if dir.x >= 0.0 else "walk_west"
-	elif ay > ax + threshold:
-		desired = "walk_south" if dir.y > 0.0 else "walk_north"
+	var moving := motion.length() > 2.0
+	var ref := motion if moving else look_dir
+	if ref.length() <= 0.001:
+		ref = _last_facing
+	else:
+		_last_facing = ref.normalized()
+
+	var desired := _pick_walk_anim(ref)
 	if desired != _current_anim and _anim_cooldown <= 0.0:
 		_current_anim = desired
 		anim.animation = _current_anim
-		# Do not flip: we have dedicated frames per direction.
-		anim.flip_h = false
-		anim.play()
-		_anim_cooldown = 0.5
-	elif not anim.is_playing():
-		anim.play()
+		_anim_cooldown = 0.12
+
+	_apply_directional_flip(_current_anim)
+
+	if moving:
+		if not anim.is_playing():
+			anim.play()
+	else:
+		if anim.is_playing():
+			anim.stop()
+		anim.frame = 0
+
+	_apply_walk_bob(moving)
+
+func _apply_directional_flip(anim_name: String) -> void:
+	if anim == null or anim.sprite_frames == null:
+		return
+	var sf := anim.sprite_frames
+	var flip := false
+	if anim_name == "walk_east" and bool(sf.get_meta("flip_h_for_walk_east", false)):
+		flip = true
+	elif anim_name == "walk_west" and bool(sf.get_meta("flip_h_for_walk_west", false)):
+		flip = true
+	anim.flip_h = flip
+
+func _apply_walk_bob(moving: bool) -> void:
+	# For enemies that don't have real walking frames (rare, but happens in Pixellab exports),
+	# add a subtle bob so they don't look frozen while sliding.
+	if anim == null or anim.sprite_frames == null:
+		return
+	var sf := anim.sprite_frames
+	var frames_n := 0
+	if sf.has_animation(_current_anim):
+		frames_n = sf.get_frame_count(_current_anim)
+	var has_real_walk := frames_n >= 2
+
+	if moving and (not has_real_walk):
+		_walk_bob_t += get_physics_process_delta_time() * 9.0
+		var bob := sin(_walk_bob_t) * 1.15
+		anim.position = _anim_base_pos + Vector2(0, bob)
+		anim.scale = _anim_base_scale * (1.0 + 0.012 * sin(_walk_bob_t * 2.0))
+	else:
+		_walk_bob_t = 0.0
+		anim.position = _anim_base_pos
+		anim.scale = _anim_base_scale
+
+func _pick_walk_anim(dir: Vector2) -> String:
+	var d := dir.normalized()
+	var ax := absf(d.x)
+	var ay := absf(d.y)
+	var desired := _current_anim
+	var threshold := 0.10
+	if ax > ay + threshold:
+		desired = "walk_east" if d.x >= 0.0 else "walk_west"
+	elif ay > ax + threshold:
+		desired = "walk_south" if d.y > 0.0 else "walk_north"
+
+	var sf := anim.sprite_frames
+	if sf.has_animation(desired) and sf.get_frame_count(desired) > 0:
+		return desired
+	if sf.has_animation("walk_south") and sf.get_frame_count("walk_south") > 0:
+		return "walk_south"
+	return desired
 
 func take_damage(amount: int, is_crit: bool = false, source: String = "") -> void:
 	var prev := current_hp

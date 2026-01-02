@@ -16,6 +16,12 @@ var _pierced_enemies: Array[Node2D] = []
 var _main: Node2D = null
 
 @onready var sprite: Sprite2D = get_node_or_null("Sprite2D")
+var _glow: Sprite2D = null
+var _trail: Line2D = null
+var _trail_points: PackedVector2Array = PackedVector2Array()
+var _trail_last: Vector2 = Vector2.INF
+
+static var _bullet_tex: Texture2D = null
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_INHERIT
@@ -26,13 +32,36 @@ func _ready() -> void:
 		sprite = Sprite2D.new()
 		sprite.name = "Sprite2D"
 		add_child(sprite)
-	# Placeholder bullet sprite (tinted by class)
-	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
-	img.fill(Color(1, 1, 1, 1))
-	sprite.texture = ImageTexture.create_from_image(img)
+	# Better bullet: capsule w/ outline + glow + short trail (still ultra-lightweight).
+	if _bullet_tex == null:
+		_bullet_tex = _make_bullet_tex()
+	sprite.texture = _bullet_tex
 	sprite.position = Vector2.ZERO
-	sprite.scale = Vector2(2.0, 2.0)
+	sprite.scale = Vector2(1.15, 1.15)
 	sprite.z_index = 20
+
+	_glow = Sprite2D.new()
+	_glow.name = "Glow"
+	_glow.texture = _bullet_tex
+	_glow.centered = true
+	_glow.z_index = 19
+	_glow.scale = Vector2(2.2, 2.2)
+	_glow.modulate = Color(1, 1, 1, 0.35)
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_glow.material = mat
+	add_child(_glow)
+
+	_trail = Line2D.new()
+	_trail.name = "Trail"
+	_trail.top_level = true
+	_trail.z_index = 18
+	_trail.width = 3.0
+	_trail.antialiased = true
+	_trail.joint_mode = Line2D.LINE_JOINT_ROUND
+	_trail.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	_trail.end_cap_mode = Line2D.LINE_CAP_ROUND
+	add_child(_trail)
 
 	# IMPORTANT:
 	# We do NOT use physics collision shapes for projectiles.
@@ -50,6 +79,18 @@ func _ready() -> void:
 func set_vfx_color(c: Color) -> void:
 	if sprite:
 		sprite.modulate = c
+	if _glow:
+		_glow.modulate = Color(c.r, c.g, c.b, 0.35)
+	if _trail:
+		# fade to transparent behind
+		var g := Gradient.new()
+		g.colors = PackedColorArray([
+			Color(c.r, c.g, c.b, 0.0),
+			Color(c.r, c.g, c.b, 0.28),
+			Color(1, 1, 1, 0.12)
+		])
+		g.offsets = PackedFloat32Array([0.0, 0.65, 1.0])
+		_trail.gradient = g
 
 func setup(dest: Vector2, dmg: int) -> void:
 	target = null
@@ -85,6 +126,7 @@ func _physics_process(delta: float) -> void:
 	dir = dir / dist
 	global_position += dir * speed * delta
 	rotation = dir.angle()
+	_tick_trail()
 	_manual_hit_check()
 	if dist < 12.0:
 		_explode()
@@ -123,8 +165,14 @@ func _spawn_hit_vfx(enemy: Node2D) -> void:
 	var pos := enemy.global_position + Vector2(0, -18)
 	var dir := (enemy.global_position - global_position).normalized()
 
+	# Crisp impact flash (reads as "hit" even on dark maps)
+	var c0 := sprite.modulate if sprite != null else Color(0.85, 0.92, 1.0, 1.0)
+	var flash := VfxImpactFlash.new()
+	flash.setup(pos, Color(c0.r, c0.g, c0.b, 1.0), 16.0, 0.10)
+	main.add_child(flash)
+
 	# Small impact spark (uses FlameBurst as generic spark burst)
-	var c := sprite.modulate if sprite != null else Color(0.85, 0.92, 1.0, 1.0)
+	var c := c0
 	var fb := VfxFlameBurst.new()
 	fb.setup(pos, Color(c.r, c.g, c.b, 0.9), 18.0, 7, 0.16, dir)
 	main.add_child(fb)
@@ -162,3 +210,77 @@ func _manual_hit_check() -> void:
 		if n2.global_position.distance_squared_to(global_position) <= r2:
 			_hit_enemy(n2)
 			return
+
+func _tick_trail() -> void:
+	if _trail == null:
+		return
+	# Keep a short, smooth trail behind the bullet. Points are in global space (trail is top_level).
+	var gp := global_position
+	if _trail_last == Vector2.INF:
+		_trail_last = gp
+		_trail_points = PackedVector2Array([gp])
+		_trail.points = _trail_points
+		return
+	if gp.distance_squared_to(_trail_last) < 64.0: # 8px
+		return
+	_trail_last = gp
+	_trail_points.append(gp)
+	var max_pts := 9
+	while _trail_points.size() > max_pts:
+		_trail_points.remove_at(0)
+	_trail.points = _trail_points
+
+func _make_bullet_tex() -> Texture2D:
+	# White capsule with subtle outline and hot core.
+	var w: int = 26
+	var h: int = 14
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var cx := float(w) * 0.5
+	var cy := float(h) * 0.5
+	var rx := float(w) * 0.45
+	var ry := float(h) * 0.28
+
+	for y in range(h):
+		for x in range(w):
+			var px := (float(x) + 0.5 - cx) / maxf(0.001, rx)
+			var py := (float(y) + 0.5 - cy) / maxf(0.001, ry)
+			# Capsule-ish SDF: ellipse with softened ends (good enough at this scale)
+			var d := px * px + py * py
+			if d > 1.05:
+				continue
+			var a := clampf(1.0 - (d - 0.25) / 0.80, 0.0, 1.0)
+			# darker edge for outline-ish look
+			var edge := clampf((d - 0.55) / 0.45, 0.0, 1.0)
+			var col := Color(1, 1, 1, a)
+			col.a = a
+			# bake a little outline by reducing alpha near edges (outline via contrast, not black ring)
+			col.r = 1.0
+			col.g = 1.0
+			col.b = 1.0
+			col.a *= lerpf(1.0, 0.72, edge)
+			img.set_pixel(x, y, col)
+
+	# A couple darker pixels at the perimeter to imply outline
+	for y in range(h):
+		for x in range(w):
+			var c := img.get_pixel(x, y)
+			if c.a <= 0.01:
+				continue
+			# if neighbor is transparent, darken this pixel slightly
+			var near_empty := false
+			for oy in [-1, 0, 1]:
+				for ox in [-1, 0, 1]:
+					if ox == 0 and oy == 0:
+						continue
+					var nx := clampi(x + ox, 0, w - 1)
+					var ny := clampi(y + oy, 0, h - 1)
+					if img.get_pixel(nx, ny).a <= 0.01:
+						near_empty = true
+						break
+				if near_empty:
+					break
+			if near_empty:
+				img.set_pixel(x, y, Color(0, 0, 0, minf(0.55, c.a)))
+
+	return ImageTexture.create_from_image(img)

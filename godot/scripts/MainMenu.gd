@@ -6,6 +6,10 @@ extends Control
 @onready var settings_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Settings") as Button
 @onready var quit_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Quit") as Button
 
+@onready var card: Control = get_node_or_null("Root/Card") as Control
+@onready var title_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/Title") as Label
+@onready var subtitle_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/Subtitle") as Label
+
 @onready var map_overlay: Control = get_node_or_null("MapOverlay") as Control
 @onready var map_list: ItemList = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapList") as ItemList
 @onready var map_tagline: Label = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapTagline") as Label
@@ -13,12 +17,21 @@ extends Control
 @onready var map_start_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Start") as Button
 
 var _map_ids: Array[String] = []
+var _crowd: Node2D = null
+
+@export var game_title: String = "Squad Protocol"
+@export var game_tagline: String = "Draft a squad. Survive the swarm."
+@export var show_footer: bool = true
+@export var footer_text: String = "v4.2 • Draft a squad • Survive the swarm"
 
 func _ready() -> void:
 	# Menu music
 	var mm := get_node_or_null("/root/MusicManager")
 	if mm and is_instance_valid(mm) and mm.has_method("play"):
 		mm.play("menu", 1.0)
+
+	_spawn_menu_crowd()
+	_polish_menu_ui()
 
 	if play_btn:
 		play_btn.pressed.connect(func():
@@ -167,5 +180,107 @@ func _open_settings() -> void:
 	var sm := preload("res://scripts/SettingsMenu.gd").new()
 	sm.name = "SettingsMenu"
 	add_child(sm)
+
+func _spawn_menu_crowd() -> void:
+	# Fill empty space with a fun wandering crowd behind the UI.
+	if _crowd != null and is_instance_valid(_crowd):
+		return
+
+	# Push backdrops behind everything so the crowd is visible but UI stays on top.
+	var bd := get_node_or_null("Backdrop") as CanvasItem
+	if bd:
+		bd.z_index = -100
+	var bds := get_node_or_null("BackdropShader") as CanvasItem
+	if bds:
+		bds.z_index = -90
+
+	var c := preload("res://scripts/MainMenuCrowd.gd").new()
+	c.name = "MenuCrowd"
+	add_child(c)
+	# Ensure it's drawn above backdrop but below Root/Card (which stays at z_index 0 by default).
+	if c is CanvasItem:
+		(c as CanvasItem).z_index = -50
+	_crowd = c
+	# Keep it behind Root in draw order.
+	if has_node("Root"):
+		move_child(_crowd, get_node("Root").get_index())
+
+func _polish_menu_ui() -> void:
+	# Title/subtitle (lets us rename without touching the scene file).
+	if title_lbl:
+		title_lbl.text = game_title
+		title_lbl.add_theme_font_size_override("font_size", 52)
+		title_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	if subtitle_lbl:
+		subtitle_lbl.text = game_tagline
+		subtitle_lbl.add_theme_font_size_override("font_size", 15)
+		subtitle_lbl.add_theme_color_override("font_color", Color(0.82, 0.90, 1.0, 0.92))
+
+	# Card entrance: subtle slide + fade for “premium” feel.
+	if card:
+		card.modulate = Color(1, 1, 1, 0)
+		var base := card.position
+		card.position = base + Vector2(0, 18)
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_SINE)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.tween_property(card, "position", base, 0.22)
+		tw.parallel().tween_property(card, "modulate", Color(1, 1, 1, 1), 0.22)
+
+	# Buttons: consistent “neon” pill style, with a stronger primary (Start/Resume).
+	var primary := Color(0.40, 0.85, 1.0, 1.0)
+	var secondary := Color(1, 1, 1, 0.10)
+	_style_button(play_btn, true, primary, secondary)
+	_style_button(resume_btn, true, primary, secondary)
+	_style_button(armory_btn, false, primary, secondary)
+	_style_button(settings_btn, false, primary, secondary)
+	_style_button(quit_btn, false, primary, secondary)
+
+	# Footer line (small, helps communicate the loop).
+	if show_footer and card and card.has_node("Pad/VBox"):
+		var vb := card.get_node("Pad/VBox") as VBoxContainer
+		if vb and vb.get_node_or_null("Footer") == null:
+			vb.add_spacer(true)
+			var ft := Label.new()
+			ft.name = "Footer"
+			ft.text = footer_text
+			ft.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			ft.add_theme_font_size_override("font_size", 12)
+			ft.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0, 0.65))
+			vb.add_child(ft)
+
+func _style_button(btn: Button, is_primary: bool, primary: Color, secondary: Color) -> void:
+	if btn == null:
+		return
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+
+	var normal := StyleBoxFlat.new()
+	normal.corner_radius_top_left = 12
+	normal.corner_radius_top_right = 12
+	normal.corner_radius_bottom_left = 12
+	normal.corner_radius_bottom_right = 12
+	normal.bg_color = Color(primary.r, primary.g, primary.b, 0.16) if is_primary else Color(0.08, 0.09, 0.11, 0.70)
+	normal.border_width_left = 2
+	normal.border_width_right = 2
+	normal.border_width_top = 2
+	normal.border_width_bottom = 2
+	normal.border_color = Color(primary.r, primary.g, primary.b, 0.55) if is_primary else secondary
+
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(primary.r, primary.g, primary.b, 0.22) if is_primary else Color(0.10, 0.11, 0.13, 0.78)
+	hover.border_color = Color(primary.r, primary.g, primary.b, 0.85)
+
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color(primary.r, primary.g, primary.b, 0.28) if is_primary else Color(0.12, 0.13, 0.16, 0.85)
+	pressed.border_color = Color(primary.r, primary.g, primary.b, 0.95)
+
+	btn.add_theme_stylebox_override("normal", normal)
+	btn.add_theme_stylebox_override("hover", hover)
+	btn.add_theme_stylebox_override("pressed", pressed)
+	btn.add_theme_stylebox_override("focus", hover)
+	btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
+	btn.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 1))
 
 

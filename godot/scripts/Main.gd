@@ -44,10 +44,6 @@ const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
 const DAMAGE_NUMBERS_LAYER_SCRIPT: Script = preload("res://scripts/DamageNumbersLayer.gd")
 const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
 
-@export var use_tileset_map: bool = false
-@export var tileset_tile_size: int = 32
-@export var tileset_prop_density: float = 0.020
-
 var damage_numbers: Node = null
 var toast_layer: ToastLayer
 
@@ -170,24 +166,6 @@ func _elapsed_minutes() -> float:
 	return ((Time.get_ticks_msec() / 1000.0) - run_start_time) / 60.0
 
 func _make_background() -> void:
-	# Optional: TileMap renderer using user-provided tilesets (removable).
-	if use_tileset_map:
-		var tr := preload("res://scripts/MapTilesetRenderer.gd").new()
-		tr.name = "MapTilesetRenderer"
-		add_child(tr)
-		# Best-effort wiring
-		if "theme_id" in tr:
-			tr.set("theme_id", map_theme_id)
-		if "tile_size" in tr:
-			tr.set("tile_size", tileset_tile_size)
-		if "map_size" in tr:
-			tr.set("map_size", map_size)
-		if "seed" in tr:
-			tr.set("seed", random_seed)
-		if "prop_density" in tr:
-			tr.set("prop_density", tileset_prop_density)
-		return
-
 	# Preferred: MapRenderer (procedural rich ground + fog + props).
 	if use_rich_map and MAP_RENDERER_SCENE != null:
 		var mr := MAP_RENDERER_SCENE.instantiate()
@@ -238,10 +216,14 @@ func _spawn_player() -> void:
 	if p.has_node("Camera2D"):
 		var cam := p.get_node("Camera2D") as Camera2D
 		if cam:
-			cam.limit_left = int(-map_size.x * 0.5)
-			cam.limit_top = int(-map_size.y * 0.5)
-			cam.limit_right = int(map_size.x * 0.5)
-			cam.limit_bottom = int(map_size.y * 0.5)
+			# Camera limits must be in *world* coordinates. If the Main scene root is offset
+			# (common when the scene is authored with a viewport-ish origin), center limits
+			# around this node's global_position instead of assuming (0,0).
+			var o := global_position
+			cam.limit_left = int(o.x - map_size.x * 0.5)
+			cam.limit_top = int(o.y - map_size.y * 0.5)
+			cam.limit_right = int(o.x + map_size.x * 0.5)
+			cam.limit_bottom = int(o.y + map_size.y * 0.5)
 
 func _spawn_initial_enemies() -> void:
 	var mult := float(_map_mod.get("initial_enemies_mult", 1.0))
@@ -594,10 +576,11 @@ func _show_recruit_draft() -> void:
 
 	var modal := PanelContainer.new()
 	modal.set_anchors_preset(Control.PRESET_CENTER)
-	modal.offset_left = -460
-	modal.offset_top = -280
-	modal.offset_right = 460
-	modal.offset_bottom = 280
+	# Larger + calmer spacing so cards breathe and text stays readable.
+	modal.offset_left = -560
+	modal.offset_top = -330
+	modal.offset_right = 560
+	modal.offset_bottom = 330
 	modal.mouse_filter = Control.MOUSE_FILTER_STOP
 	draft_ui.add_child(modal)
 
@@ -645,7 +628,7 @@ func _show_recruit_draft() -> void:
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "Choose 1. Trophies unlock into your collection (not auto-added)."
+	subtitle.text = "Choose 1 reward. Unlocks go to your Collection (not auto-added)."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	subtitle.add_theme_font_size_override("font_size", 14)
@@ -728,7 +711,9 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 
 func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(260, 220)
+	card.custom_minimum_size = Vector2(330, 310)
+	card.focus_mode = Control.FOCUS_ALL
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.09, 0.11, 0.92)
@@ -736,24 +721,65 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	sb.border_width_right = 2
 	sb.border_width_top = 2
 	sb.border_width_bottom = 2
-	sb.border_color = UnitFactory.rarity_color(cd.rarity_id)
+	var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
+	sb.border_color = rarity_col
 	sb.corner_radius_top_left = 12
 	sb.corner_radius_top_right = 12
 	sb.corner_radius_bottom_left = 12
 	sb.corner_radius_bottom_right = 12
+	sb.shadow_color = Color(0, 0, 0, 0.55)
+	sb.shadow_size = 12
 	card.add_theme_stylebox_override("panel", sb)
+
+	# Subtle hover/focus feedback (keeps input simple).
+	card.pivot_offset = card.custom_minimum_size * 0.5
+	card.mouse_entered.connect(func():
+		var tw := card.create_tween()
+		tw.set_trans(Tween.TRANS_SINE)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.tween_property(card, "scale", Vector2(1.02, 1.02), 0.10)
+		sb.border_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.95)
+		sb.shadow_size = 18
+	)
+	card.mouse_exited.connect(func():
+		var tw := card.create_tween()
+		tw.set_trans(Tween.TRANS_SINE)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.tween_property(card, "scale", Vector2.ONE, 0.12)
+		sb.border_color = rarity_col
+		sb.shadow_size = 12
+	)
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pad.add_theme_constant_override("margin_left", 14)
-	pad.add_theme_constant_override("margin_right", 14)
-	pad.add_theme_constant_override("margin_top", 12)
-	pad.add_theme_constant_override("margin_bottom", 12)
+	pad.add_theme_constant_override("margin_left", 16)
+	pad.add_theme_constant_override("margin_right", 16)
+	pad.add_theme_constant_override("margin_top", 14)
+	pad.add_theme_constant_override("margin_bottom", 14)
 	card.add_child(pad)
 
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
+	v.add_theme_constant_override("separation", 10)
 	pad.add_child(v)
+
+	# Header: rarity + role
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 10)
+	v.add_child(header)
+
+	var rarity_lbl := Label.new()
+	rarity_lbl.text = UnitFactory.rarity_name(cd.rarity_id).to_upper()
+	rarity_lbl.add_theme_font_size_override("font_size", 14)
+	rarity_lbl.add_theme_color_override("font_color", rarity_col)
+	header.add_child(rarity_lbl)
+
+	header.add_spacer(true)
+
+	var arch := Label.new()
+	arch.text = cd.archetype_id.to_upper()
+	arch.add_theme_font_size_override("font_size", 14)
+	arch.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 0.95))
+	header.add_child(arch)
 
 	# Portrait (PixelLab south rotation)
 	var portrait_frame := PanelContainer.new()
@@ -769,7 +795,7 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	psb.corner_radius_bottom_left = 10
 	psb.corner_radius_bottom_right = 10
 	portrait_frame.add_theme_stylebox_override("panel", psb)
-	portrait_frame.custom_minimum_size = Vector2(0, 92)
+	portrait_frame.custom_minimum_size = Vector2(0, 104)
 	v.add_child(portrait_frame)
 
 	var portrait_pad := MarginContainer.new()
@@ -792,7 +818,7 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		portrait_pad.add_child(svc)
 
 		var vp := SubViewport.new()
-		vp.size = Vector2i(96, 96)
+		vp.size = Vector2i(110, 110)
 		vp.transparent_bg = true
 		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		vp.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
@@ -803,8 +829,8 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		spr.animation = "walk_south"
 		spr.play()
 		spr.centered = true
-		spr.position = Vector2(vp.size.x * 0.5, vp.size.y * 0.5 + 6.0)
-		spr.scale = Vector2(1.8, 1.8)
+		spr.position = Vector2(vp.size.x * 0.5, vp.size.y * 0.5 + 8.0)
+		spr.scale = Vector2(2.0, 2.0)
 		spr.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 		vp.add_child(spr)
 	else:
@@ -822,49 +848,108 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		portrait.texture = tex
 		portrait_pad.add_child(portrait)
 
-	var name := Label.new()
-	name.text = "%s • %s" % [UnitFactory.rarity_name(cd.rarity_id), cd.archetype_id]
-	name.add_theme_font_size_override("font_size", 18)
-	name.add_theme_color_override("font_color", Color(0.95, 0.98, 1.0, 1))
-	v.add_child(name)
-
 	var style_label := Label.new()
-	style_label.text = "Style: %s" % ("MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED")
-	style_label.add_theme_color_override("font_color", Color(0.78, 0.88, 1.0, 0.95))
+	style_label.text = "STYLE: %s" % ("MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED")
+	style_label.add_theme_font_size_override("font_size", 12)
+	style_label.add_theme_color_override("font_color", Color(0.78, 0.88, 1.0, 0.90))
 	v.add_child(style_label)
 
-	var stats := Label.new()
-	stats.text = "HP %d  DMG %d  CD %.2f  RNG %d" % [cd.max_hp, cd.attack_damage, cd.attack_cooldown, int(cd.attack_range)]
-	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stats.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92, 0.95))
-	v.add_child(stats)
+	# Stats grid for scanability
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 4)
+	v.add_child(grid)
+	var s_hp := Label.new(); s_hp.text = "HP  %d" % cd.max_hp
+	var s_dmg := Label.new(); s_dmg.text = "DMG  %d" % cd.attack_damage
+	var s_cd := Label.new(); s_cd.text = "CD  %.2f" % cd.attack_cooldown
+	var s_rng := Label.new(); s_rng.text = "RNG  %d" % int(cd.attack_range)
+	for lbl in [s_hp, s_dmg, s_cd, s_rng]:
+		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.add_theme_color_override("font_color", Color(0.86, 0.90, 0.96, 0.95))
+		grid.add_child(lbl)
 
-	var pass_rich := RichTextLabel.new()
-	pass_rich.bbcode_enabled = true
-	pass_rich.scroll_active = false
-	pass_rich.fit_content = true
-	pass_rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	pass_rich.add_theme_font_size_override("normal_font_size", 12)
-	pass_rich.add_theme_color_override("default_color", Color(0.82, 0.86, 0.92, 0.95))
-	var p_lines: Array[String] = []
+	# Passives as compact chips (tooltip shows full description).
+	var pass_title := Label.new()
+	pass_title.text = "PASSIVES"
+	pass_title.add_theme_font_size_override("font_size", 12)
+	pass_title.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.85))
+	v.add_child(pass_title)
+
+	var chips := HFlowContainer.new()
+	chips.add_theme_constant_override("h_separation", 6)
+	chips.add_theme_constant_override("v_separation", 6)
+	v.add_child(chips)
+
+	var shown := 0
 	for pid in cd.passive_ids:
-		var name_col := PassiveSystem.passive_color(pid)
-		var hex := "#" + name_col.to_html(false)
-		p_lines.append("- [color=%s]%s[/color]: %s" % [hex, PassiveSystem.passive_name(pid), PassiveSystem.passive_description(pid)])
-	pass_rich.text = "[b]Passives:[/b]\n%s" % "\n".join(p_lines)
-	v.add_child(pass_rich)
+		if shown >= 3:
+			break
+		var chip := PanelContainer.new()
+		var csb := StyleBoxFlat.new()
+		csb.bg_color = Color(0.06, 0.07, 0.09, 0.80)
+		csb.border_width_left = 1
+		csb.border_width_right = 1
+		csb.border_width_top = 1
+		csb.border_width_bottom = 1
+		var pc := PassiveSystem.passive_color(pid)
+		csb.border_color = Color(pc.r, pc.g, pc.b, 0.55)
+		csb.corner_radius_top_left = 10
+		csb.corner_radius_top_right = 10
+		csb.corner_radius_bottom_left = 10
+		csb.corner_radius_bottom_right = 10
+		chip.add_theme_stylebox_override("panel", csb)
+		chip.tooltip_text = "%s\n%s" % [PassiveSystem.passive_name(pid), PassiveSystem.passive_description(pid)]
+		chips.add_child(chip)
+
+		var mp := MarginContainer.new()
+		mp.add_theme_constant_override("margin_left", 8)
+		mp.add_theme_constant_override("margin_right", 8)
+		mp.add_theme_constant_override("margin_top", 4)
+		mp.add_theme_constant_override("margin_bottom", 4)
+		chip.add_child(mp)
+		var tl := Label.new()
+		tl.text = PassiveSystem.passive_name(pid)
+		tl.add_theme_font_size_override("font_size", 12)
+		tl.add_theme_color_override("font_color", Color(pc.r, pc.g, pc.b, 0.95))
+		mp.add_child(tl)
+		shown += 1
+
+	if cd.passive_ids.size() > shown:
+		var more := Label.new()
+		more.text = "+%d" % (cd.passive_ids.size() - shown)
+		more.add_theme_font_size_override("font_size", 12)
+		more.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0, 0.75))
+		chips.add_child(more)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 8)
 	v.add_child(btn_row)
+	btn_row.add_spacer(true)
 
 	var details := Button.new()
 	details.text = "Details"
+	details.custom_minimum_size = Vector2(92, 40)
+	details.add_theme_font_size_override("font_size", 16)
 	btn_row.add_child(details)
 	details.pressed.connect(func(): _show_character_details(cd, ui))
 
 	var unlock := Button.new()
 	unlock.text = "Unlock"
+	unlock.custom_minimum_size = Vector2(110, 40)
+	unlock.add_theme_font_size_override("font_size", 16)
+	var usb := StyleBoxFlat.new()
+	usb.bg_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.18)
+	usb.border_width_left = 2
+	usb.border_width_right = 2
+	usb.border_width_top = 2
+	usb.border_width_bottom = 2
+	usb.border_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.65)
+	usb.corner_radius_top_left = 10
+	usb.corner_radius_top_right = 10
+	usb.corner_radius_bottom_left = 10
+	usb.corner_radius_bottom_right = 10
+	unlock.add_theme_stylebox_override("normal", usb)
 	btn_row.add_child(unlock)
 	unlock.pressed.connect(func(): _select_character(cd, ui))
 

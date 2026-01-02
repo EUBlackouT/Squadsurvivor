@@ -144,23 +144,81 @@ static func _build_walk_frames(pid: String) -> SpriteFrames:
 		"walk_west": "west"
 	}
 	var sf := SpriteFrames.new()
+
+	# Some Pixellab exports are missing certain directions (common: no east or no south).
+	# We salvage walking by borrowing the closest available direction folder, and optionally
+	# mirroring west<->east at runtime (via AnimatedSprite2D.flip_h).
+	#
+	# We encode these decisions as meta on the SpriteFrames so gameplay code can apply flip safely:
+	# - flip_h_for_walk_east: bool
+	# - flip_h_for_walk_west: bool
+	# - src_dir_walk_*: String (e.g. "west", "south-west")
+	sf.set_meta("flip_h_for_walk_east", false)
+	sf.set_meta("flip_h_for_walk_west", false)
+
 	for anim_name in dirs.keys():
 		var d := String(dirs[anim_name])
 		sf.add_animation(anim_name)
 		sf.set_animation_speed(anim_name, 8.0)
 		sf.set_animation_loop(anim_name, true)
-		for i in range(8):
-			var p := "%s/%s/frame_%03d.png" % [base, d, i]
-			if ResourceLoader.exists(p):
-				var tex := load(p) as Texture2D
-				if tex != null:
-					sf.add_frame(anim_name, tex)
-		# If missing, fallback to rotations (still non-crashing)
+		var chosen_dir := _pick_best_walk_dir(pid, base, d)
+		sf.set_meta("src_dir_%s" % anim_name, chosen_dir)
+
+		# Load frames from the chosen direction folder (if any).
+		if chosen_dir != "":
+			for i in range(8):
+				var p := "%s/%s/frame_%03d.png" % [base, chosen_dir, i]
+				if ResourceLoader.exists(p):
+					var tex := load(p) as Texture2D
+					if tex != null:
+						sf.add_frame(anim_name, tex)
+
+		# If we had to borrow west for east (or vice versa), flag a flip request.
+		if anim_name == "walk_east" and chosen_dir == "west" and d != "west":
+			sf.set_meta("flip_h_for_walk_east", true)
+		if anim_name == "walk_west" and chosen_dir == "east" and d != "east":
+			sf.set_meta("flip_h_for_walk_west", true)
+
+		# If missing entirely, fallback to rotations (still non-crashing, but static).
 		if sf.get_frame_count(anim_name) <= 0:
 			var rot := "res://assets/pixellab/%s/rotations/%s.png" % [pid, d]
 			var t := load_rotation_texture(rot)
 			if t != null:
 				sf.add_frame(anim_name, t)
 	return sf
+
+static func _pick_best_walk_dir(pid: String, base: String, desired_dir: String) -> String:
+	# Prefer the exact desired folder.
+	if _walk_dir_has_frames(base, desired_dir):
+		return desired_dir
+
+	# Fallback search order per direction. Keep this conservative: if we have any real walking
+	# frames, use them rather than dropping to static rotations.
+	var candidates: Array[String] = []
+	match desired_dir:
+		"south":
+			candidates = ["south-west", "south-east", "west", "east", "north", "north-west", "north-east"]
+		"north":
+			candidates = ["north-west", "north-east", "west", "east", "south", "south-west", "south-east"]
+		"east":
+			candidates = ["south-east", "north-east", "west", "south", "north", "south-west", "north-west"]
+		"west":
+			candidates = ["south-west", "north-west", "east", "south", "north", "south-east", "north-east"]
+		_:
+			candidates = ["south", "west", "east", "north"]
+
+	for c in candidates:
+		if _walk_dir_has_frames(base, c):
+			return c
+
+	# No walking animation dirs found.
+	return ""
+
+static func _walk_dir_has_frames(base: String, dir_name: String) -> bool:
+	if dir_name == "":
+		return false
+	# Check just frame_000 for speed.
+	var p := "%s/%s/frame_000.png" % [base, dir_name]
+	return ResourceLoader.exists(p)
 
 

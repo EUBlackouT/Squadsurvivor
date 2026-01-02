@@ -161,7 +161,6 @@ func _build_event_cfg() -> void:
 	_event_cfg["ui.pick"] = {"stream": "ui_confirm", "gain_db": 0.5 + loud, "pitch": 1.02, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 120}
 
 	# Core combat (very frequent -> per-emitter throttle)
-	_event_cfg["player.slash"] = {"stream": "player_slash", "gain_db": -1.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 0, "min_ms_emitter": 110}
 	_event_cfg["player.shot"] = {"stream": "player_shot", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 0, "min_ms_emitter": 90}
 	_event_cfg["enemy.die"] = {"stream": "enemy_die", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 25, "min_ms_emitter": 0}
 	_event_cfg["enemy.elite_spawn"] = {"stream": "enemy_spawn_elite", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 250, "min_ms_emitter": 250}

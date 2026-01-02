@@ -10,7 +10,6 @@ extends CharacterBody2D
 @onready var health_bar: ProgressBar = get_node_or_null("HealthBar")
 
 const PROJ_SCENE: PackedScene = preload("res://scenes/Projectile.tscn")
-const SLASH_SCENE: PackedScene = preload("res://scenes/VfxSlash.tscn")
 
 var _main: Node2D = null
 var _attack_timer: float = 0.0
@@ -31,6 +30,10 @@ const TARGET_MODE_COUNT: int = 3
 
 var _current_anim: String = "walk_south"
 var _anim_cooldown: float = 0.0
+var _last_facing: Vector2 = Vector2(0, 1)
+var _anim_base_pos: Vector2 = Vector2.ZERO
+var _anim_base_scale: Vector2 = Vector2.ONE
+var _walk_bob_t: float = 0.0
 
 var _pulse_tw: Tween = null
 
@@ -83,6 +86,8 @@ func _apply_visuals() -> void:
 			_current_anim = "walk_south"
 			anim.animation = _current_anim
 			anim.play()
+	_anim_base_pos = anim.position
+	_anim_base_scale = anim.scale
 	# Outline for readability
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://shaders/pixel_outline.gdshader")
@@ -122,6 +127,15 @@ func _physics_process(delta: float) -> void:
 	else:
 		_follow_leader(delta)
 
+	# Centralized: animation direction should come from actual motion, not target direction.
+	# (Fixes ranged kiting/backpedal cases and makes it consistent.)
+	var look := Vector2.ZERO
+	if _target_enemy != null and is_instance_valid(_target_enemy):
+		look = (_target_enemy.global_position - global_position)
+	elif _leader != null and is_instance_valid(_leader):
+		look = (_leader.global_position - global_position)
+	_update_anim_from_motion(velocity, look)
+
 	_update_health_bar()
 
 func _combat_step(_delta: float) -> void:
@@ -140,15 +154,12 @@ func _combat_step(_delta: float) -> void:
 	if dist > attack_range:
 		velocity = (tgt.global_position - global_position).normalized() * move_speed
 		move_and_slide()
-		_update_anim((tgt.global_position - global_position).normalized())
 	elif is_melee and dist > desired_range:
 		velocity = (tgt.global_position - global_position).normalized() * (move_speed * 1.05)
 		move_and_slide()
-		_update_anim((tgt.global_position - global_position).normalized())
 	elif (not is_melee) and dist < desired_range * 0.75:
 		velocity = (global_position - tgt.global_position).normalized() * (move_speed * 0.55)
 		move_and_slide()
-		_update_anim((tgt.global_position - global_position).normalized())
 	else:
 		velocity = Vector2.ZERO
 
@@ -174,7 +185,6 @@ func _follow_leader(_delta: float) -> void:
 			move_speed *= float(mods.get("move_speed_mult", 1.0))
 		velocity = to.normalized() * move_speed
 		move_and_slide()
-		_update_anim(to.normalized())
 	else:
 		velocity = Vector2.ZERO
 
@@ -234,7 +244,6 @@ func _attack(target: Node2D) -> void:
 
 	if is_melee:
 		var dir := (target.global_position - global_position).normalized()
-		_spawn_slash_vfx(target.global_position, dir, _projectile_color_for_unit())
 		if target.has_method("take_damage"):
 			target.take_damage(final_damage, is_crit, "melee")
 		_spawn_melee_hit_vfx(target, dir, is_crit)
@@ -280,28 +289,27 @@ func _attack(target: Node2D) -> void:
 	PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, false)
 	SynergySystem.on_unit_attack(character_data, self, target, final_damage, is_crit, false)
 
-func _spawn_slash_vfx(pos: Vector2, dir: Vector2, tint: Color) -> void:
-	if _main == null or not is_instance_valid(_main):
-		_main = get_tree().get_first_node_in_group("main") as Node2D
-	if _main == null or SLASH_SCENE == null:
-		return
-	var v := SLASH_SCENE.instantiate()
-	_main.add_child(v)
-	if v.has_method("setup"):
-		v.setup(pos, dir, tint)
-	var s := _main.get_node_or_null("/root/SfxSystem")
-	if s and s.has_method("play_event"):
-		s.play_event("player.slash", pos, self)
-
 func _spawn_melee_hit_vfx(target: Node2D, dir: Vector2, is_crit: bool) -> void:
 	if _main == null or not is_instance_valid(_main):
 		_main = get_tree().get_first_node_in_group("main") as Node2D
 	if _main == null or target == null or not is_instance_valid(target):
 		return
 	var pos := (target as Node2D).global_position + Vector2(0, -18)
+	var tint := _projectile_color_for_unit()
+
+	# Primary: directional streak (reads as an actual hit, not a cube).
+	var streak := VfxMeleeStreak.new()
+	streak.setup(pos, dir, tint, 46.0, 10.0, 0.10)
+	_main.add_child(streak)
+
+	# Secondary: crisp flash for impact readability.
+	var flash := VfxImpactFlash.new()
+	flash.setup(pos, tint, 18.0, 0.10)
+	_main.add_child(flash)
+
 	# Small impact spark
 	var fb := VfxFlameBurst.new()
-	fb.setup(pos, Color(1.0, 0.55, 0.45, 0.9), 16.0, 7, 0.14, dir)
+	fb.setup(pos, Color(tint.r, tint.g, tint.b, 0.9), 16.0, 7, 0.14, dir)
 	_main.add_child(fb)
 	# Crit: add a shockwave for punch
 	if is_crit:
@@ -309,22 +317,90 @@ func _spawn_melee_hit_vfx(target: Node2D, dir: Vector2, is_crit: bool) -> void:
 		sw.setup(pos, Color(1.0, 0.85, 0.30, 1.0), 12.0, 46.0, 4.0, 0.18)
 		_main.add_child(sw)
 
-func _update_anim(dir: Vector2) -> void:
-	if anim == null:
+func _update_anim_from_motion(motion: Vector2, look_dir: Vector2 = Vector2.ZERO) -> void:
+	if anim == null or anim.sprite_frames == null:
 		return
-	var ax: float = absf(dir.x)
-	var ay: float = absf(dir.y)
-	var desired: String = _current_anim
-	var threshold: float = 0.15
-	if ax > ay + threshold:
-		desired = "walk_east" if dir.x >= 0.0 else "walk_west"
-	elif ay > ax + threshold:
-		desired = "walk_south" if dir.y > 0.0 else "walk_north"
+
+	var moving := motion.length() > 2.0
+	var ref := motion if moving else look_dir
+	if ref.length() <= 0.001:
+		ref = _last_facing
+	else:
+		_last_facing = ref.normalized()
+
+	var desired := _pick_walk_anim(ref)
 	if desired != _current_anim and _anim_cooldown <= 0.0:
 		_current_anim = desired
 		anim.animation = _current_anim
-	anim.play()
-	_anim_cooldown = 0.35
+		_anim_cooldown = 0.10
+
+	# Apply per-character directional flip only when needed (some Pixellab exports lack east/west).
+	_apply_directional_flip(_current_anim)
+
+	# Play only while moving; when idle, freeze on first frame (reads as "standing").
+	if moving:
+		if not anim.is_playing():
+			anim.play()
+	else:
+		if anim.is_playing():
+			anim.stop()
+		anim.frame = 0
+
+	_apply_walk_bob(moving)
+
+func _apply_directional_flip(anim_name: String) -> void:
+	if anim == null or anim.sprite_frames == null:
+		return
+	var sf := anim.sprite_frames
+	var flip := false
+	if anim_name == "walk_east" and bool(sf.get_meta("flip_h_for_walk_east", false)):
+		flip = true
+	elif anim_name == "walk_west" and bool(sf.get_meta("flip_h_for_walk_west", false)):
+		flip = true
+	anim.flip_h = flip
+
+func _apply_walk_bob(moving: bool) -> void:
+	# If a character lacks real walking frames (only 1 frame per direction),
+	# add a subtle bob so they still feel alive while moving.
+	if anim == null or anim.sprite_frames == null:
+		return
+	var sf := anim.sprite_frames
+	var frames_n := 0
+	if sf.has_animation(_current_anim):
+		frames_n = sf.get_frame_count(_current_anim)
+	var has_real_walk := frames_n >= 2
+
+	if moving and (not has_real_walk):
+		_walk_bob_t += get_physics_process_delta_time() * 9.0
+		var bob := sin(_walk_bob_t) * 1.25
+		anim.position = _anim_base_pos + Vector2(0, bob)
+		anim.scale = _anim_base_scale * (1.0 + 0.015 * sin(_walk_bob_t * 2.0))
+	else:
+		_walk_bob_t = 0.0
+		anim.position = _anim_base_pos
+		anim.scale = _anim_base_scale
+
+func _pick_walk_anim(dir: Vector2) -> String:
+	# 4-way facing with deadzone; fall back if an animation is missing.
+	var d := dir.normalized()
+	var ax := absf(d.x)
+	var ay := absf(d.y)
+	var desired := _current_anim
+	var threshold := 0.10
+	if ax > ay + threshold:
+		desired = "walk_east" if d.x >= 0.0 else "walk_west"
+	elif ay > ax + threshold:
+		desired = "walk_south" if d.y > 0.0 else "walk_north"
+
+	# Ensure animation exists; PixellabUtil provides fallbacks, but be safe.
+	if anim != null and anim.sprite_frames != null:
+		var sf := anim.sprite_frames
+		if sf.has_animation(desired) and sf.get_frame_count(desired) > 0:
+			return desired
+		# try south as universal fallback
+		if sf.has_animation("walk_south") and sf.get_frame_count("walk_south") > 0:
+			return "walk_south"
+	return desired
 
 func _update_health_bar() -> void:
 	if health_bar == null:

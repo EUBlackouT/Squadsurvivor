@@ -67,7 +67,7 @@ anchor_bottom = 1.0
 theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="Root/Card/Pad/VBox"]
-text = "SplitCode"
+text = "Squad Protocol"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 42
 
@@ -75,6 +75,7 @@ theme_override_font_sizes/font_size = 42
 text = "Infinite Horde Tactics"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.82, 0.9, 1, 0.92)
 
 [node name="Spacer" type="Control" parent="Root/Card/Pad/VBox"]
 custom_minimum_size = Vector2(0, 8)
