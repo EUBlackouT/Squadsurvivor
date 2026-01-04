@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "core_0",
+      "name": "Core Uplink",
+      "desc": "Unlock the Protocol Grid.",
+      "cost": 0,
+      "pos": [0, 0],
+      "tags": ["core"],
+      "mods": {}
+    },
+
+    { "id": "focus_1", "name": "Targeting Drills I", "desc": "Focus lasts longer.", "cost": 250, "pos": [140, -40], "prereq": ["core_0"], "mods": { "focus_duration_mult": 1.10 } },
+    { "id": "focus_2", "name": "Targeting Drills II", "desc": "Focus lasts longer.", "cost": 600, "pos": [270, -60], "prereq": ["focus_1"], "mods": { "focus_duration_mult": 1.12 } },
+    { "id": "focus_keystone", "name": "Kill Order", "desc": "Focus lasts much longer, but focus switch has a short lockout.", "cost": 1600, "pos": [420, -40], "prereq": ["focus_2"], "tags": ["keystone"], "mods": { "focus_duration_mult": 1.25, "focus_lockout_s": 1.0 } },
+
+    { "id": "rally_1", "name": "Signal Beacons I", "desc": "Rally lasts longer.", "cost": 250, "pos": [140, 40], "prereq": ["core_0"], "mods": { "rally_duration_mult": 1.12 } },
+    { "id": "rally_2", "name": "Signal Beacons II", "desc": "Rally lasts longer.", "cost": 600, "pos": [270, 60], "prereq": ["rally_1"], "mods": { "rally_duration_mult": 1.12 } },
+    { "id": "rally_keystone", "name": "Battle Standard", "desc": "Rally lasts much longer and grants a small speed burst while active.", "cost": 1600, "pos": [420, 40], "prereq": ["rally_2"], "tags": ["keystone"], "mods": { "rally_duration_mult": 1.25, "rally_speed_mult": 1.10 } },
+
+    { "id": "dash_1", "name": "Kinetic Boots I", "desc": "Dash cooldown reduced.", "cost": 300, "pos": [-140, -40], "prereq": ["core_0"], "mods": { "dash_cooldown_mult": 0.93 } },
+    { "id": "dash_2", "name": "Kinetic Boots II", "desc": "Dash cooldown reduced.", "cost": 750, "pos": [-270, -60], "prereq": ["dash_1"], "mods": { "dash_cooldown_mult": 0.92 } },
+    { "id": "dash_keystone", "name": "Phase Runner", "desc": "Dash cooldown reduced further, but dash distance slightly reduced.", "cost": 1650, "pos": [-420, -40], "prereq": ["dash_2"], "tags": ["keystone"], "mods": { "dash_cooldown_mult": 0.86, "dash_distance_mult": 0.90 } },
+
+    { "id": "squad_1", "name": "Tactical Spacing I", "desc": "Squad follows rally more aggressively.", "cost": 300, "pos": [-140, 40], "prereq": ["core_0"], "mods": { "rally_follow_mult": 1.15 } },
+    { "id": "squad_2", "name": "Tactical Spacing II", "desc": "Squad follows rally more aggressively.", "cost": 750, "pos": [-270, 60], "prereq": ["squad_1"], "mods": { "rally_follow_mult": 1.15 } },
+    { "id": "squad_keystone", "name": "On Your Six", "desc": "Squad keeps up during dash even better.", "cost": 1700, "pos": [-420, 40], "prereq": ["squad_2"], "tags": ["keystone"], "mods": { "dash_follow_mult": 1.35 } }
+    ,
+
+    { "id": "oc_1", "name": "Capacitor Banks I", "desc": "Preps Overclock. Slightly reduces Overclock cooldown.", "cost": 450, "pos": [0, 160], "prereq": ["core_0"], "mods": { "overclock_cooldown_mult": 0.96 } },
+    { "id": "oc_2", "name": "Capacitor Banks II", "desc": "Preps Overclock. Increases Overclock duration.", "cost": 900, "pos": [0, 230], "prereq": ["oc_1"], "mods": { "overclock_duration_mult": 1.12 } },
+    { "id": "oc_keystone", "name": "Overclock Protocol", "desc": "Unlocks an active ability: press Q to Overclock. Grants a burst of squad speed + attack speed.", "cost": 2200, "pos": [0, 310], "prereq": ["oc_2"], "tags": ["keystone"], "mods": { "overclock_unlocked": 1, "overclock_attack_speed_mult": 1.15, "overclock_move_speed_mult": 1.10 } },
+
+    { "id": "oc_tune", "name": "Overclock Tuning", "desc": "Overclock cooldown reduced further.", "cost": 1100, "pos": [0, 390], "prereq": ["oc_keystone"], "mods": { "overclock_cooldown_mult": 0.90 } },
+    { "id": "oc_adrenal", "name": "Adrenal Surge", "desc": "Overclock grants more move speed but slightly less attack speed.", "cost": 1100, "pos": [170, 390], "prereq": ["oc_keystone"], "mods": { "overclock_move_speed_mult": 1.12, "overclock_attack_speed_mult": 0.96 } },
+    { "id": "oc_barrage", "name": "Barrage Mode", "desc": "Overclock grants more attack speed but slightly less duration.", "cost": 1100, "pos": [-170, 390], "prereq": ["oc_keystone"], "mods": { "overclock_attack_speed_mult": 1.12, "overclock_duration_mult": 0.92 } },
+    { "id": "oc_discharge", "name": "Arc Discharge", "desc": "Overclock activation damages nearby enemies (tradeoff: slightly longer cooldown).", "cost": 1400, "pos": [0, 470], "prereq": ["oc_tune"], "tags": ["keystone"], "mods": { "overclock_burst_damage_add": 10, "overclock_burst_radius_add": 120, "overclock_cooldown_mult": 1.10 } },
+    { "id": "oc_hunter", "name": "Hunter Protocol", "desc": "While Overclock is active, focus-fire becomes much stronger.", "cost": 1400, "pos": [240, 470], "prereq": ["oc_adrenal"], "mods": { "overclock_focus_bias_mult": 0.35 } },
+    { "id": "oc_lethal", "name": "Lethal Voltage", "desc": "While Overclock is active, squad deals more damage.", "cost": 1400, "pos": [-240, 470], "prereq": ["oc_barrage"], "mods": { "overclock_damage_mult": 1.12 } }
+  ],
+  "edges": [
+    ["core_0", "focus_1"], ["focus_1", "focus_2"], ["focus_2", "focus_keystone"],
+    ["core_0", "rally_1"], ["rally_1", "rally_2"], ["rally_2", "rally_keystone"],
+    ["core_0", "dash_1"], ["dash_1", "dash_2"], ["dash_2", "dash_keystone"],
+    ["core_0", "squad_1"], ["squad_1", "squad_2"], ["squad_2", "squad_keystone"],
+
+    ["core_0", "oc_1"], ["oc_1", "oc_2"], ["oc_2", "oc_keystone"],
+    ["oc_keystone", "oc_tune"], ["oc_keystone", "oc_adrenal"], ["oc_keystone", "oc_barrage"],
+    ["oc_tune", "oc_discharge"], ["oc_adrenal", "oc_hunter"], ["oc_barrage", "oc_lethal"]
+  ]
+}
+

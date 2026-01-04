@@ -55,3 +55,4 @@ func _draw() -> void:
 	draw_line(Vector2(len * 0.15, 0), Vector2(len * 0.92, 0), Color(1, 1, 1, col.a * 0.25), 2.0, true)
 
 
+

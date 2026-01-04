@@ -92,6 +92,17 @@ var _run_drafts: int = 0
 var _hide_debug_shapes_cd: float = 0.0
 var _perf_text: String = ""
 
+# Player commands (interactive layer)
+var _focus_target: Node2D = null
+var _focus_until_s: float = 0.0
+var _focus_lockout_t: float = 0.0
+var _rally_pos: Vector2 = Vector2.ZERO
+var _rally_until_s: float = 0.0
+
+# Active ability unlocked by meta tree: Overclock (Q)
+var _overclock_until_s: float = 0.0
+var _overclock_cd_s: float = 0.0
+
 # Map tuning (data-driven via RunConfig + maps.json)
 var _map_mod: Dictionary = {}
 
@@ -246,6 +257,20 @@ func _physics_process(delta: float) -> void:
 	if _game_over or _victory:
 		return
 
+	# Command timers
+	if _focus_until_s > 0.0:
+		_focus_until_s = maxf(0.0, _focus_until_s - delta)
+		if _focus_until_s <= 0.0:
+			_focus_target = null
+	if _focus_lockout_t > 0.0:
+		_focus_lockout_t = maxf(0.0, _focus_lockout_t - delta)
+	if _rally_until_s > 0.0:
+		_rally_until_s = maxf(0.0, _rally_until_s - delta)
+	if _overclock_until_s > 0.0:
+		_overclock_until_s = maxf(0.0, _overclock_until_s - delta)
+	if _overclock_cd_s > 0.0:
+		_overclock_cd_s = maxf(0.0, _overclock_cd_s - delta)
+
 	var t0_us: int = 0
 	if debug_perf_overlay_enabled:
 		t0_us = int(Time.get_ticks_usec())
@@ -310,6 +335,195 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Ctrl+Shift+F12: toggle collision cleanup scans (very expensive)
 		if k.keycode == KEY_F12 and k.ctrl_pressed and k.shift_pressed:
 			debug_collision_cleanup_enabled = not debug_collision_cleanup_enabled
+
+		# Ability: Overclock (Q)
+		if k.keycode == KEY_Q:
+			_try_overclock()
+
+	# Player command input (ignore while paused/draft/pause menu)
+	if get_tree().paused:
+		return
+	if has_node("RecruitDraftUI") or has_node("PauseMenu"):
+		return
+	if event is InputEventMouseButton and event.pressed:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_try_focus_enemy(get_global_mouse_position())
+		elif mb.button_index == MOUSE_BUTTON_RIGHT:
+			_set_rally(get_global_mouse_position(), 0.85)
+
+func _try_focus_enemy(world_pos: Vector2) -> void:
+	_prune_invalid_lists()
+	var best: Node2D = null
+	var best_d2 := INF
+	var r2 := 72.0 * 72.0
+	for e in live_enemies:
+		if not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		var d2 := n2.global_position.distance_squared_to(world_pos)
+		if d2 <= r2 and d2 < best_d2:
+			best_d2 = d2
+			best = n2
+	if best == null:
+		# click-empty clears focus
+		_focus_target = null
+		_focus_until_s = 0.0
+		return
+	_set_focus_target(best, 4.0)
+
+func _set_focus_target(tgt: Node2D, dur: float) -> void:
+	if tgt == null or not is_instance_valid(tgt):
+		return
+	# Optional lockout (from meta keystone) to prevent rapid focus swapping.
+	var mp := get_node_or_null("/root/MetaProgression")
+	var lockout_add := 0.0
+	var dur_mult := 1.0
+	if mp and is_instance_valid(mp):
+		if mp.has_method("get_add"):
+			lockout_add = float(mp.get_add("focus_lockout_s", 0.0))
+		if mp.has_method("get_mod"):
+			dur_mult = float(mp.get_mod("focus_duration_mult", 1.0))
+	if _focus_lockout_t > 0.0 and _focus_target != null and is_instance_valid(_focus_target) and tgt != _focus_target:
+		return
+	_focus_target = tgt
+	_focus_until_s = maxf(0.05, dur * dur_mult)
+	_focus_lockout_t = maxf(_focus_lockout_t, lockout_add)
+	# Feedback
+	if tgt.has_method("pulse_vfx"):
+		tgt.pulse_vfx(Color(0.95, 0.90, 0.25, 1.0))
+	var world := self
+	var fm := VfxFocusMark.new()
+	fm.setup(tgt.global_position, Color(1.0, 0.85, 0.30, 1.0), 18.0, 54.0, 0.32)
+	world.add_child(fm)
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_ui"):
+		s.play_ui("ui.click")
+
+func _set_rally(pos: Vector2, dur: float) -> void:
+	_rally_pos = pos
+	var mp := get_node_or_null("/root/MetaProgression")
+	var dur_mult := 1.0
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		dur_mult = float(mp.get_mod("rally_duration_mult", 1.0))
+	_rally_until_s = maxf(0.05, dur * dur_mult)
+	# Feedback
+	var sw := VfxShockwave.new()
+	sw.setup(pos, Color(0.45, 0.90, 1.0, 1.0), 10.0, 90.0, 3.0, 0.22)
+	add_child(sw)
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_ui"):
+		s.play_ui("ui.confirm")
+
+func _overclock_unlocked() -> bool:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		return float(mp.get_add("overclock_unlocked", 0.0)) >= 1.0
+	return false
+
+func is_overclock_active() -> bool:
+	return _overclock_until_s > 0.0
+
+func get_overclock_cd_left() -> float:
+	return _overclock_cd_s
+
+func get_overclock_rate_mult() -> float:
+	# Attack speed multiplier while active.
+	if not is_overclock_active():
+		return 1.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	var rate_mult := 1.25
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		rate_mult *= float(mp.get_mod("overclock_attack_speed_mult", 1.0))
+	return rate_mult
+
+func get_overclock_move_speed_mult() -> float:
+	if not is_overclock_active():
+		return 1.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	var ms_mult := 1.15
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		ms_mult *= float(mp.get_mod("overclock_move_speed_mult", 1.0))
+	return ms_mult
+
+func get_overclock_damage_mult() -> float:
+	if not is_overclock_active():
+		return 1.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	var dmg_mult := 1.0
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		dmg_mult *= float(mp.get_mod("overclock_damage_mult", 1.0))
+	return dmg_mult
+
+func _try_overclock() -> void:
+	if get_tree().paused or _game_over or _victory:
+		return
+	if has_node("RecruitDraftUI") or has_node("PauseMenu"):
+		return
+	if not _overclock_unlocked():
+		return
+	if _overclock_cd_s > 0.0:
+		return
+
+	var mp := get_node_or_null("/root/MetaProgression")
+	var cd_mult := 1.0
+	var dur_mult := 1.0
+	var burst_dmg := 0
+	var burst_rad := 0.0
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		cd_mult = float(mp.get_mod("overclock_cooldown_mult", 1.0))
+		dur_mult = float(mp.get_mod("overclock_duration_mult", 1.0))
+	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		burst_dmg = int(round(float(mp.get_add("overclock_burst_damage_add", 0.0))))
+		burst_rad = float(mp.get_add("overclock_burst_radius_add", 0.0))
+
+	var duration := 4.0 * dur_mult
+	var cooldown := 18.0 * cd_mult
+	_overclock_until_s = duration
+	_overclock_cd_s = maxf(0.25, cooldown)
+
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	var pos := player.global_position if player and is_instance_valid(player) else Vector2.ZERO
+	# Feedback: strong, readable burst.
+	var sw := VfxShockwave.new()
+	sw.setup(pos, Color(0.45, 0.90, 1.0, 1.0), 14.0, 160.0, 3.0, 0.28)
+	add_child(sw)
+	var hp := VfxHolyPulse.new()
+	hp.setup(pos, Color(0.45, 0.90, 1.0, 1.0), 12.0, 110.0, 0.25)
+	add_child(hp)
+
+	# Burst damage mutator (buildcraft): zap nearby enemies on activation.
+	if burst_dmg > 0 and burst_rad > 1.0:
+		var r2 := burst_rad * burst_rad
+		_prune_invalid_lists()
+		for e in live_enemies:
+			if not is_instance_valid(e):
+				continue
+			var n2 := e as Node2D
+			if n2 == null:
+				continue
+			if n2.global_position.distance_squared_to(pos) <= r2 and n2.has_method("take_damage"):
+				n2.take_damage(burst_dmg, false, "arc")
+
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_ui"):
+		s.play_ui("ui.confirm")
+
+func get_focus_target() -> Node2D:
+	if _focus_target != null and is_instance_valid(_focus_target):
+		return _focus_target
+	return null
+
+func get_focus_time_left() -> float:
+	return _focus_until_s
+
+func get_rally_pos() -> Vector2:
+	return _rally_pos
+
+func get_rally_time_left() -> float:
+	return _rally_until_s
 
 func _tick_spawns() -> void:
 	_prune_invalid_lists()
@@ -1087,6 +1301,12 @@ func _setup_hud() -> void:
 	formation.text = "Formation: TIGHT   Tactics: NEAREST"
 	container.add_child(formation)
 
+	var cmd := Label.new()
+	cmd.name = "CommandLabel"
+	cmd.text = "Commands: LMB Focus • RMB Rally • Shift Dash"
+	cmd.add_theme_color_override("font_color", Color(0.80, 0.92, 1.0, 0.92))
+	container.add_child(cmd)
+
 	var syn := Label.new()
 	syn.name = "SynergyLabel"
 	syn.text = "Synergies: —"
@@ -1133,6 +1353,25 @@ func _update_hud_labels() -> void:
 	var s := get_node_or_null("HUD/HUDVBox/SynergyLabel") as Label
 	if s:
 		s.text = SynergySystem.summary_text()
+
+	var cmd := get_node_or_null("HUD/HUDVBox/CommandLabel") as Label
+	if cmd:
+		var focus_txt := "Focus: —"
+		var ft := get_focus_target()
+		if ft != null:
+			focus_txt = "Focus: %.1fs" % maxf(0.0, _focus_until_s)
+		var rally_txt := "Rally: —"
+		if _rally_until_s > 0.0:
+			rally_txt = "Rally: %.1fs" % maxf(0.0, _rally_until_s)
+		var dash_txt := "Dash: —"
+		var player := get_tree().get_first_node_in_group("player")
+		if player and is_instance_valid(player) and (player as Node).has_method("get_dash_cd_left"):
+			var dcl := float((player as Node).get_dash_cd_left())
+			dash_txt = "Dash: READY" if dcl <= 0.0 else ("Dash: %.1fs" % dcl)
+		var oc_txt := ""
+		if _overclock_unlocked():
+			oc_txt = "   Overclock(Q): READY" if _overclock_cd_s <= 0.0 else ("   Overclock(Q): %.1fs" % _overclock_cd_s)
+		cmd.text = "Commands: LMB Focus • RMB Rally • Shift Dash%s   |   %s   %s   %s" % [oc_txt, focus_txt, rally_txt, dash_txt]
 
 	# Debug: count collision shapes / particles to confirm source of circles.
 	var dbg := get_node_or_null("HUD/HUDVBox/DebugLabel") as Label

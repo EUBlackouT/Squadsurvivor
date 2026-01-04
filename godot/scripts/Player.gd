@@ -16,6 +16,22 @@ const TARGET_MODE_COUNT: int = 3
 var _formation_mode: int = FormationMode.TIGHT
 var _target_mode: int = TargetMode.NEAREST
 
+# Active ability: dash (Shift)
+var _dash_cd: float = 0.0
+var _dash_t: float = 0.0
+var _dash_dir: Vector2 = Vector2.ZERO
+var _dash_speed_mult: float = 1.0
+var _main: Node2D = null
+
+func get_dash_cd_left() -> float:
+	return _dash_cd
+
+func is_dashing() -> bool:
+	return _dash_t > 0.0
+
+func get_dash_dir() -> Vector2:
+	return _dash_dir
+
 var formation_offsets: Array[Vector2] = [
 	Vector2(-40, -30),
 	Vector2(40, -30),
@@ -31,6 +47,7 @@ func _ready() -> void:
 	if cam:
 		cam.make_current()
 	add_to_group("player")
+	_main = get_tree().get_first_node_in_group("main") as Node2D
 
 	# Meta progression overrides squad size.
 	var mp := get_node_or_null("/root/MetaProgression")
@@ -115,13 +132,25 @@ func _spawn_squad_unit(cd: CharacterData, offset: Vector2) -> void:
 	squad_units.append(unit)
 
 func _physics_process(_delta: float) -> void:
+	var delta := _delta
+	_dash_cd = maxf(0.0, _dash_cd - delta)
+	_dash_t = maxf(0.0, _dash_t - delta)
+
 	var dir := Vector2.ZERO
 	dir.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
 	dir.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
 	if dir.length() > 1.0:
 		dir = dir.normalized()
-	velocity = dir * move_speed
-	move_and_slide()
+	# Dash movement
+	if _dash_t > 0.0:
+		velocity = _dash_dir * (move_speed * 4.2 * _dash_speed_mult)
+		move_and_slide()
+	else:
+		var spd := move_speed
+		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
+			spd *= float(_main.get_overclock_move_speed_mult())
+		velocity = dir * spd
+		move_and_slide()
 
 	# Formation hotkeys
 	if Input.is_action_just_pressed("ui_1"):
@@ -136,6 +165,46 @@ func _physics_process(_delta: float) -> void:
 	# Targeting hotkey
 	if Input.is_action_just_pressed("ui_t"):
 		_set_target_mode((_target_mode + 1) % TARGET_MODE_COUNT)
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Active ability: Dash (Shift). Keep it snappy; uses input direction, or mouse direction if standing still.
+	if get_tree().paused:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		var k := event as InputEventKey
+		if k.keycode == KEY_SHIFT and _dash_cd <= 0.0 and _dash_t <= 0.0:
+			var dir := Vector2.ZERO
+			dir.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
+			dir.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
+			if dir.length() <= 0.05:
+				dir = (get_global_mouse_position() - global_position)
+			if dir.length() <= 0.05:
+				return
+			_dash_dir = dir.normalized()
+			_dash_t = 0.14
+			var mp := get_node_or_null("/root/MetaProgression")
+			var cd_mult := 1.0
+			var dist_mult := 1.0
+			if mp and is_instance_valid(mp):
+				if mp.has_method("get_mod"):
+					cd_mult = float(mp.get_mod("dash_cooldown_mult", 1.0))
+					dist_mult = float(mp.get_mod("dash_distance_mult", 1.0))
+			_dash_speed_mult = dist_mult
+			_dash_cd = 1.25 * cd_mult
+			# Pull squad with you: issue a short rally toward the dash endpoint.
+			var main2 := get_tree().get_first_node_in_group("main") as Node2D
+			if main2 and is_instance_valid(main2) and main2.has_method("_set_rally"):
+				var dash_dist := move_speed * 4.2 * _dash_t * dist_mult
+				main2._set_rally(global_position + _dash_dir * dash_dist, 0.35)
+			# Feedback
+			var main := get_tree().get_first_node_in_group("main") as Node2D
+			if main:
+				var sw := VfxShockwave.new()
+				sw.setup(global_position, Color(0.45, 0.90, 1.0, 1.0), 10.0, 70.0, 3.0, 0.18)
+				main.add_child(sw)
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and is_instance_valid(s) and s.has_method("play_ui"):
+				s.play_ui("ui.click")
 
 func _set_formation_mode(mode: int) -> void:
 	_formation_mode = mode

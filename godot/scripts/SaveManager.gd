@@ -145,7 +145,8 @@ func save_meta() -> void:
 		"meta": {
 			"sigils": int(mp.sigils) if (mp != null and is_instance_valid(mp) and "sigils" in mp) else 0,
 			"squad_slots": int(mp.squad_slots) if (mp != null and is_instance_valid(mp) and "squad_slots" in mp) else 3,
-			"last_run": mp.last_run if (mp != null and is_instance_valid(mp) and "last_run" in mp) else {}
+			"last_run": mp.last_run if (mp != null and is_instance_valid(mp) and "last_run" in mp) else {},
+			"meta_nodes_owned": Array(mp.meta_nodes_owned) if (mp != null and is_instance_valid(mp) and "meta_nodes_owned" in mp) else ["core_0"]
 		},
 		"collection": {
 			"unlocked": cm.unlocked if (cm != null and is_instance_valid(cm) and "unlocked" in cm) else [],
@@ -180,6 +181,14 @@ func load_meta() -> void:
 			mp.squad_slots = int(meta.get("squad_slots", int(mp.squad_slots)))
 		if "last_run" in mp:
 			mp.last_run = meta.get("last_run", mp.last_run) as Dictionary
+		if "meta_nodes_owned" in mp:
+			var owned: Array = meta.get("meta_nodes_owned", Array(mp.meta_nodes_owned)) as Array
+			var out := PackedStringArray()
+			for e in owned:
+				out.append(String(e))
+			if not out.has("core_0"):
+				out.append("core_0")
+			mp.meta_nodes_owned = out
 		if mp.has_method("save"):
 			mp.save()
 

@@ -35,6 +35,10 @@ var _attack_t: float = 0.0
 var _dash_t: float = 0.0
 var _dash_dir: Vector2 = Vector2.ZERO
 var _dash_cd: float = 0.0
+var _charge_windup_t: float = 0.0
+var _charge_dir: Vector2 = Vector2.ZERO
+var _charge_target_pos: Vector2 = Vector2.ZERO
+var _charge_line: Line2D = null
 var _volatile_on_death: bool = false
 var _vampiric: bool = false
 var _arcane: bool = false
@@ -133,6 +137,7 @@ func _physics_process(delta: float) -> void:
 	_contact_t = maxf(_contact_t - delta, 0.0)
 	_attack_t = maxf(_attack_t - delta, 0.0)
 	_dash_cd = maxf(_dash_cd - delta, 0.0)
+	_charge_windup_t = maxf(_charge_windup_t - delta, 0.0)
 	_arcane_cd = maxf(_arcane_cd - delta, 0.0)
 
 	# Status tick
@@ -189,6 +194,18 @@ func _melee_step(_delta: float, _dist: float, dir: Vector2) -> void:
 
 func _charger_step(delta: float, dist: float, dir: Vector2) -> void:
 	# Occasional dash toward target, otherwise normal chase.
+	# Wind-up telegraph so the player can react (dash away / rally reposition).
+	if _charge_windup_t > 0.0:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		_update_charge_telegraph()
+		# When windup ends, start dash using stored dir (target may have moved).
+		if _charge_windup_t <= 0.0:
+			_end_charge_telegraph()
+			_dash_t = 0.22
+			_dash_dir = _charge_dir
+		return
+
 	if _dash_t > 0.0:
 		_dash_t -= delta
 		velocity = _dash_dir * (_base_move_speed() * 3.2)
@@ -196,19 +213,57 @@ func _charger_step(delta: float, dist: float, dir: Vector2) -> void:
 		return
 	if dist < 320.0 and dist > 110.0 and _dash_cd <= 0.0:
 		_dash_cd = 2.4
-		_dash_t = 0.22
-		_dash_dir = dir
-		# Loud dash tell
+		_charge_windup_t = 0.42
+		_charge_dir = dir
+		_charge_target_pos = _target.global_position
+		_begin_charge_telegraph()
+		# Audible/visual tell
 		var world := _main if _main != null else get_tree().get_first_node_in_group("main") as Node2D
 		if world:
 			var sw := VfxShockwave.new()
-			sw.setup(global_position, Color(1.0, 0.85, 0.55, 1.0), 14.0, 64.0, 4.0, 0.18)
+			sw.setup(global_position, Color(1.0, 0.65, 0.35, 1.0), 10.0, 68.0, 3.0, 0.22)
 			world.add_child(sw)
 			var s := world.get_node_or_null("/root/SfxSystem")
 			if s and s.has_method("play_event"):
 				s.play_event("enemy.dash", global_position, self)
 		return
 	_melee_step(delta, dist, dir)
+
+func _begin_charge_telegraph() -> void:
+	if _charge_line != null and is_instance_valid(_charge_line):
+		_charge_line.queue_free()
+		_charge_line = null
+	_charge_line = Line2D.new()
+	_charge_line.width = 3.0
+	_charge_line.default_color = Color(1.0, 0.35, 0.25, 0.85)
+	_charge_line.z_index = 50
+	_charge_line.antialiased = true
+	add_child(_charge_line)
+	_update_charge_telegraph()
+	# Mark the intended endpoint (so dodging feels fair).
+	var world := _main if _main != null else get_tree().get_first_node_in_group("main") as Node2D
+	if world:
+		var fm := VfxFocusMark.new()
+		fm.setup(_charge_target_pos, Color(1.0, 0.35, 0.25, 0.95), 16.0, 72.0, 0.40)
+		world.add_child(fm)
+
+func _update_charge_telegraph() -> void:
+	if _charge_line == null or not is_instance_valid(_charge_line):
+		return
+	# local line in Enemy space: from origin to target dir
+	var a := Vector2.ZERO
+	var b := to_local(_charge_target_pos)
+	_charge_line.clear_points()
+	_charge_line.add_point(a)
+	_charge_line.add_point(b)
+	# Pulse alpha a bit
+	var t := float(Time.get_ticks_msec()) / 1000.0
+	_charge_line.default_color.a = 0.55 + 0.30 * absf(sin(t * 10.0))
+
+func _end_charge_telegraph() -> void:
+	if _charge_line != null and is_instance_valid(_charge_line):
+		_charge_line.queue_free()
+	_charge_line = null
 
 func _spitter_step(delta: float, dist: float, dir: Vector2) -> void:
 	# Keep distance, shoot bolts.

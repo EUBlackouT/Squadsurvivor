@@ -1,12 +1,12 @@
 extends Control
 
-@onready var start_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/StartRun") as Button
-@onready var resume_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/ResumeRun") as Button
-@onready var settings_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/SettingsBtn") as Button
-@onready var back_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/BackBtn") as Button
-@onready var roster_box: VBoxContainer = get_node_or_null("Root/Right/RightPad/RightVBox/RosterBox") as VBoxContainer
+@onready var start_btn: Button = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/StartRun") as Button
+@onready var resume_btn: Button = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/ResumeRun") as Button
+@onready var settings_btn: Button = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/SettingsBtn") as Button
+@onready var back_btn: Button = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/BackBtn") as Button
+@onready var roster_box: VBoxContainer = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/RosterBox") as VBoxContainer
 @onready var collection_box: VBoxContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/CollectionScroll/CollectionBox") as VBoxContainer
-@onready var map_select: OptionButton = get_node_or_null("Root/Right/RightPad/RightVBox/MapSelect") as OptionButton
+@onready var map_select: OptionButton = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/MapSelect") as OptionButton
 
 @onready var _search: LineEdit = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Search") as LineEdit
 @onready var _search_clear: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Clear") as Button
@@ -26,6 +26,7 @@ var _meta_prog: ProgressBar = null
 var _meta_label_top: Label = null
 var _meta_label_bottom: Label = null
 var _meta_btn: Button = null
+var _meta_tree_btn: Button = null
 var _last_run_label: RichTextLabel = null
 
 func _ready() -> void:
@@ -127,7 +128,7 @@ func _open_settings() -> void:
 	add_child(sm)
 
 func _setup_meta_ui() -> void:
-	var right := get_node_or_null("Root/Right/RightPad/RightVBox") as VBoxContainer
+	var right := get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox") as VBoxContainer
 	if right == null:
 		return
 	# Meta card
@@ -135,6 +136,12 @@ func _setup_meta_ui() -> void:
 	_meta_card.name = "MetaCard"
 	_meta_card.custom_minimum_size = Vector2(0, 210)
 	right.add_child(_meta_card)
+	# Ensure it stays visible: place it above the Map section instead of at the very bottom.
+	var map_label := right.get_node_or_null("MapLabel")
+	if map_label != null:
+		var idx := right.get_children().find(map_label)
+		if idx >= 0:
+			right.move_child(_meta_card, idx)
 
 	_meta_card.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
 
@@ -187,6 +194,14 @@ func _setup_meta_ui() -> void:
 	_meta_btn.add_theme_font_size_override("font_size", 16)
 	v.add_child(_meta_btn)
 
+	_meta_tree_btn = Button.new()
+	_meta_tree_btn.name = "OpenMetaTreeBtn"
+	_meta_tree_btn.custom_minimum_size = Vector2(0, 40)
+	_meta_tree_btn.add_theme_font_size_override("font_size", 15)
+	_meta_tree_btn.text = "Protocol Grid"
+	UiSkin.style_secondary_button(_meta_tree_btn)
+	v.add_child(_meta_tree_btn)
+
 	_last_run_label = RichTextLabel.new()
 	_last_run_label.bbcode_enabled = true
 	_last_run_label.scroll_active = false
@@ -212,7 +227,603 @@ func _setup_meta_ui() -> void:
 		_refresh()
 	)
 
+	if _meta_tree_btn:
+		_meta_tree_btn.pressed.connect(func():
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and s.has_method("play_ui"):
+				s.play_ui("ui.open")
+			_open_meta_tree()
+		)
+
 	_refresh_meta_ui()
+
+func _open_meta_tree() -> void:
+	# Modal: Protocol Grid (meta skill tree).
+	if has_node("MetaTreeModal"):
+		get_node("MetaTreeModal").queue_free()
+	var layer := CanvasLayer.new()
+	layer.name = "MetaTreeModal"
+	layer.layer = 175
+	add_child(layer)
+
+	var bg := ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0, 0, 0, 0.78)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(bg)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -520
+	panel.offset_top = -330
+	panel.offset_right = 520
+	panel.offset_bottom = 330
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
+	layer.add_child(panel)
+
+	var pad := MarginContainer.new()
+	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pad.add_theme_constant_override("margin_left", 16)
+	pad.add_theme_constant_override("margin_right", 16)
+	pad.add_theme_constant_override("margin_top", 14)
+	pad.add_theme_constant_override("margin_bottom", 14)
+	panel.add_child(pad)
+
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 10)
+	pad.add_child(root)
+
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 10)
+	root.add_child(header)
+
+	var title := Label.new()
+	title.text = "Protocol Grid"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", UiSkin.TEXT)
+	header.add_child(title)
+
+	var search := LineEdit.new()
+	search.name = "Search"
+	search.placeholder_text = "Search nodes…"
+	search.clear_button_enabled = true
+	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(search)
+
+	header.add_spacer(true)
+
+	var sig_lbl := Label.new()
+	sig_lbl.name = "SigilsLabel"
+	sig_lbl.add_theme_font_size_override("font_size", 14)
+	sig_lbl.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+	header.add_child(sig_lbl)
+
+	var close := Button.new()
+	close.text = "Close"
+	close.custom_minimum_size = Vector2(110, 38)
+	UiSkin.style_secondary_button(close)
+	close.pressed.connect(func(): layer.queue_free())
+	header.add_child(close)
+
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(body)
+
+	# Graph area
+	var graph_frame := PanelContainer.new()
+	graph_frame.custom_minimum_size = Vector2(720, 0)
+	graph_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	graph_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	graph_frame.add_theme_stylebox_override("panel", UiSkin.panel_style(Color(0.75, 0.85, 1.0, 1.0), false))
+	body.add_child(graph_frame)
+
+	# Animated backdrop (makes the tree feel like a "system" not a spreadsheet).
+	var back := ColorRect.new()
+	back.set_anchors_preset(Control.PRESET_FULL_RECT)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.color = Color(1, 1, 1, 0.10)
+	var back_mat := ShaderMaterial.new()
+	back_mat.shader = preload("res://shaders/ui_arcane_scifi_backdrop.gdshader")
+	back.material = back_mat
+	graph_frame.add_child(back)
+
+	# Scrollable canvas so large trees are always reachable.
+	var graph_scroll := ScrollContainer.new()
+	graph_scroll.name = "GraphScroll"
+	graph_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	graph_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	graph_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	graph_frame.add_child(graph_scroll)
+
+	var graph := Control.new()
+	graph.name = "Graph"
+	graph.custom_minimum_size = Vector2(1600, 980)
+	graph_scroll.add_child(graph)
+
+	# Legend (owned / available / locked)
+	var legend := RichTextLabel.new()
+	legend.bbcode_enabled = true
+	legend.scroll_active = false
+	legend.fit_content = true
+	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	legend.text = "[b]Legend[/b]  [color=#66e6ff]Owned[/color]  [color=#caa6ff]Available[/color]  [color=#6c7482]Locked[/color]  [color=#ffd36b]Keystone[/color]"
+	legend.add_theme_font_size_override("normal_font_size", 12)
+	legend.add_theme_color_override("default_color", Color(0.82, 0.86, 0.92, 0.95))
+	legend.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	legend.offset_left = 12
+	legend.offset_bottom = -10
+	graph_frame.add_child(legend)
+
+	# Drag-to-pan (LMB) inside the graph.
+	var dragging := false
+	var last_mouse := Vector2.ZERO
+	graph_scroll.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton:
+			var mb := ev as InputEventMouseButton
+			if mb.button_index == MOUSE_BUTTON_LEFT:
+				dragging = mb.pressed
+				last_mouse = mb.position
+				graph_scroll.accept_event()
+		elif ev is InputEventMouseMotion and dragging:
+			var mm := ev as InputEventMouseMotion
+			graph_scroll.scroll_horizontal = maxi(0, graph_scroll.scroll_horizontal - int(mm.relative.x))
+			graph_scroll.scroll_vertical = maxi(0, graph_scroll.scroll_vertical - int(mm.relative.y))
+			graph_scroll.accept_event()
+	)
+
+	# Side inspector
+	var side := PanelContainer.new()
+	side.custom_minimum_size = Vector2(260, 0)
+	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, false))
+	body.add_child(side)
+
+	var spad := MarginContainer.new()
+	spad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	spad.add_theme_constant_override("margin_left", 12)
+	spad.add_theme_constant_override("margin_right", 12)
+	spad.add_theme_constant_override("margin_top", 12)
+	spad.add_theme_constant_override("margin_bottom", 12)
+	side.add_child(spad)
+
+	var sv := VBoxContainer.new()
+	sv.add_theme_constant_override("separation", 8)
+	spad.add_child(sv)
+
+	var sel_title := Label.new()
+	sel_title.name = "SelTitle"
+	sel_title.text = "Select a node"
+	sel_title.add_theme_font_size_override("font_size", 16)
+	sel_title.add_theme_color_override("font_color", UiSkin.TEXT)
+	sv.add_child(sel_title)
+
+	var sel_desc := Label.new()
+	sel_desc.name = "SelDesc"
+	sel_desc.text = ""
+	sel_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sel_desc.add_theme_font_size_override("font_size", 12)
+	sel_desc.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+	sv.add_child(sel_desc)
+
+	var sel_cost := Label.new()
+	sel_cost.name = "SelCost"
+	sel_cost.text = ""
+	sel_cost.add_theme_font_size_override("font_size", 12)
+	sel_cost.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+	sv.add_child(sel_cost)
+
+	var sel_effects := RichTextLabel.new()
+	sel_effects.name = "SelEffects"
+	sel_effects.bbcode_enabled = true
+	sel_effects.scroll_active = false
+	sel_effects.fit_content = true
+	sel_effects.add_theme_font_size_override("normal_font_size", 12)
+	sel_effects.add_theme_color_override("default_color", UiSkin.TEXT_SOFT)
+	sv.add_child(sel_effects)
+
+	sv.add_spacer(true)
+
+	var buy := Button.new()
+	buy.name = "BuyBtn"
+	buy.text = "Buy"
+	buy.custom_minimum_size = Vector2(0, 44)
+	UiSkin.style_primary_button(buy)
+	sv.add_child(buy)
+
+	var refund := Button.new()
+	refund.name = "RefundBtn"
+	refund.text = "Refund"
+	refund.custom_minimum_size = Vector2(0, 40)
+	UiSkin.style_secondary_button(refund)
+	sv.add_child(refund)
+
+	var hint := Label.new()
+	hint.text = "Tip: Refund only works if nothing depends on that node."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", Color(0.70, 0.78, 0.90, 0.75))
+	sv.add_child(hint)
+
+	# Defer graph build one frame so sizes are valid (layout has happened).
+	call_deferred("_build_meta_tree_graph", layer, graph, graph_scroll, sig_lbl, sel_title, sel_desc, sel_cost, sel_effects, buy, refund, search)
+
+func _build_meta_tree_graph(layer: CanvasLayer, graph: Control, graph_scroll: ScrollContainer, sig_lbl: Label, sel_title: Label, sel_desc: Label, sel_cost: Label, sel_effects: RichTextLabel, buy: Button, refund: Button, search: LineEdit) -> void:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("tree_data")):
+		sig_lbl.text = "Sigils: —"
+		buy.disabled = true
+		refund.disabled = true
+		return
+
+	for c in graph.get_children():
+		c.queue_free()
+
+	var data: Dictionary = mp.tree_data()
+	var nodes: Array = data.get("nodes", [])
+	var edges: Array = data.get("edges", [])
+
+	sig_lbl.text = "Sigils: %d" % int(mp.sigils)
+
+	# Layout
+	var graph_size := graph.size
+	# Use the canvas min size if needed (scroll canvas).
+	if graph_size.x <= 4.0 or graph_size.y <= 4.0:
+		graph_size = graph.custom_minimum_size
+	var center := Vector2(graph_size.x * 0.5, graph_size.y * 0.5)
+
+	# Build quick lookup of raw positions
+	var raw_by_id := {}
+	var node_by_id := {}
+	var minp := Vector2(INF, INF)
+	var maxp := Vector2(-INF, -INF)
+	for n in nodes:
+		if typeof(n) != TYPE_DICTIONARY:
+			continue
+		var d := n as Dictionary
+		var id := String(d.get("id", ""))
+		node_by_id[id] = d
+		var p: Array = d.get("pos", [0, 0])
+		var px := float(p[0]) if p.size() > 0 else 0.0
+		var py := float(p[1]) if p.size() > 1 else 0.0
+		var rv := Vector2(px, py)
+		raw_by_id[id] = rv
+		minp.x = minf(minp.x, rv.x)
+		minp.y = minf(minp.y, rv.y)
+		maxp.x = maxf(maxp.x, rv.x)
+		maxp.y = maxf(maxp.y, rv.y)
+
+	# Auto-fit to view (prevents branches being off-screen).
+	var raw_center := (minp + maxp) * 0.5
+	var span := (maxp - minp)
+	var margin := Vector2(180, 120) # room for buttons + edges
+	var avail := Vector2(maxf(240.0, graph_size.x - margin.x), maxf(180.0, graph_size.y - margin.y))
+	var scale_x := 1.0 if span.x <= 0.001 else (avail.x / span.x)
+	var scale_y := 1.0 if span.y <= 0.001 else (avail.y / span.y)
+	var scale := minf(1.15, maxf(0.55, minf(scale_x, scale_y)))
+
+	var pos_by_id := {}
+	for id2 in raw_by_id.keys():
+		var rv2: Vector2 = raw_by_id[id2]
+		pos_by_id[id2] = center + (rv2 - raw_center) * scale
+
+	# Draw edges (stored so we can recolor based on progression + search filter)
+	var edge_lines: Array = []
+	for e in edges:
+		if typeof(e) != TYPE_ARRAY:
+			continue
+		var aarr := e as Array
+		if aarr.size() < 2:
+			continue
+		var a := String(aarr[0])
+		var b := String(aarr[1])
+		if not pos_by_id.has(a) or not pos_by_id.has(b):
+			continue
+		var line := Line2D.new()
+		line.width = 2.0
+		line.default_color = Color(0.60, 0.80, 1.0, 0.12)
+		line.antialiased = true
+		line.add_point(pos_by_id[a])
+		line.add_point(pos_by_id[b])
+		graph.add_child(line)
+		edge_lines.append({"a": a, "b": b, "line": line})
+
+	# State stored on layer so refresh can be called from signals without local funcs.
+	var state := {
+		"mp": mp,
+		"nodes": nodes,
+		"node_by_id": node_by_id,
+		"pos_by_id": pos_by_id,
+		"edge_lines": edge_lines,
+		"buttons": {},
+		"selected_id": "",
+		"sig_lbl": sig_lbl,
+		"sel_title": sel_title,
+		"sel_desc": sel_desc,
+		"sel_cost": sel_cost,
+		"sel_effects": sel_effects,
+		"buy": buy,
+		"refund": refund
+	}
+	layer.set_meta("_meta_tree_state", state)
+
+	# Node buttons
+	for id in node_by_id.keys():
+		var nd: Dictionary = node_by_id[id] as Dictionary
+		var p2: Vector2 = pos_by_id[id]
+		var b := Button.new()
+		var is_key := false
+		var tags: Array = nd.get("tags", [])
+		for t in tags:
+			if String(t) == "keystone":
+				is_key = true
+		var prefix := "✦ " if is_key else "• "
+		if String(id) == "core_0":
+			prefix = "◆ "
+		b.text = prefix + String(nd.get("name", id))
+		b.tooltip_text = "%s\nCost: %d" % [String(nd.get("desc", "")), int(nd.get("cost", 0))]
+		b.custom_minimum_size = Vector2(182, 40) if is_key else Vector2(150, 36)
+		b.position = p2 - b.custom_minimum_size * 0.5
+		b.add_theme_font_size_override("font_size", 12)
+		b.add_theme_color_override("font_color", UiSkin.TEXT)
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		b.pivot_offset = b.custom_minimum_size * 0.5
+		b.set_meta("_node_id", String(id))
+		b.set_meta("_is_key", is_key)
+		b.set_meta("_is_core", String(id) == "core_0")
+
+		# Fun hover feedback
+		b.mouse_entered.connect(func():
+			var tw: Tween = b.get_meta("_hover_tw", null) as Tween
+			if tw != null:
+				tw.kill()
+			var t2 := b.create_tween()
+			b.set_meta("_hover_tw", t2)
+			t2.set_trans(Tween.TRANS_SINE)
+			t2.set_ease(Tween.EASE_OUT)
+			t2.tween_property(b, "scale", Vector2(1.035, 1.035), 0.10)
+		)
+		b.mouse_exited.connect(func():
+			var tw: Tween = b.get_meta("_hover_tw", null) as Tween
+			if tw != null:
+				tw.kill()
+			var t2 := b.create_tween()
+			b.set_meta("_hover_tw", t2)
+			t2.set_trans(Tween.TRANS_SINE)
+			t2.set_ease(Tween.EASE_OUT)
+			t2.tween_property(b, "scale", Vector2.ONE, 0.12)
+		)
+
+		graph.add_child(b)
+		state["buttons"][id] = b
+		b.pressed.connect(func():
+			var st: Dictionary = layer.get_meta("_meta_tree_state", {}) as Dictionary
+			st["selected_id"] = id
+			layer.set_meta("_meta_tree_state", st)
+			_meta_tree_refresh(layer)
+		)
+
+	buy.pressed.connect(func():
+		var st: Dictionary = layer.get_meta("_meta_tree_state", {}) as Dictionary
+		var sid := String(st.get("selected_id", ""))
+		if sid == "":
+			return
+		var mp2 := st.get("mp") as Node
+		if mp2 and is_instance_valid(mp2) and mp2.has_method("buy_node") and bool(mp2.buy_node(sid)):
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and s.has_method("play_ui"):
+				s.play_ui("ui.confirm")
+			_refresh_meta_ui()
+		else:
+			var s2 := get_node_or_null("/root/SfxSystem")
+			if s2 and s2.has_method("play_ui"):
+				s2.play_ui("ui.cancel")
+		_meta_tree_refresh(layer)
+	)
+
+	refund.pressed.connect(func():
+		var st: Dictionary = layer.get_meta("_meta_tree_state", {}) as Dictionary
+		var sid := String(st.get("selected_id", ""))
+		if sid == "":
+			return
+		var mp2 := st.get("mp") as Node
+		if mp2 and is_instance_valid(mp2) and mp2.has_method("refund_node") and bool(mp2.refund_node(sid)):
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and s.has_method("play_ui"):
+				s.play_ui("ui.confirm")
+			_refresh_meta_ui()
+		else:
+			var s2 := get_node_or_null("/root/SfxSystem")
+			if s2 and s2.has_method("play_ui"):
+				s2.play_ui("ui.cancel")
+		_meta_tree_refresh(layer)
+	)
+
+	_meta_tree_refresh(layer)
+
+	# Search filter
+	if search != null:
+		search.text_changed.connect(func(t: String):
+			var st2: Dictionary = layer.get_meta("_meta_tree_state", {}) as Dictionary
+			st2["search_q"] = t.strip_edges().to_lower()
+			layer.set_meta("_meta_tree_state", st2)
+			_meta_tree_refresh(layer)
+		)
+
+	# Center scroll on the tree after build.
+	if graph_scroll != null and is_instance_valid(graph_scroll):
+		var hx := int(maxf(0.0, center.x - graph_scroll.size.x * 0.5))
+		var hy := int(maxf(0.0, center.y - graph_scroll.size.y * 0.5))
+		graph_scroll.scroll_horizontal = hx
+		graph_scroll.scroll_vertical = hy
+
+func _meta_tree_refresh(layer: CanvasLayer) -> void:
+	if layer == null or not is_instance_valid(layer):
+		return
+	var st: Dictionary = layer.get_meta("_meta_tree_state", {}) as Dictionary
+	if st.is_empty():
+		return
+	var mp := st.get("mp") as Node
+	if mp == null or not is_instance_valid(mp):
+		return
+	var nodes: Array = st.get("nodes", [])
+	var node_by_id: Dictionary = st.get("node_by_id", {}) as Dictionary
+	var edge_lines: Array = st.get("edge_lines", [])
+	var buttons: Dictionary = st.get("buttons", {}) as Dictionary
+	var sig_lbl: Label = st.get("sig_lbl") as Label
+	var sel_title: Label = st.get("sel_title") as Label
+	var sel_desc: Label = st.get("sel_desc") as Label
+	var sel_cost: Label = st.get("sel_cost") as Label
+	var sel_effects: RichTextLabel = st.get("sel_effects") as RichTextLabel
+	var buy: Button = st.get("buy") as Button
+	var refund: Button = st.get("refund") as Button
+	var selected_id := String(st.get("selected_id", ""))
+	var q := String(st.get("search_q", "")).to_lower()
+
+	if sig_lbl:
+		sig_lbl.text = "Sigils: %d" % int(mp.sigils) if ("sigils" in mp) else "Sigils: —"
+
+	for id in buttons.keys():
+		var b: Button = buttons[id]
+		if b == null:
+			continue
+		var nid := String(id)
+		var owned := bool(mp.owns_node(nid)) if mp.has_method("owns_node") else false
+		var can_buy := bool(mp.can_buy_node(nid)) if mp.has_method("can_buy_node") else false
+		var show := true
+		if q != "":
+			var name := b.text.to_lower()
+			show = (name.find(q) >= 0)
+		b.visible = show
+
+		# Stylized "gem" buttons
+		var is_key := bool(b.get_meta("_is_key", false))
+		var is_core := bool(b.get_meta("_is_core", false))
+		var accent := UiSkin.ACCENT
+		if is_key:
+			accent = Color(1.0, 0.85, 0.35, 1.0)
+		elif is_core:
+			accent = Color(0.55, 1.0, 0.95, 1.0)
+		elif can_buy and (not owned):
+			accent = Color(0.78, 0.65, 1.0, 1.0)
+
+		var sb := StyleBoxFlat.new()
+		sb.corner_radius_top_left = 18
+		sb.corner_radius_top_right = 18
+		sb.corner_radius_bottom_left = 18
+		sb.corner_radius_bottom_right = 18
+		sb.border_width_left = 2
+		sb.border_width_right = 2
+		sb.border_width_top = 2
+		sb.border_width_bottom = 2
+		if owned:
+			sb.bg_color = Color(accent.r, accent.g, accent.b, 0.22)
+			sb.border_color = Color(accent.r, accent.g, accent.b, 0.95)
+			sb.shadow_size = 16
+			sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.20)
+			b.disabled = false
+			b.modulate = Color(1, 1, 1, 1)
+		elif can_buy:
+			sb.bg_color = Color(accent.r, accent.g, accent.b, 0.12)
+			sb.border_color = Color(accent.r, accent.g, accent.b, 0.55)
+			sb.shadow_size = 10
+			sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.12)
+			b.disabled = false
+			b.modulate = Color(1, 1, 1, 1)
+		else:
+			sb.bg_color = Color(0.06, 0.07, 0.09, 0.75)
+			sb.border_color = Color(1, 1, 1, 0.10)
+			sb.shadow_size = 6
+			sb.shadow_color = Color(0, 0, 0, 0.55)
+			b.disabled = true
+			b.modulate = Color(1, 1, 1, 0.55)
+		b.add_theme_stylebox_override("normal", sb)
+		var hover := sb.duplicate() as StyleBoxFlat
+		hover.bg_color = Color(sb.bg_color.r, sb.bg_color.g, sb.bg_color.b, minf(0.40, sb.bg_color.a + 0.10))
+		hover.border_color = Color(sb.border_color.r, sb.border_color.g, sb.border_color.b, minf(1.0, sb.border_color.a + 0.18))
+		b.add_theme_stylebox_override("hover", hover)
+		b.add_theme_stylebox_override("focus", hover)
+		b.add_theme_stylebox_override("pressed", hover)
+
+	# Recolor edges based on node state (and hide edges filtered by search)
+	for ed in edge_lines:
+		if typeof(ed) != TYPE_DICTIONARY:
+			continue
+		var d := ed as Dictionary
+		var line := d.get("line") as Line2D
+		if line == null or not is_instance_valid(line):
+			continue
+		var a := String(d.get("a", ""))
+		var b := String(d.get("b", ""))
+		var ba: Button = buttons.get(a) as Button
+		var bb: Button = buttons.get(b) as Button
+		var vis := true
+		if ba != null and bb != null:
+			vis = ba.visible and bb.visible
+		line.visible = vis
+		var a_owned := bool(mp.owns_node(a)) if mp.has_method("owns_node") else false
+		var b_owned := bool(mp.owns_node(b)) if mp.has_method("owns_node") else false
+		var a_buy := bool(mp.can_buy_node(a)) if mp.has_method("can_buy_node") else false
+		var b_buy := bool(mp.can_buy_node(b)) if mp.has_method("can_buy_node") else false
+		if a_owned and b_owned:
+			line.width = 3.0
+			line.default_color = Color(0.40, 0.90, 1.0, 0.50)
+		elif (a_owned and b_buy) or (b_owned and a_buy):
+			line.width = 2.5
+			line.default_color = Color(0.78, 0.65, 1.0, 0.28)
+		else:
+			line.width = 2.0
+			line.default_color = Color(0.60, 0.80, 1.0, 0.10)
+
+	if selected_id == "":
+		if sel_title: sel_title.text = "Select a node"
+		if sel_desc: sel_desc.text = ""
+		if sel_cost: sel_cost.text = ""
+		if sel_effects: sel_effects.text = ""
+		if buy: buy.disabled = true
+		if refund: refund.disabled = true
+		return
+
+	var nd: Dictionary = node_by_id.get(selected_id, {}) as Dictionary
+	var cost := int(nd.get("cost", 0))
+	if sel_title: sel_title.text = String(nd.get("name", selected_id))
+	if sel_desc: sel_desc.text = String(nd.get("desc", ""))
+	if sel_cost: sel_cost.text = "Cost: %d sigils" % cost
+	if sel_effects:
+		var mods_d: Dictionary = nd.get("mods", {}) as Dictionary
+		var lines: Array[String] = []
+		for k in mods_d.keys():
+			lines.append("[b]%s[/b]: %s" % [String(k), str(mods_d.get(k))])
+		var prereq: Array = nd.get("prereq", [])
+		if not prereq.is_empty():
+			lines.append("[color=#9bb3c9]Requires:[/color] " + ", ".join(prereq))
+		sel_effects.text = "[b]Effects[/b]\n" + ("\n".join(lines) if lines.size() > 0 else "—")
+
+	var owned2 := bool(mp.owns_node(selected_id)) if mp.has_method("owns_node") else false
+	if buy:
+		buy.text = "Buy (%d)" % cost
+		buy.disabled = owned2 or (not bool(mp.can_buy_node(selected_id))) if mp.has_method("can_buy_node") else true
+	if refund:
+		refund.disabled = (not owned2) or (selected_id == "core_0") or _meta_tree_has_dependents(mp, nodes, selected_id)
+
+func _meta_tree_has_dependents(mp: Node, nodes: Array, id: String) -> bool:
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("owns_node")):
+		return true
+	for n in nodes:
+		if typeof(n) != TYPE_DICTIONARY:
+			continue
+		var d := n as Dictionary
+		var nid := String(d.get("id", ""))
+		if nid == id:
+			continue
+		if not bool(mp.owns_node(nid)):
+			continue
+		var prereq: Array = d.get("prereq", [])
+		for p in prereq:
+			if String(p) == id:
+				return true
+	return false
 
 func _refresh_meta_ui() -> void:
 	var mp := get_node_or_null("/root/MetaProgression")

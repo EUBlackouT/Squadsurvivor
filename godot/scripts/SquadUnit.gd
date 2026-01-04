@@ -118,7 +118,11 @@ func _physics_process(delta: float) -> void:
 	if character_data != null:
 		SynergySystem.tick_unit(character_data, self)
 
-	if _retarget_t <= 0.0 or _target_enemy == null or not is_instance_valid(_target_enemy):
+	# Rally command overrides combat briefly (reposition moment).
+	if _main and is_instance_valid(_main) and _main.has_method("get_rally_time_left") and float(_main.get_rally_time_left()) > 0.0:
+		_target_enemy = null
+		_retarget_t = retarget_interval
+	elif _retarget_t <= 0.0 or _target_enemy == null or not is_instance_valid(_target_enemy):
 		_target_enemy = _find_target()
 		_retarget_t = retarget_interval
 
@@ -146,6 +150,9 @@ func _combat_step(_delta: float) -> void:
 	if character_data != null:
 		var mods := SynergySystem.mods_for_cd(character_data)
 		move_speed *= float(mods.get("move_speed_mult", 1.0))
+	# Overclock: speed burst (meta ability)
+	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
+		move_speed *= float(_main.get_overclock_move_speed_mult())
 
 	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
 	var desired_range := 26.0 if is_melee else attack_range * 0.70
@@ -170,20 +177,58 @@ func _combat_step(_delta: float) -> void:
 		if character_data != null:
 			var mods := SynergySystem.mods_for_cd(character_data)
 			cd_s *= float(mods.get("attack_cooldown_mult", 1.0))
+		# Overclock increases attack rate by reducing cooldown.
+		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_rate_mult"):
+			var rate := float(_main.get_overclock_rate_mult())
+			if rate > 0.01:
+				cd_s /= rate
 		_attack_timer = cd_s
 
 func _follow_leader(_delta: float) -> void:
+	# Rally: follow a command point instead of leader for a short burst.
+	if _main and is_instance_valid(_main) and _main.has_method("get_rally_time_left") and float(_main.get_rally_time_left()) > 0.0 and _main.has_method("get_rally_pos"):
+		var rp: Vector2 = _main.get_rally_pos()
+		var target_pos := rp + _formation_offset_world()
+		var to := target_pos - global_position
+		if to.length() > 14.0:
+			var move_speed := character_data.move_speed if character_data != null else 120.0
+			if character_data != null:
+				var mods := SynergySystem.mods_for_cd(character_data)
+				move_speed *= float(mods.get("move_speed_mult", 1.0))
+			var mp := get_node_or_null("/root/MetaProgression")
+			var follow_mult := 1.15
+			var speed_mult := 1.0
+			if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+				follow_mult *= float(mp.get_mod("rally_follow_mult", 1.0))
+				speed_mult *= float(mp.get_mod("rally_speed_mult", 1.0))
+			velocity = to.normalized() * (move_speed * follow_mult * speed_mult)
+			move_and_slide()
+		else:
+			velocity = Vector2.ZERO
+		return
+
 	if _leader == null or not is_instance_valid(_leader):
 		velocity = Vector2.ZERO
 		return
 	var target_pos := _leader.global_position + _formation_offset_world()
 	var to := target_pos - global_position
-	if to.length() > 18.0:
+	var follow_threshold := 18.0
+	var follow_mult := 1.0
+	# If leader is dashing, surge to keep up (prevents "camera dash without squad").
+	if _leader != null and is_instance_valid(_leader) and _leader.has_method("is_dashing") and bool(_leader.is_dashing()):
+		follow_threshold = 8.0
+		follow_mult = 3.0
+		var mp := get_node_or_null("/root/MetaProgression")
+		if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+			follow_mult *= float(mp.get_mod("dash_follow_mult", 1.0))
+	if to.length() > follow_threshold:
 		var move_speed := character_data.move_speed if character_data != null else 120.0
 		if character_data != null:
 			var mods := SynergySystem.mods_for_cd(character_data)
 			move_speed *= float(mods.get("move_speed_mult", 1.0))
-		velocity = to.normalized() * move_speed
+		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
+			move_speed *= float(_main.get_overclock_move_speed_mult())
+		velocity = to.normalized() * (move_speed * follow_mult)
 		move_and_slide()
 	else:
 		velocity = Vector2.ZERO
@@ -210,6 +255,12 @@ func _find_target() -> Node2D:
 
 	var best: Node2D = null
 	var best_score: float = INF
+
+	# Focus-fire command: bias target selection toward the marked enemy (still distance-aware).
+	var focus: Node2D = null
+	if _main and is_instance_valid(_main) and _main.has_method("get_focus_target"):
+		focus = _main.get_focus_target()
+
 	for e in enemies:
 		if not is_instance_valid(e):
 			continue
@@ -218,6 +269,8 @@ func _find_target() -> Node2D:
 			continue
 		var dist2 := global_position.distance_squared_to(n2.global_position)
 		var score := dist2
+		if focus != null and n2 == focus:
+			score *= 0.03
 		if _target_mode == TargetMode.ELITES_FIRST and bool(n2.is_elite):
 			score *= 0.65
 		if _target_mode == TargetMode.LOWEST_HP and n2.has_method("get_hp_ratio"):
@@ -236,6 +289,9 @@ func _attack(target: Node2D) -> void:
 	if character_data != null:
 		var mods := SynergySystem.mods_for_cd(character_data)
 		final_damage = int(round(float(final_damage) * float(mods.get("attack_damage_mult", 1.0))))
+	# Overclock: damage multiplier (meta buildcraft)
+	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_damage_mult"):
+		final_damage = int(round(float(final_damage) * float(_main.get_overclock_damage_mult())))
 	if character_data != null and character_data.crit_chance > 0.0 and randf() < character_data.crit_chance:
 		is_crit = true
 		final_damage = int(round(float(final_damage) * character_data.crit_mult))
