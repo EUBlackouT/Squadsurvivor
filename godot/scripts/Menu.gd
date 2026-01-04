@@ -953,6 +953,7 @@ func _refresh_collection() -> void:
 		var arch := String(data.get("archetype_id", "bruiser"))
 		var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
 		var cls_name := _class_name(cls)
+		var cls_tag := _class_tag(cls)
 
 		# Card row (reads better than a naked HBox).
 		var card := PanelContainer.new()
@@ -985,7 +986,12 @@ func _refresh_collection() -> void:
 		row.add_child(mid)
 
 		var name := Label.new()
-		name.text = "%s • %s • %s" % [UnitFactory.rarity_name(rarity), cls_name, arch]
+		var show_arch := (arch.strip_edges().to_lower() != cls_tag)
+		name.text = "%s • %s%s" % [
+			UnitFactory.rarity_name(rarity),
+			cls_name,
+			(" • %s" % arch) if show_arch else ""
+		]
 		name.add_theme_font_size_override("font_size", 15)
 		name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
 		mid.add_child(name)
@@ -1137,9 +1143,16 @@ func _refresh_roster() -> void:
 			var arch := String(d.get("archetype_id", "bruiser"))
 			var cls := int(d.get("class_type", int(CharacterData.Class.WARRIOR)))
 			var cls_name := _class_name(cls)
+			var cls_tag := _class_tag(cls)
 			# Portrait
 			row.add_child(_make_collection_preview(d))
-			label.text = "%d) %s • %s • %s" % [i + 1, UnitFactory.rarity_name(rarity), cls_name, arch]
+			var show_arch := (arch.strip_edges().to_lower() != cls_tag)
+			label.text = "%d) %s • %s%s" % [
+				i + 1,
+				UnitFactory.rarity_name(rarity),
+				cls_name,
+				(" • %s" % arch) if show_arch else ""
+			]
 			label.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
 		else:
 			label.text = "%d) (empty)" % [i + 1]
@@ -1175,7 +1188,13 @@ func _add_unlock_to_roster(data: Dictionary) -> void:
 		var rarity := String(data.get("rarity_id", "common"))
 		var arch := String(data.get("archetype_id", "bruiser"))
 		var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
-		_toast.show_toast("Added to roster: %s • %s • %s" % [UnitFactory.rarity_name(rarity), _class_name(cls), arch], UnitFactory.rarity_color(rarity))
+		var cls_name := _class_name(cls)
+		var cls_tag := _class_tag(cls)
+		var show_arch := (arch.strip_edges().to_lower() != cls_tag)
+		_toast.show_toast(
+			"Added to roster: %s • %s%s" % [UnitFactory.rarity_name(rarity), cls_name, (" • %s" % arch) if show_arch else ""],
+			UnitFactory.rarity_color(rarity)
+		)
 	_refresh()
 
 func _select_unlock(data: Dictionary) -> void:
@@ -1200,7 +1219,10 @@ func _refresh_inspector() -> void:
 	var rarity := String(_selected_unlock.get("rarity_id", "common"))
 	var arch := String(_selected_unlock.get("archetype_id", "bruiser"))
 	var cls := int(_selected_unlock.get("class_type", int(CharacterData.Class.WARRIOR)))
-	_inspector_name.text = "%s • %s • %s" % [UnitFactory.rarity_name(rarity), _class_name(cls), arch]
+	var cls_name := _class_name(cls)
+	var cls_tag := _class_tag(cls)
+	var show_arch := (arch.strip_edges().to_lower() != cls_tag)
+	_inspector_name.text = "%s • %s%s" % [UnitFactory.rarity_name(rarity), cls_name, (" • %s" % arch) if show_arch else ""]
 	_inspector_name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
 	var style := "MELEE" if int(_selected_unlock.get("attack_style", 1)) == 0 else "RANGED"
 	_inspector_stats.text = "%s  |  HP %d  DMG %d  CD %.2f  RNG %d" % [
@@ -1339,6 +1361,8 @@ func _show_details(data: Dictionary) -> void:
 	var style := "MELEE" if int(data.get("attack_style", 1)) == 0 else "RANGED"
 	var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
 	var cls_name := _class_name(cls)
+	var cls_tag := _class_tag(cls)
+	var show_arch := (arch.strip_edges().to_lower() != cls_tag)
 
 	# Header row
 	var header := HBoxContainer.new()
@@ -1354,7 +1378,12 @@ func _show_details(data: Dictionary) -> void:
 	header.add_child(header_right)
 
 	var t := Label.new()
-	t.text = "%s • %s • %s • %s" % [UnitFactory.rarity_name(rarity), cls_name, arch, style]
+	t.text = "%s • %s%s • %s" % [
+		UnitFactory.rarity_name(rarity),
+		cls_name,
+		(" • %s" % arch) if show_arch else "",
+		style
+	]
 	t.add_theme_font_size_override("font_size", 24)
 	t.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
 	header_right.add_child(t)

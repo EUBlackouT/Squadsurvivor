@@ -170,10 +170,7 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 		if world.has_method("get_arc_surge_damage_mult"):
 			mult = float(world.get_arc_surge_damage_mult())
 		_arc_chain(unit, target, int(round(float(damage) * mult)))
-	# Extra: if crit, allow certain passives to proc even for ranged via metadata on unit.
-	# (No-op for now)
-			_:
-				pass
+
 
 static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, enemy: Node2D, damage: int, _is_crit: bool) -> void:
 	if passive_ids.is_empty():
