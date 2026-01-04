@@ -103,6 +103,15 @@ var _rally_until_s: float = 0.0
 var _overclock_until_s: float = 0.0
 var _overclock_cd_s: float = 0.0
 
+# Active ability (always available): Class Callout (F)
+var _callout_until_s: float = 0.0
+var _callout_cd_s: float = 0.0
+var _callout_class: int = -1
+
+# Mage callout state: Arc Surge (queried by PassiveSystem)
+var _arc_surge_until_s: float = 0.0
+var _arc_surge_dmg_mult: float = 0.22
+
 # Map tuning (data-driven via RunConfig + maps.json)
 var _map_mod: Dictionary = {}
 
@@ -270,6 +279,12 @@ func _physics_process(delta: float) -> void:
 		_overclock_until_s = maxf(0.0, _overclock_until_s - delta)
 	if _overclock_cd_s > 0.0:
 		_overclock_cd_s = maxf(0.0, _overclock_cd_s - delta)
+	if _callout_until_s > 0.0:
+		_callout_until_s = maxf(0.0, _callout_until_s - delta)
+	if _callout_cd_s > 0.0:
+		_callout_cd_s = maxf(0.0, _callout_cd_s - delta)
+	if _arc_surge_until_s > 0.0:
+		_arc_surge_until_s = maxf(0.0, _arc_surge_until_s - delta)
 
 	var t0_us: int = 0
 	if debug_perf_overlay_enabled:
@@ -339,6 +354,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Ability: Overclock (Q)
 		if k.keycode == KEY_Q:
 			_try_overclock()
+		# Ability: Class Callout (F)
+		if k.keycode == KEY_F:
+			_try_class_callout()
 
 	# Player command input (ignore while paused/draft/pause menu)
 	if get_tree().paused:
@@ -422,6 +440,114 @@ func _overclock_unlocked() -> bool:
 	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
 		return float(mp.get_add("overclock_unlocked", 0.0)) >= 1.0
 	return false
+
+func is_arc_surge_active() -> bool:
+	return _arc_surge_until_s > 0.0
+
+func get_arc_surge_damage_mult() -> float:
+	return _arc_surge_dmg_mult
+
+func _dominant_squad_class() -> int:
+	_prune_invalid_lists()
+	if live_squad_units.is_empty():
+		return int(CharacterData.Class.WARRIOR)
+	var counts := {}
+	for u in live_squad_units:
+		if not is_instance_valid(u):
+			continue
+		var cd := (u as Node).get("character_data") as CharacterData
+		if cd == null:
+			continue
+		var c := int(cd.class_type)
+		counts[c] = int(counts.get(c, 0)) + 1
+	var best_c := int(CharacterData.Class.WARRIOR)
+	var best_n := -1
+	for k in counts.keys():
+		var n := int(counts[k])
+		if n > best_n:
+			best_n = n
+			best_c = int(k)
+	return best_c
+
+func _try_class_callout() -> void:
+	if get_tree().paused or _game_over or _victory:
+		return
+	if has_node("RecruitDraftUI") or has_node("PauseMenu"):
+		return
+	if _callout_cd_s > 0.0:
+		return
+	_prune_invalid_lists()
+	if live_squad_units.is_empty():
+		return
+
+	# Baseline tuning: strong feel, modest power, clear cooldown.
+	var duration := 4.0
+	var cooldown := 18.0
+	_callout_until_s = duration
+	_callout_cd_s = cooldown
+	_callout_class = _dominant_squad_class()
+
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	var origin := player.global_position if player and is_instance_valid(player) else global_position
+
+	match _callout_class:
+		CharacterData.Class.GUARDIAN:
+			# Aegis: reduce incoming damage for a short window.
+			for u in live_squad_units:
+				if is_instance_valid(u) and (u as Node).has_method("apply_aegis"):
+					(u as Node).apply_aegis(duration, 0.65)
+			var sw := VfxShockwave.new()
+			sw.setup(origin, Color(0.40, 1.0, 0.65, 1.0), 14.0, 150.0, 4.0, 0.30)
+			add_child(sw)
+		CharacterData.Class.ROGUE:
+			# Smoke: enemies in radius have reduced hit chance and mild slow.
+			var radius := 260.0
+			var r2 := radius * radius
+			for e in live_enemies:
+				if not is_instance_valid(e):
+					continue
+				var n2 := e as Node2D
+				if n2 == null:
+					continue
+				if n2.global_position.distance_squared_to(origin) <= r2:
+					if (n2 as Node).has_method("apply_smoke_blind"):
+						(n2 as Node).apply_smoke_blind(0.55, duration)
+					if (n2 as Node).has_method("apply_slow"):
+						(n2 as Node).apply_slow(0.82, duration)
+			var sf := VfxSmokeField.new()
+			sf.setup(origin, Color(0.70, 0.78, 0.90, 0.55), radius, duration)
+			add_child(sf)
+		CharacterData.Class.MAGE:
+			# Arc Surge: temporary extra chain lightning procs (implemented in PassiveSystem via main query).
+			_arc_surge_until_s = maxf(_arc_surge_until_s, duration)
+			_arc_surge_dmg_mult = 0.22
+			var hp := VfxHolyPulse.new()
+			hp.setup(origin, Color(0.85, 0.45, 1.0, 1.0), 12.0, 120.0, 0.28)
+			add_child(hp)
+		CharacterData.Class.HEALER:
+			# Beacon: heal zone around the player.
+			var hb := VfxHealBeacon.new()
+			hb.setup(origin, 220.0, duration, 0.06, 1.0)
+			add_child(hb)
+		_:
+			# Fallback: small rally pulse (still feels like "something happened")
+			var sw2 := VfxShockwave.new()
+			sw2.setup(origin, Color(0.55, 0.85, 1.0, 1.0), 10.0, 110.0, 3.0, 0.22)
+			add_child(sw2)
+
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_ui"):
+		s.play_ui("ui.open")
+
+static func _class_name(c: int) -> String:
+	match c:
+		CharacterData.Class.WARRIOR: return "Warrior"
+		CharacterData.Class.MAGE: return "Mage"
+		CharacterData.Class.ROGUE: return "Rogue"
+		CharacterData.Class.GUARDIAN: return "Guardian"
+		CharacterData.Class.HEALER: return "Healer"
+		CharacterData.Class.SUMMONER: return "Summoner"
+		_: return "Unknown"
 
 func is_overclock_active() -> bool:
 	return _overclock_until_s > 0.0
@@ -1371,7 +1497,11 @@ func _update_hud_labels() -> void:
 		var oc_txt := ""
 		if _overclock_unlocked():
 			oc_txt = "   Overclock(Q): READY" if _overclock_cd_s <= 0.0 else ("   Overclock(Q): %.1fs" % _overclock_cd_s)
-		cmd.text = "Commands: LMB Focus • RMB Rally • Shift Dash%s   |   %s   %s   %s" % [oc_txt, focus_txt, rally_txt, dash_txt]
+		var callout_txt := "Callout(F): READY" if _callout_cd_s <= 0.0 else ("Callout(F): %.1fs" % _callout_cd_s)
+		var active_txt := ""
+		if _callout_until_s > 0.0 and _callout_class >= 0:
+			active_txt = "   Active: %s %.1fs" % [_class_name(_callout_class), _callout_until_s]
+		cmd.text = "Commands: LMB Focus • RMB Rally • Shift Dash%s   |   %s   %s   %s   %s%s" % [oc_txt, focus_txt, rally_txt, dash_txt, callout_txt, active_txt]
 
 	# Debug: count collision shapes / particles to confirm source of circles.
 	var dbg := get_node_or_null("HUD/HUDVBox/DebugLabel") as Label

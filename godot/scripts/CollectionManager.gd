@@ -172,5 +172,3 @@ func save() -> void:
 		push_warning("CollectionManager: failed to open save for write")
 		return
 	f.store_string(JSON.stringify(root))
-
-

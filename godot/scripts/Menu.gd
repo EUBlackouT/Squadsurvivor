@@ -951,6 +951,8 @@ func _refresh_collection() -> void:
 
 		var rarity := String(data.get("rarity_id", "common"))
 		var arch := String(data.get("archetype_id", "bruiser"))
+		var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
+		var cls_name := _class_name(cls)
 
 		# Card row (reads better than a naked HBox).
 		var card := PanelContainer.new()
@@ -983,7 +985,7 @@ func _refresh_collection() -> void:
 		row.add_child(mid)
 
 		var name := Label.new()
-		name.text = "%s • %s" % [UnitFactory.rarity_name(rarity), arch]
+		name.text = "%s • %s • %s" % [UnitFactory.rarity_name(rarity), cls_name, arch]
 		name.add_theme_font_size_override("font_size", 15)
 		name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
 		mid.add_child(name)
@@ -1133,9 +1135,11 @@ func _refresh_roster() -> void:
 			var d: Dictionary = roster[i]
 			var rarity := String(d.get("rarity_id", "common"))
 			var arch := String(d.get("archetype_id", "bruiser"))
+			var cls := int(d.get("class_type", int(CharacterData.Class.WARRIOR)))
+			var cls_name := _class_name(cls)
 			# Portrait
 			row.add_child(_make_collection_preview(d))
-			label.text = "%d) %s • %s" % [i + 1, UnitFactory.rarity_name(rarity), arch]
+			label.text = "%d) %s • %s • %s" % [i + 1, UnitFactory.rarity_name(rarity), cls_name, arch]
 			label.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
 		else:
 			label.text = "%d) (empty)" % [i + 1]
@@ -1170,7 +1174,8 @@ func _add_unlock_to_roster(data: Dictionary) -> void:
 	if _toast:
 		var rarity := String(data.get("rarity_id", "common"))
 		var arch := String(data.get("archetype_id", "bruiser"))
-		_toast.show_toast("Added to roster: %s • %s" % [UnitFactory.rarity_name(rarity), arch], UnitFactory.rarity_color(rarity))
+		var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
+		_toast.show_toast("Added to roster: %s • %s • %s" % [UnitFactory.rarity_name(rarity), _class_name(cls), arch], UnitFactory.rarity_color(rarity))
 	_refresh()
 
 func _select_unlock(data: Dictionary) -> void:
@@ -1194,9 +1199,12 @@ func _refresh_inspector() -> void:
 
 	var rarity := String(_selected_unlock.get("rarity_id", "common"))
 	var arch := String(_selected_unlock.get("archetype_id", "bruiser"))
-	_inspector_name.text = "%s • %s" % [UnitFactory.rarity_name(rarity), arch]
+	var cls := int(_selected_unlock.get("class_type", int(CharacterData.Class.WARRIOR)))
+	_inspector_name.text = "%s • %s • %s" % [UnitFactory.rarity_name(rarity), _class_name(cls), arch]
 	_inspector_name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
-	_inspector_stats.text = "HP %d  DMG %d  CD %.2f  RNG %d" % [
+	var style := "MELEE" if int(_selected_unlock.get("attack_style", 1)) == 0 else "RANGED"
+	_inspector_stats.text = "%s  |  HP %d  DMG %d  CD %.2f  RNG %d" % [
+		style,
 		int(_selected_unlock.get("max_hp", 100)),
 		int(_selected_unlock.get("attack_damage", 10)),
 		float(_selected_unlock.get("attack_cooldown", 1.0)),
@@ -1240,7 +1248,8 @@ func _matches_query(data: Dictionary, q: String) -> bool:
 	var hay := PackedStringArray()
 	hay.append(String(data.get("rarity_id", "")))
 	hay.append(String(data.get("archetype_id", "")))
-	hay.append(String(data.get("class_type", "")))
+	hay.append(_class_name(int(data.get("class_type", int(CharacterData.Class.WARRIOR)))).to_lower())
+	hay.append("class:" + _class_tag(int(data.get("class_type", int(CharacterData.Class.WARRIOR)))))
 	for pid in data.get("passive_ids", []):
 		hay.append(PassiveSystem.passive_name(String(pid)).to_lower())
 		hay.append(String(pid).to_lower())
@@ -1328,6 +1337,8 @@ func _show_details(data: Dictionary) -> void:
 
 	var arch := String(data.get("archetype_id", "bruiser"))
 	var style := "MELEE" if int(data.get("attack_style", 1)) == 0 else "RANGED"
+	var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
+	var cls_name := _class_name(cls)
 
 	# Header row
 	var header := HBoxContainer.new()
@@ -1343,10 +1354,16 @@ func _show_details(data: Dictionary) -> void:
 	header.add_child(header_right)
 
 	var t := Label.new()
-	t.text = "%s • %s • %s" % [UnitFactory.rarity_name(rarity), arch, style]
+	t.text = "%s • %s • %s • %s" % [UnitFactory.rarity_name(rarity), cls_name, arch, style]
 	t.add_theme_font_size_override("font_size", 24)
 	t.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
 	header_right.add_child(t)
+
+	var cchip := Label.new()
+	cchip.text = "Class: %s" % cls_name
+	cchip.add_theme_font_size_override("font_size", 13)
+	cchip.add_theme_color_override("font_color", _class_color(cls))
+	header_right.add_child(cchip)
 
 	var stats_grid := GridContainer.new()
 	stats_grid.columns = 3
@@ -1603,5 +1620,36 @@ func _make_tag_pill(tag: String) -> Control:
 	l.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.9))
 	pad.add_child(l)
 	return pill
+
+static func _class_name(c: int) -> String:
+	match c:
+		CharacterData.Class.WARRIOR: return "Warrior"
+		CharacterData.Class.MAGE: return "Mage"
+		CharacterData.Class.ROGUE: return "Rogue"
+		CharacterData.Class.GUARDIAN: return "Guardian"
+		CharacterData.Class.HEALER: return "Healer"
+		CharacterData.Class.SUMMONER: return "Summoner"
+		_: return "Unknown"
+
+static func _class_tag(c: int) -> String:
+	match c:
+		CharacterData.Class.WARRIOR: return "warrior"
+		CharacterData.Class.MAGE: return "mage"
+		CharacterData.Class.ROGUE: return "rogue"
+		CharacterData.Class.GUARDIAN: return "guardian"
+		CharacterData.Class.HEALER: return "healer"
+		CharacterData.Class.SUMMONER: return "summoner"
+		_: return "unknown"
+
+static func _class_color(c: int) -> Color:
+	# Matches the projectile tint mapping in SquadUnit (keeps the UI consistent with combat colors).
+	match c:
+		CharacterData.Class.WARRIOR: return Color(1.0, 0.35, 0.35, 1.0)
+		CharacterData.Class.MAGE: return Color(0.85, 0.45, 1.0, 1.0)
+		CharacterData.Class.ROGUE: return Color(1.0, 0.90, 0.35, 1.0)
+		CharacterData.Class.GUARDIAN: return Color(0.40, 1.0, 0.55, 1.0)
+		CharacterData.Class.HEALER: return Color(0.65, 0.85, 1.0, 1.0)
+		CharacterData.Class.SUMMONER: return Color(0.95, 0.35, 0.95, 1.0)
+		_: return Color(0.75, 0.85, 1.0, 1.0)
 
 

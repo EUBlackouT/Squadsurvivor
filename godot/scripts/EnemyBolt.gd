@@ -9,6 +9,7 @@ extends Node2D
 
 var target: Node2D = null
 var _main: Node2D = null
+var hit_chance: float = 1.0 # 0..1 (used by Rogue smoke)
 
 @onready var sprite: Sprite2D = null
 
@@ -29,10 +30,11 @@ func _ready() -> void:
 	await get_tree().create_timer(2.2).timeout
 	queue_free()
 
-func setup_target(t: Node2D, dmg: int, tint: Color, p_speed: float = 520.0) -> void:
+func setup_target(t: Node2D, dmg: int, tint: Color, p_speed: float = 520.0, p_hit_chance: float = 1.0) -> void:
 	target = t
 	damage = dmg
 	speed = p_speed
+	hit_chance = clampf(p_hit_chance, 0.0, 1.0)
 	if sprite != null:
 		sprite.modulate = tint
 
@@ -64,8 +66,10 @@ func _manual_hit_check() -> void:
 		if n2 == null:
 			continue
 		if n2.global_position.distance_squared_to(global_position) <= r2:
-			if n2.has_method("take_damage"):
-				n2.take_damage(damage)
+			# Smoke blind can cause a miss. Keep it simple: miss = no damage, projectile fizzles.
+			if randf() <= hit_chance:
+				if n2.has_method("take_damage"):
+					n2.take_damage(damage)
 			queue_free()
 			return
 

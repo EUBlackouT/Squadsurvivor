@@ -163,6 +163,13 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 				_predator_instinct(target, damage)
 			_:
 				pass
+	# Mage callout: Arc Surge (global, short duration). Adds a small arc proc even if the unit doesn't own arc_chain.
+	var world := _main_world(unit)
+	if world != null and world.has_method("is_arc_surge_active") and bool(world.is_arc_surge_active()):
+		var mult := 0.22
+		if world.has_method("get_arc_surge_damage_mult"):
+			mult = float(world.get_arc_surge_damage_mult())
+		_arc_chain(unit, target, int(round(float(damage) * mult)))
 	# Extra: if crit, allow certain passives to proc even for ranged via metadata on unit.
 	# (No-op for now)
 			_:
@@ -204,6 +211,13 @@ static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, ene
 				_predator_instinct(enemy, damage)
 			_:
 				pass
+	# Mage callout: Arc Surge also applies to projectile hits.
+	var world := _main_world(_proj)
+	if world != null and world.has_method("is_arc_surge_active") and bool(world.is_arc_surge_active()):
+		var mult := 0.22
+		if world.has_method("get_arc_surge_damage_mult"):
+			mult = float(world.get_arc_surge_damage_mult())
+		_arc_chain(_proj, enemy, int(round(float(damage) * mult)))
 
 static func _main_world(from: Node) -> Node2D:
 	if from == null:

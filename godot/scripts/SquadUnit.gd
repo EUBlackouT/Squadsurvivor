@@ -22,6 +22,10 @@ var _offset: Vector2 = Vector2.ZERO
 var current_hp: int = 100
 var _max_hp_effective: int = 100
 
+# Temporary defensive buff (Guardian callout): reduces incoming damage.
+var _aegis_until_s: float = 0.0
+var _aegis_dmg_mult: float = 1.0
+
 enum FormationMode { TIGHT, SPREAD, WEDGE, RING }
 enum TargetMode { NEAREST, LOWEST_HP, ELITES_FIRST }
 var _formation_mode: int = FormationMode.TIGHT
@@ -113,6 +117,7 @@ func _physics_process(delta: float) -> void:
 	_anim_cooldown = maxf(_anim_cooldown - delta, 0.0)
 	_attack_timer = maxf(_attack_timer - delta, 0.0)
 	_retarget_t -= delta
+	_aegis_until_s = maxf(0.0, _aegis_until_s - delta)
 
 	# Synergy tick (auras/procs with cooldown gating)
 	if character_data != null:
@@ -465,9 +470,17 @@ func _update_health_bar() -> void:
 	health_bar.value = float(current_hp) / maxf(1.0, float(max_hp_val)) * 100.0
 
 func take_damage(amount: int) -> void:
+	# Aegis: damage reduction window.
+	if _aegis_until_s > 0.0 and _aegis_dmg_mult < 0.999:
+		amount = maxi(0, int(round(float(amount) * _aegis_dmg_mult)))
 	current_hp = max(0, current_hp - amount)
 	if current_hp <= 0:
 		queue_free()
+
+func apply_aegis(duration: float, dmg_mult: float) -> void:
+	_aegis_until_s = maxf(_aegis_until_s, maxf(0.05, duration))
+	_aegis_dmg_mult = clampf(dmg_mult, 0.15, 1.0)
+	pulse_vfx(Color(0.40, 1.0, 0.65, 1.0))
 
 func heal(amount: int) -> void:
 	if amount <= 0:

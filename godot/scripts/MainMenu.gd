@@ -1,5 +1,11 @@
 extends Control
 
+@onready var bg_art: TextureRect = get_node_or_null("BgArt") as TextureRect
+@onready var frame_art: TextureRect = get_node_or_null("FrameArt") as TextureRect
+@onready var backdrop: CanvasItem = get_node_or_null("Backdrop") as CanvasItem
+@onready var backdrop_shader: CanvasItem = get_node_or_null("BackdropShader") as CanvasItem
+@onready var frame_shader: CanvasItem = get_node_or_null("FrameShader") as CanvasItem
+
 @onready var resume_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Resume") as Button
 @onready var play_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Play") as Button
 @onready var armory_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Armory") as Button
@@ -7,7 +13,9 @@ extends Control
 @onready var quit_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Quit") as Button
 
 @onready var card: Control = get_node_or_null("Root/Card") as Control
-@onready var title_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/Title") as Label
+@onready var title_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/TitleStack/Title") as Label
+@onready var title_glow_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/TitleStack/Glow") as Label
+@onready var title_bevel_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/TitleStack/Bevel") as Label
 @onready var subtitle_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/Subtitle") as Label
 
 @onready var map_overlay: Control = get_node_or_null("MapOverlay") as Control
@@ -24,7 +32,18 @@ var _crowd: Node2D = null
 @export var show_footer: bool = true
 @export var footer_text: String = "v4.2 • Draft a squad • Survive the swarm"
 
+@export var use_menu_art: bool = true
+@export var bg_art_path: String = "res://assets/ui/main_menu_bg.jpg"
+@export var frame_art_path: String = "res://assets/ui/main_menu_frame.png"
+@export var use_crowd_when_menu_art: bool = true
+
+# Optional font overrides (drop .ttf into res://assets/ui/fonts/ and point these at it)
+@export var title_font_path: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
+@export var subtitle_font_path: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
+
 func _ready() -> void:
+	_apply_menu_art()
+
 	# Menu music
 	var mm := get_node_or_null("/root/MusicManager")
 	if mm and is_instance_valid(mm) and mm.has_method("play"):
@@ -183,6 +202,9 @@ func _open_settings() -> void:
 
 func _spawn_menu_crowd() -> void:
 	# Fill empty space with a fun wandering crowd behind the UI.
+	# If menu art is active AND it loaded successfully, we optionally disable the crowd.
+	if use_menu_art and bool(get_meta("_menu_art_loaded", false)) and not use_crowd_when_menu_art:
+		return
 	if _crowd != null and is_instance_valid(_crowd):
 		return
 
@@ -205,16 +227,65 @@ func _spawn_menu_crowd() -> void:
 	if has_node("Root"):
 		move_child(_crowd, get_node("Root").get_index())
 
+func _apply_menu_art() -> void:
+	# If the user dropped the provided images into res://assets/ui/,
+	# we can match the reference menu "exactly" using those textures.
+	if not use_menu_art:
+		set_meta("_menu_art_loaded", false)
+		return
+
+	# Default to procedural look unless BOTH textures load.
+	var bg_ok := false
+	var frame_ok := false
+
+	# Ensure art layers start hidden; we'll enable them if files exist.
+	if bg_art:
+		bg_art.visible = false
+	if frame_art:
+		frame_art.visible = false
+
+	# Background
+	if bg_art != null and ResourceLoader.exists(bg_art_path):
+		bg_art.texture = load(bg_art_path) as Texture2D
+		bg_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		bg_art.visible = true
+		bg_ok = (bg_art.texture != null)
+
+	# Frame overlay
+	if frame_art != null and ResourceLoader.exists(frame_art_path):
+		frame_art.texture = load(frame_art_path) as Texture2D
+		frame_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		# Godot 4 TextureRect has KEEP_ASPECT / KEEP_ASPECT_CENTERED / KEEP_ASPECT_COVERED.
+		# We want "fit inside + centered" for the frame overlay.
+		frame_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		frame_art.visible = true
+		frame_ok = (frame_art.texture != null)
+
+	var loaded := bg_ok and frame_ok
+	set_meta("_menu_art_loaded", loaded)
+
+	# Only hide procedural layers when the authored art is actually present.
+	# This prevents "gray background + empty screen" if the files aren't in the project yet.
+	if backdrop: backdrop.visible = not loaded
+	if backdrop_shader: backdrop_shader.visible = not loaded
+	if frame_shader: frame_shader.visible = not loaded
+
 func _polish_menu_ui() -> void:
 	# Title/subtitle (lets us rename without touching the scene file).
+	_apply_title_fx()
 	if title_lbl:
-		title_lbl.text = game_title
-		title_lbl.add_theme_font_size_override("font_size", 52)
-		title_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+		title_lbl.text = game_title.to_upper()
 	if subtitle_lbl:
 		subtitle_lbl.text = game_tagline
-		subtitle_lbl.add_theme_font_size_override("font_size", 15)
+		subtitle_lbl.add_theme_font_size_override("font_size", 18)
 		subtitle_lbl.add_theme_color_override("font_color", Color(0.82, 0.90, 1.0, 0.92))
+		# Slight outline + shadow so it feels "printed" like the reference.
+		subtitle_lbl.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.12, 0.80))
+		subtitle_lbl.add_theme_constant_override("outline_size", 3)
+		subtitle_lbl.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.45))
+		subtitle_lbl.add_theme_constant_override("shadow_offset_x", 0)
+		subtitle_lbl.add_theme_constant_override("shadow_offset_y", 3)
 
 	# Card entrance: subtle slide + fade for “premium” feel.
 	if card:
@@ -282,5 +353,67 @@ func _style_button(btn: Button, is_primary: bool, primary: Color, secondary: Col
 	btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
 	btn.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 1))
+
+func _apply_title_fx() -> void:
+	# The "cool" look on the reference comes mostly from:
+	# - a sci-fi font (not in repo yet)
+	# - layered glow + bevel + crisp outline
+	#
+	# We implement the layering now so dropping a font later becomes instant.
+	var text := game_title.to_upper()
+	var title_font := _load_font_or_null(title_font_path)
+	var subtitle_font := _load_font_or_null(subtitle_font_path)
+
+	if title_lbl:
+		title_lbl.text = text
+		title_lbl.add_theme_font_size_override("font_size", 56)
+		title_lbl.add_theme_color_override("font_color", Color(0.95, 0.98, 1.0, 1.0))
+		title_lbl.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.12, 0.95))
+		title_lbl.add_theme_constant_override("outline_size", 4)
+		title_lbl.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.45))
+		title_lbl.add_theme_constant_override("shadow_offset_x", 0)
+		title_lbl.add_theme_constant_override("shadow_offset_y", 6)
+		_apply_font_override(title_lbl, title_font)
+
+	if title_bevel_lbl:
+		title_bevel_lbl.text = text
+		title_bevel_lbl.add_theme_font_size_override("font_size", 56)
+		# Dark inner stroke to simulate bevel/engrave.
+		title_bevel_lbl.add_theme_color_override("font_color", Color(0.88, 0.92, 1.0, 0.25))
+		title_bevel_lbl.add_theme_color_override("font_outline_color", Color(0.02, 0.03, 0.05, 0.95))
+		title_bevel_lbl.add_theme_constant_override("outline_size", 9)
+		title_bevel_lbl.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+		_apply_font_override(title_bevel_lbl, title_font)
+
+	if title_glow_lbl:
+		title_glow_lbl.text = text
+		title_glow_lbl.add_theme_font_size_override("font_size", 56)
+		# Cyan outer glow ring.
+		title_glow_lbl.add_theme_color_override("font_color", Color(0.55, 0.95, 1.0, 0.16))
+		title_glow_lbl.add_theme_color_override("font_outline_color", Color(0.35, 0.85, 1.0, 0.75))
+		title_glow_lbl.add_theme_constant_override("outline_size", 16)
+		title_glow_lbl.add_theme_color_override("font_shadow_color", Color(0.25, 0.70, 1.0, 0.16))
+		title_glow_lbl.add_theme_constant_override("shadow_offset_x", 0)
+		title_glow_lbl.add_theme_constant_override("shadow_offset_y", 0)
+		_apply_font_override(title_glow_lbl, title_font)
+
+	# Apply subtitle font if provided (keeps the "poster" vibe)
+	if subtitle_lbl:
+		_apply_font_override(subtitle_lbl, subtitle_font)
+
+func _load_font_or_null(path: String) -> Font:
+	if path == null or path == "":
+		return null
+	if not ResourceLoader.exists(path):
+		return null
+	var res := load(path)
+	if res is Font:
+		return res as Font
+	return null
+
+func _apply_font_override(lbl: Label, f: Font) -> void:
+	if lbl == null or f == null:
+		return
+	lbl.add_theme_font_override("font", f)
 
 

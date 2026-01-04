@@ -69,6 +69,10 @@ var _burn_tick: float = 0.5
 var _burn_accum: float = 0.0
 var _burn_show_cd: float = 0.0
 
+# Rogue callout: smoke blind reduces hit chance for a short time.
+var _smoke_hit_chance: float = 1.0
+var _smoke_time_left: float = 0.0
+
 var _target: Node2D = null
 var _pulse_tw: Tween = null
 
@@ -139,6 +143,9 @@ func _physics_process(delta: float) -> void:
 	_dash_cd = maxf(_dash_cd - delta, 0.0)
 	_charge_windup_t = maxf(_charge_windup_t - delta, 0.0)
 	_arcane_cd = maxf(_arcane_cd - delta, 0.0)
+	_smoke_time_left = maxf(_smoke_time_left - delta, 0.0)
+	if _smoke_time_left <= 0.0:
+		_smoke_hit_chance = 1.0
 
 	# Status tick
 	_tick_status(delta)
@@ -174,9 +181,11 @@ func _physics_process(delta: float) -> void:
 	# Contact damage when close (no pushing "inside")
 	if dist <= 28.0 and _contact_t <= 0.0:
 		if _target.has_method("take_damage"):
-			_target.take_damage(contact_damage)
-			if _vampiric:
-				_heal_from_hit(contact_damage)
+			# Smoke blind can cause contact attacks to miss.
+			if randf() <= _smoke_hit_chance:
+				_target.take_damage(contact_damage)
+				if _vampiric:
+					_heal_from_hit(contact_damage)
 		_contact_t = contact_cooldown
 
 	# Arcane affix: periodic zap to nearest squad unit.
@@ -304,10 +313,16 @@ func _fire_bolt(tgt: Node2D, tint: Color, dmg_mult: float) -> void:
 	world.add_child(bolt)
 	bolt.global_position = global_position
 	var dmg := int(round(float(contact_damage) * 1.15 * dmg_mult))
-	bolt.setup_target(tgt, maxi(1, dmg), tint, 560.0)
+	bolt.setup_target(tgt, maxi(1, dmg), tint, 560.0, _smoke_hit_chance)
 	var s := world.get_node_or_null("/root/SfxSystem")
 	if s and s.has_method("play_event"):
 		s.play_event("enemy.spit", global_position, self)
+
+func apply_smoke_blind(hit_chance: float, duration: float) -> void:
+	_smoke_hit_chance = clampf(hit_chance, 0.10, 1.0)
+	_smoke_time_left = maxf(_smoke_time_left, maxf(0.05, duration))
+	if anim != null:
+		anim.modulate = anim.modulate.lerp(Color(0.70, 0.78, 0.90, 1.0), 0.25)
 
 func _explode(radius: float, dmg: int) -> void:
 	var world := _main
