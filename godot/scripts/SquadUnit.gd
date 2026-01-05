@@ -26,6 +26,13 @@ var _max_hp_effective: int = 100
 var _aegis_until_s: float = 0.0
 var _aegis_dmg_mult: float = 1.0
 
+# Damage number styles (mirrors res://scripts/DamageNumbersLayer.gd)
+const DM_STYLE_DEFAULT := 0
+const DM_STYLE_CRIT := 1
+const DM_STYLE_DOT := 2
+const DM_STYLE_ARC := 3
+const DM_STYLE_ECHO := 4
+
 enum FormationMode { TIGHT, SPREAD, WEDGE, RING }
 enum TargetMode { NEAREST, LOWEST_HP, ELITES_FIRST }
 var _formation_mode: int = FormationMode.TIGHT
@@ -102,6 +109,16 @@ func _apply_visuals() -> void:
 	# Hide fallback sprite if present
 	if sprite_fallback != null:
 		sprite_fallback.visible = false
+
+	# Health bar polish (kept tiny, but readable)
+	if health_bar != null:
+		health_bar.show_percentage = false
+		health_bar.min_value = 0
+		health_bar.max_value = 100
+		health_bar.position = Vector2(-24, -50)
+		health_bar.custom_minimum_size = Vector2(48, 6)
+		# Slightly brighter so it reads on dark maps.
+		health_bar.modulate = Color(1.0, 1.0, 1.0, 0.92)
 
 func set_squad_leader(leader: Node2D, offset: Vector2) -> void:
 	_leader = leader
@@ -473,9 +490,47 @@ func take_damage(amount: int) -> void:
 	# Aegis: damage reduction window.
 	if _aegis_until_s > 0.0 and _aegis_dmg_mult < 0.999:
 		amount = maxi(0, int(round(float(amount) * _aegis_dmg_mult)))
+	if amount <= 0:
+		return
+
+	var prev := current_hp
 	current_hp = max(0, current_hp - amount)
-	if current_hp <= 0:
-		queue_free()
+
+	# Damage numbers (delegated to Main's DamageNumbersLayer)
+	var main := _main
+	if main == null or not is_instance_valid(main):
+		main = get_tree().get_first_node_in_group("main") as Node2D
+	if main and is_instance_valid(main) and main.has_method("show_damage_number"):
+		main.show_damage_number(get_instance_id(), "unit_hit", amount, global_position + Vector2(0, -26), DM_STYLE_DEFAULT, false)
+
+	# Feedback pulse
+	pulse_vfx(Color(1.0, 0.35, 0.45, 1.0))
+
+	if current_hp <= 0 and prev > 0:
+		_die()
+
+func _die() -> void:
+	# Notify systems BEFORE freeing (so lists can remove this exact instance)
+	var main := _main
+	if main == null or not is_instance_valid(main):
+		main = get_tree().get_first_node_in_group("main") as Node2D
+	if main and is_instance_valid(main) and main.has_method("on_squad_unit_died"):
+		main.on_squad_unit_died(self)
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player and is_instance_valid(player) and player.has_method("on_squad_unit_died"):
+		player.on_squad_unit_died(self)
+
+	# Small death pop (reuses existing VFX, stays lightweight)
+	if main and is_instance_valid(main):
+		var pos := global_position + Vector2(0, -18)
+		var flash := VfxImpactFlash.new()
+		flash.setup(pos, Color(1.0, 0.55, 0.55, 1.0), 18.0, 0.12)
+		main.add_child(flash)
+		var sw := VfxShockwave.new()
+		sw.setup(pos, Color(1.0, 0.45, 0.45, 1.0), 10.0, 62.0, 3.0, 0.16)
+		main.add_child(sw)
+
+	queue_free()
 
 func apply_aegis(duration: float, dmg_mult: float) -> void:
 	_aegis_until_s = maxf(_aegis_until_s, maxf(0.05, duration))

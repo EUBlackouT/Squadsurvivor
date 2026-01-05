@@ -93,8 +93,9 @@ func _ready() -> void:
 
 	if character_data != null:
 		current_hp = int(round(float(character_data.max_hp) * _hp_mult))
-		# Tuned down: early swarm should be about count/positioning, not instant melting.
-		contact_damage = maxi(1, int(round(float(character_data.attack_damage) * 0.22 * _dmg_mult)))
+		# IMPORTANT: squad units have real HP; enemies must meaningfully threaten them.
+		# This is the baseline "melee/contact" hit. (Projectiles/explosions scale from this too.)
+		contact_damage = maxi(1, int(round(float(character_data.attack_damage) * 0.45 * _dmg_mult)))
 	else:
 		current_hp = int(round(30.0 * _hp_mult))
 

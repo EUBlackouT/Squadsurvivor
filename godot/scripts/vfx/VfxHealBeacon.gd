@@ -63,3 +63,4 @@ func _draw() -> void:
 	draw_arc(Vector2.ZERO, _radius, 0.0, TAU, 48, Color(col.r, col.g, col.b, col.a * 0.55), 3.0, true)
 
 
+

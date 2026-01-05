@@ -20,3 +20,4 @@ If you use different filenames, update the exported paths in MainMenu.gd:
   - frame_art_path
 
 
+

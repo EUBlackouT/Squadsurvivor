@@ -26,8 +26,8 @@ extends Node2D
 @export var spawn_radius_max: float = 1300.0
 
 @export var run_timer_max_minutes: float = 18.0
-@export var enable_bosses: bool = false
-@export var boss_spawn_time_minutes: float = 14.0
+@export var enable_bosses: bool = false # overridden by map mod if present
+@export var boss_spawn_time_minutes: float = 14.0 # overridden by map mod if present
 @export var enable_rifts: bool = false
 @export var debug_hud_enabled: bool = false
 @export var debug_collision_cleanup_enabled: bool = false
@@ -63,6 +63,8 @@ var _force_rift_next_draft: bool = false
 # Run structure
 var _boss_spawned: bool = false
 var _boss_node: Node2D = null
+var _boss_deadline_s: float = -1.0
+var _boss_fight_active: bool = false
 var _game_over: bool = false
 var _victory: bool = false
 
@@ -140,6 +142,13 @@ func _ready() -> void:
 			rc.ensure_loaded()
 		if rc.has_method("get_selected_map"):
 			_map_mod = rc.get_selected_map()
+
+	# Bosses: default to map-driven if available.
+	if not _map_mod.is_empty():
+		enable_bosses = bool(_map_mod.get("boss_enabled", enable_bosses))
+		boss_spawn_time_minutes = float(_map_mod.get("boss_spawn_minutes", boss_spawn_time_minutes))
+		# Align survival timer with boss spawn if the map is "boss at the end".
+		run_timer_max_minutes = float(_map_mod.get("boss_spawn_minutes", run_timer_max_minutes))
 
 	_make_background()
 
@@ -653,6 +662,9 @@ func get_rally_time_left() -> float:
 
 func _tick_spawns() -> void:
 	_prune_invalid_lists()
+	# During boss phase, stop normal spawns (reads like a proper boss fight).
+	if _boss_fight_active and _boss_node != null and is_instance_valid(_boss_node):
+		return
 	var cap := _current_max_enemies()
 	if live_enemies.size() >= cap:
 		return
@@ -664,26 +676,29 @@ func _tick_spawns() -> void:
 
 func _ramp01() -> float:
 	var t := _elapsed_minutes()
-	return clampf(t / maxf(0.001, difficulty_ramp_minutes), 0.0, 1.0)
+	var mins_mult := float(_map_mod.get("difficulty_ramp_minutes_mult", 1.0))
+	var denom := maxf(0.001, difficulty_ramp_minutes * maxf(0.10, mins_mult))
+	return clampf(t / denom, 0.0, 1.0)
 
 func _ramp01_curved() -> float:
 	# Ease-in: keep early minutes calmer, then accelerate.
 	var r := _ramp01()
-	return pow(r, maxf(0.10, ramp_curve_power))
+	var curve_mult := float(_map_mod.get("ramp_curve_power_mult", 1.0))
+	return pow(r, maxf(0.10, ramp_curve_power * maxf(0.10, curve_mult)))
 
 func _current_spawn_interval() -> float:
 	# Starts forgiving, ramps toward hectic.
-	var a := spawn_interval_start
-	var b := spawn_interval_end
+	var a := spawn_interval_start * float(_map_mod.get("spawn_interval_start_mult", 1.0))
+	var b := spawn_interval_end * float(_map_mod.get("spawn_interval_end_mult", 1.0))
 	var r := _ramp01_curved()
 	var base := lerpf(a, b, r)
 	return base * float(_map_mod.get("spawn_interval_mult", 1.0))
 
 func _current_max_enemies() -> int:
-	var a := max_enemies_start
-	var b := max_enemies_end
+	var a := float(max_enemies_start) * float(_map_mod.get("max_enemies_start_mult", 1.0))
+	var b := float(max_enemies_end) * float(_map_mod.get("max_enemies_end_mult", 1.0))
 	var r := _ramp01_curved()
-	var base := int(round(lerpf(float(a), float(b), r)))
+	var base := int(round(lerpf(a, b, r)))
 	return maxi(1, int(round(float(base) * float(_map_mod.get("max_enemies_mult", 1.0)))))
 
 func _current_spawn_burst() -> int:
@@ -710,6 +725,13 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		cd.max_hp = int(round(float(cd.max_hp) * 1.55))
 		cd.attack_damage = int(round(float(cd.attack_damage) * 1.25))
 
+	# Boss tuning: heavy HP + meaningful damage, both map-driven.
+	if is_boss:
+		var bhp := float(_map_mod.get("boss_hp_mult", 10.0))
+		var bdmg := float(_map_mod.get("boss_damage_mult", 1.5))
+		cd.max_hp = int(round(float(cd.max_hp) * maxf(1.0, bhp)))
+		cd.attack_damage = int(round(float(cd.attack_damage) * maxf(1.0, bdmg)))
+
 	# Enemy archetype + affixes (behavior variety)
 	var ai_id := EnemyFactory.roll_enemy_ai_id(rng, _elapsed_minutes())
 	var affixes := PackedStringArray()
@@ -718,6 +740,8 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	# Bosses lean toward spectacle.
 	if is_boss:
 		ai_id = "charger"
+		var want := int(_map_mod.get("boss_affix_count", 2))
+		affixes = EnemyFactory.roll_elite_affixes(rng, _elapsed_minutes(), maxi(0, want))
 		if affixes.is_empty():
 			affixes = PackedStringArray(["arcane", "volatile"])
 
@@ -739,6 +763,14 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 
 func _spawn_boss() -> void:
 	_boss_spawned = true
+	_boss_fight_active = true
+	# Deadline for the boss fight (map-tunable). If 0 or missing, no deadline.
+	var limit_m := float(_map_mod.get("boss_time_limit_minutes", 0.0))
+	if limit_m > 0.05:
+		var now_s := float(Time.get_ticks_msec()) / 1000.0
+		_boss_deadline_s = now_s + limit_m * 60.0
+	else:
+		_boss_deadline_s = -1.0
 	_spawn_enemy(true, false, true)
 	# Boss entrance feedback
 	var s := get_node_or_null("/root/SfxSystem")
@@ -772,6 +804,16 @@ func unregister_squad_unit(u: Node2D) -> void:
 	var idx := live_squad_units.find(u)
 	if idx >= 0:
 		live_squad_units.remove_at(idx)
+
+func on_squad_unit_died(u: Node2D) -> void:
+	# Called by SquadUnit right before it queue_free()s.
+	# Remove explicitly so "last unit died" is detectable immediately.
+	var idx := live_squad_units.find(u)
+	if idx >= 0:
+		live_squad_units.remove_at(idx)
+	# Run fails if you lose your whole squad.
+	if (not _game_over) and (not _victory) and live_squad_units.is_empty():
+		_show_game_over()
 
 func _prune_invalid_lists() -> void:
 	for i in range(live_enemies.size() - 1, -1, -1):
@@ -823,6 +865,7 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 
 	# Boss victory
 	if enable_bosses and was_boss:
+		_boss_fight_active = false
 		_show_victory()
 
 func start_rift_encounter(_rift: Node) -> void:
@@ -1628,9 +1671,21 @@ func _hide_collision_debug_visuals() -> void:
 				stack.append(ch)
 
 	# End-of-run timer
-	if _elapsed_minutes() >= run_timer_max_minutes and not _victory and not _game_over:
-		# Survival victory (bosses are optional / later).
-		_show_victory()
+	if not _victory and not _game_over:
+		var now_m := _elapsed_minutes()
+		if enable_bosses:
+			# Boss-at-end: reaching the timer triggers the boss; victory requires killing it.
+			if (not _boss_spawned) and now_m >= run_timer_max_minutes:
+				_spawn_boss()
+			# Boss time limit: fail if you can't kill it in time.
+			if _boss_fight_active and _boss_deadline_s > 0.0:
+				var now_s := float(Time.get_ticks_msec()) / 1000.0
+				if now_s >= _boss_deadline_s:
+					_show_game_over()
+		else:
+			# Survival mode
+			if now_m >= run_timer_max_minutes:
+				_show_victory()
 
 func _show_game_over() -> void:
 	_game_over = true

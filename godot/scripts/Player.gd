@@ -136,6 +136,11 @@ func _physics_process(_delta: float) -> void:
 	_dash_cd = maxf(0.0, _dash_cd - delta)
 	_dash_t = maxf(0.0, _dash_t - delta)
 
+	# Keep squad list clean (units can die)
+	for i in range(squad_units.size() - 1, -1, -1):
+		if not is_instance_valid(squad_units[i]):
+			squad_units.remove_at(i)
+
 	var dir := Vector2.ZERO
 	dir.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
 	dir.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
@@ -223,3 +228,10 @@ func _set_target_mode(mode: int) -> void:
 	var main := get_tree().get_first_node_in_group("main")
 	if main and is_instance_valid(main) and main.has_method("_update_hud_labels"):
 		main._update_hud_labels()
+
+func on_squad_unit_died(unit: Node2D) -> void:
+	# Called by SquadUnit right before it queue_free()s
+	var idx := squad_units.find(unit)
+	if idx >= 0:
+		squad_units.remove_at(idx)
+	_refresh_synergies()
