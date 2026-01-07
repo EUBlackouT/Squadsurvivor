@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "export_root": "res://assets/vfx/effectblocks",
+  "jobs": [
+    { "effect_key": "muzzle_flash_1", "scene": "res://PolyBlocks/EffectBlocks/assets/muzzle_flash/muzzle_flash_1.tscn", "frames": 16, "fps": 18, "resolution": 128 },
+    { "effect_key": "impact_2", "scene": "res://PolyBlocks/EffectBlocks/assets/impacts/impact_2.tscn", "frames": 18, "fps": 16, "resolution": 160 },
+    { "effect_key": "impact_6", "scene": "res://PolyBlocks/EffectBlocks/assets/impacts/impact_6.tscn", "frames": 18, "fps": 16, "resolution": 160 },
+    { "effect_key": "impact_8", "scene": "res://PolyBlocks/EffectBlocks/assets/impacts/impact_8.tscn", "frames": 20, "fps": 18, "resolution": 192 },
+    { "effect_key": "impact_7", "scene": "res://PolyBlocks/EffectBlocks/assets/impacts/impact_7.tscn", "frames": 18, "fps": 16, "resolution": 192 },
+    { "effect_key": "explosion_electric", "scene": "res://PolyBlocks/EffectBlocks/assets/explosions/explosion_electric.tscn", "frames": 24, "fps": 14, "resolution": 256 },
+    { "effect_key": "shockwave", "scene": "res://PolyBlocks/EffectBlocks/assets/other/shockwave.tscn", "frames": 22, "fps": 14, "resolution": 256 },
+    { "effect_key": "lightning_ball", "scene": "res://PolyBlocks/EffectBlocks/assets/energy/lightning_ball.tscn", "frames": 18, "fps": 16, "resolution": 192 },
+    { "effect_key": "fireballs", "scene": "res://PolyBlocks/EffectBlocks/assets/fire/fireballs.tscn", "frames": 18, "fps": 14, "resolution": 192 },
+    { "effect_key": "laser", "scene": "res://PolyBlocks/EffectBlocks/assets/energy/laser.tscn", "frames": 18, "fps": 16, "resolution": 192 },
+    { "effect_key": "dust_ring", "scene": "res://PolyBlocks/EffectBlocks/assets/other/dust_ring.tscn", "frames": 18, "fps": 14, "resolution": 256 },
+    { "effect_key": "portal", "scene": "res://PolyBlocks/EffectBlocks/assets/other/portal.tscn", "frames": 22, "fps": 12, "resolution": 256 },
+    { "effect_key": "worm_hole", "scene": "res://PolyBlocks/EffectBlocks/assets/space/worm_hole.tscn", "frames": 26, "fps": 12, "resolution": 256 },
+    { "effect_key": "electric_waves", "scene": "res://PolyBlocks/EffectBlocks/assets/energy/electric_waves.tscn", "frames": 20, "fps": 12, "resolution": 256 },
+    { "effect_key": "electric_sparks_2", "scene": "res://PolyBlocks/EffectBlocks/assets/energy/electric_sparks_2.tscn", "frames": 18, "fps": 18, "resolution": 192 },
+    { "effect_key": "sparkles", "scene": "res://PolyBlocks/EffectBlocks/assets/other/sparkles.tscn", "frames": 18, "fps": 14, "resolution": 192 },
+    { "effect_key": "fire_magic", "scene": "res://PolyBlocks/EffectBlocks/assets/fire/fire_magic.tscn", "frames": 18, "fps": 14, "resolution": 256 },
+    { "effect_key": "attack_crystal", "scene": "res://PolyBlocks/EffectBlocks/assets/attacks/attack_crystal.tscn", "frames": 18, "fps": 12, "resolution": 256 },
+    { "effect_key": "blood_splash", "scene": "res://PolyBlocks/EffectBlocks/assets/splash/blood_splash.tscn", "frames": 18, "fps": 14, "resolution": 192 },
+    { "effect_key": "healing", "scene": "res://PolyBlocks/EffectBlocks/assets/loot/healing.tscn", "frames": 18, "fps": 14, "resolution": 192 }
+  ]
+}
+
+

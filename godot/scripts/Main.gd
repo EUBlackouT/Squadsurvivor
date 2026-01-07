@@ -121,6 +121,7 @@ var _map_mod: Dictionary = {}
 var _autosave_node: Node = null
 
 func _ready() -> void:
+	UiSkin.apply_global_font()
 	add_to_group("main")
 	_init_rng()
 	run_start_time = Time.get_ticks_msec() / 1000.0
@@ -760,6 +761,9 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		var s := get_node_or_null("/root/SfxSystem")
 		if s and is_instance_valid(s) and s.has_method("play_event"):
 			s.play_event("enemy.elite_spawn", e.global_position, e)
+		var v := get_node_or_null("/root/VfxSystem")
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("enemy.elite_spawn", e.global_position, self)
 
 func _spawn_boss() -> void:
 	_boss_spawned = true
@@ -788,6 +792,13 @@ func _spawn_boss() -> void:
 	# Best-effort: last enemy spawned is boss
 	if live_enemies.size() > 0:
 		_boss_node = live_enemies[live_enemies.size() - 1]
+	# VFX: boss spawn (if exported)
+	var v := get_node_or_null("/root/VfxSystem")
+	if v and is_instance_valid(v) and v.has_method("play_event"):
+		var pos2 := Vector2.ZERO
+		if _boss_node != null and is_instance_valid(_boss_node):
+			pos2 = (_boss_node as Node2D).global_position
+		v.play_event("boss.spawn", pos2, self)
 
 func register_enemy(e: Node2D) -> void:
 	live_enemies.append(e)

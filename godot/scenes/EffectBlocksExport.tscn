@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bljnwhx4v0v3c"]
+
+[ext_resource type="Script" uid="uid://dtbq6lnbcj0fl" path="res://scripts/tools/EffectBlocksExporter.gd" id="1"]
+
+[node name="EffectBlocksExport" type="Node3D"]
+script = ExtResource("1")

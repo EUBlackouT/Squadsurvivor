@@ -15,6 +15,7 @@ var _shake_toggle: CheckButton = null
 var _shake_slider: HSlider = null
 
 func _ready() -> void:
+	UiSkin.apply_global_font()
 	# Always active; this menu is used both in MainMenu and while paused.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 240

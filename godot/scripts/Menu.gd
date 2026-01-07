@@ -16,6 +16,8 @@ extends Control
 @onready var _inspector_name: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorName") as Label
 @onready var _inspector_stats: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorStats") as Label
 @onready var _inspector_passives: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorPassives") as Label
+@onready var _inspector_synergies_title: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorSynergiesTitle") as Label
+@onready var _inspector_synergy_chips: FlowContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorSynergyChips") as FlowContainer
 @onready var _inspector_details_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorDetails") as Button
 @onready var _inspector_primary_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorPrimary") as Button
 
@@ -30,6 +32,7 @@ var _meta_tree_btn: Button = null
 var _last_run_label: RichTextLabel = null
 
 func _ready() -> void:
+	UiSkin.apply_global_font()
 	# Force load save
 	var cm := get_node_or_null("/root/CollectionManager")
 	if cm and is_instance_valid(cm) and cm.has_method("load_save"):
@@ -916,6 +919,7 @@ func _setup_map_select() -> void:
 	)
 
 func _refresh() -> void:
+	_sync_synergy_system()
 	_refresh_collection()
 	_refresh_roster()
 	_refresh_meta_ui()
@@ -1213,6 +1217,7 @@ func _refresh_inspector() -> void:
 		_inspector_name.text = "Click a character to preview."
 		_inspector_stats.text = ""
 		_inspector_passives.text = ""
+		_clear_synergy_ui()
 		_inspector_primary_btn.disabled = true
 		return
 
@@ -1238,6 +1243,7 @@ func _refresh_inspector() -> void:
 	for pid in pids:
 		pnames.append(PassiveSystem.passive_name(String(pid)))
 	_inspector_passives.text = "Passives: " + (", ".join(pnames) if not pnames.is_empty() else "—")
+	_refresh_synergy_ui_for_unlock(_selected_unlock)
 
 	if _inspector_portrait != null:
 		var p := _make_detail_portrait(_selected_unlock)
@@ -1410,6 +1416,23 @@ func _show_details(data: Dictionary) -> void:
 	var sep := HSeparator.new()
 	v.add_child(sep)
 
+	# Synergies
+	var stitle := Label.new()
+	stitle.text = "Synergies"
+	stitle.add_theme_font_size_override("font_size", 16)
+	stitle.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
+	v.add_child(stitle)
+
+	var syn_flow := FlowContainer.new()
+	syn_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	syn_flow.add_theme_constant_override("h_separation", 8)
+	syn_flow.add_theme_constant_override("v_separation", 8)
+	v.add_child(syn_flow)
+	_populate_synergy_chips_for_unlock(syn_flow, data)
+
+	var sep2 := HSeparator.new()
+	v.add_child(sep2)
+
 	var ptitle := Label.new()
 	ptitle.text = "Passives"
 	ptitle.add_theme_font_size_override("font_size", 16)
@@ -1566,6 +1589,111 @@ func _add_stat_chip(parent: Control, label: String, value: String, tint: Color) 
 
 	parent.add_child(chip)
 
+func _sync_synergy_system() -> void:
+	# Keep SynergySystem roster in sync with the Armory roster so chip counts are correct.
+	SynergySystem.ensure_loaded()
+	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
+	if cm == null:
+		cm = get_node_or_null("/root/CollectionManager")
+	if cm != null and is_instance_valid(cm) and cm.has_method("get_active_roster_character_data"):
+		var cds: Array = cm.get_active_roster_character_data()
+		SynergySystem.set_roster(cds)
+
+func _clear_synergy_ui() -> void:
+	if _inspector_synergy_chips != null:
+		for c in _inspector_synergy_chips.get_children():
+			c.queue_free()
+	if _inspector_synergies_title != null:
+		_inspector_synergies_title.visible = false
+	if _inspector_synergy_chips != null:
+		_inspector_synergy_chips.visible = false
+
+func _refresh_synergy_ui_for_unlock(unlock_data: Dictionary) -> void:
+	if _inspector_synergy_chips == null:
+		return
+	# Clear and repopulate
+	for c in _inspector_synergy_chips.get_children():
+		c.queue_free()
+	_populate_synergy_chips_for_unlock(_inspector_synergy_chips, unlock_data)
+	var has_any := _inspector_synergy_chips.get_child_count() > 0
+	if _inspector_synergies_title != null:
+		_inspector_synergies_title.visible = true
+	if _inspector_synergy_chips != null:
+		_inspector_synergy_chips.visible = true
+	# If empty, show a soft placeholder chip so section isn't confusing.
+	if not has_any:
+		var l := Label.new()
+		l.text = "—"
+		l.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+		_inspector_synergy_chips.add_child(l)
+
+func _populate_synergy_chips_for_unlock(parent: Control, unlock_data: Dictionary) -> void:
+	if parent == null:
+		return
+	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
+	if cm == null:
+		cm = get_node_or_null("/root/CollectionManager")
+	var cd: CharacterData = (cm._dict_to_cd(unlock_data) as CharacterData) if (cm != null and is_instance_valid(cm) and cm.has_method("_dict_to_cd")) else null
+	if cd == null:
+		return
+	SynergySystem.ensure_loaded()
+	var states := SynergySystem.synergy_states_for_cd(cd)
+	# Sort by "most complete" first for readability.
+	states.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ar := float(a.get("count", 0)) / float(max(1, int(a.get("tier_count", 0)) if int(a.get("tier_count", 0)) > 0 else int(a.get("next_tier_count", 1))))
+		var br := float(b.get("count", 0)) / float(max(1, int(b.get("tier_count", 0)) if int(b.get("tier_count", 0)) > 0 else int(b.get("next_tier_count", 1))))
+		return ar > br
+	)
+	for st in states:
+		if typeof(st) != TYPE_DICTIONARY:
+			continue
+		parent.add_child(_make_synergy_chip(st as Dictionary))
+
+func _make_synergy_chip(state: Dictionary) -> Control:
+	var name: String = String(state.get("name", "Synergy"))
+	var count: int = int(state.get("count", 0))
+	var tier_n: int = int(state.get("tier_count", 0))
+	var next_n: int = int(state.get("next_tier_count", 0))
+	var denom: int = (tier_n if tier_n > 0 else (next_n if next_n > 0 else max(1, count)))
+	var txt: String = "%s (%d/%d)" % [name, count, denom]
+
+	var b: TooltipButton = TooltipButton.new()
+	b.text = txt
+	b.tooltip_text = SynergySystem.synergy_tooltip_bbcode(state)
+	b.tooltip_accent = (Color(0.65, 0.85, 1.0, 1.0) if tier_n > 0 else Color(0.75, 0.80, 0.86, 1.0))
+	b.mouse_default_cursor_shape = Control.CURSOR_HELP
+	b.add_theme_font_size_override("font_size", 13)
+	b.custom_minimum_size = Vector2(0, 30)
+
+	# Styling: "pill" chip with subtle glow when active.
+	var active: bool = tier_n > 0
+	var accent: Color = (Color(0.65, 0.85, 1.0, 1.0) if active else Color(0.75, 0.80, 0.86, 1.0))
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.07, 0.09, 0.92) if active else Color(0.06, 0.07, 0.09, 0.78)
+	sb.border_width_left = 1
+	sb.border_width_right = 1
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.65 if active else 0.25)
+	sb.corner_radius_top_left = 14
+	sb.corner_radius_top_right = 14
+	sb.corner_radius_bottom_left = 14
+	sb.corner_radius_bottom_right = 14
+	if active:
+		sb.shadow_size = 10
+		sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.12)
+	b.add_theme_stylebox_override("normal", sb)
+	var hov: StyleBoxFlat = (sb.duplicate() as StyleBoxFlat)
+	hov.bg_color = Color(sb.bg_color.r, sb.bg_color.g, sb.bg_color.b, minf(1.0, sb.bg_color.a + 0.10))
+	hov.border_color = Color(sb.border_color.r, sb.border_color.g, sb.border_color.b, minf(1.0, sb.border_color.a + 0.18))
+	b.add_theme_stylebox_override("hover", hov)
+	b.add_theme_stylebox_override("focus", hov)
+	b.add_theme_stylebox_override("pressed", hov)
+
+	# Chips are informational (no action), but keep enabled so tooltip always works.
+	b.pressed.connect(func(): pass)
+	return b
+
 func _make_passive_row(pid: String) -> Control:
 	var row := PanelContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1680,5 +1808,3 @@ static func _class_color(c: int) -> Color:
 		CharacterData.Class.HEALER: return Color(0.65, 0.85, 1.0, 1.0)
 		CharacterData.Class.SUMMONER: return Color(0.95, 0.35, 0.95, 1.0)
 		_: return Color(0.75, 0.85, 1.0, 1.0)
-
-

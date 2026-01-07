@@ -10,6 +10,10 @@ godot/**/.godot/
 godot/**/.import/
 godot/**/*.import
 
+# Paid/third-party packs (do not commit)
+godot/PolyBlocks/
+godot/assets/vfx/effectblocks/
+
 # Logs / temp
 *.log
 tmp/

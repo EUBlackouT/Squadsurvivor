@@ -85,6 +85,15 @@ static func _spawn_vfx(node: Node2D, vfx: Node2D) -> void:
 		return
 	world.add_child(vfx)
 
+static func _vfx_event(world: Node2D, event_id: String, pos: Vector2, tint: Color = Color(1, 1, 1, 1), scale_mult: float = 1.0) -> bool:
+	# Try EffectBlocks flipbook events first. Returns true if something was spawned.
+	if world == null:
+		return false
+	var v := world.get_node_or_null("/root/VfxSystem")
+	if v != null and is_instance_valid(v) and v.has_method("play_event"):
+		return bool(v.play_event(event_id, pos, world, tint, scale_mult))
+	return false
+
 static func extra_pierce_count(passive_ids: PackedStringArray) -> int:
 	# Only one passive currently affects pierce.
 	var extra: int = 0
@@ -303,6 +312,8 @@ static func _arc_chain(unit: Node2D, target: Node2D, damage: int) -> void:
 		if n != null and is_instance_valid(n):
 			if n.has_method("take_damage"):
 				n.take_damage(arc_dmg, false, "arc")
+			# Extra visibility: spawn a small spark at the chained target.
+			_vfx_event(world, "syn.focus_tick", n.global_position + Vector2(0, -18), Color(0.65, 0.95, 1.0, 1.0), 0.85)
 			_spawn_arc(world, origin, n.global_position, Color(0.55, 0.95, 1.0, 0.95))
 
 static func _shockwave(unit: Node2D, target: Node2D, damage: int) -> void:
@@ -314,6 +325,7 @@ static func _shockwave(unit: Node2D, target: Node2D, damage: int) -> void:
 	if dmg <= 0:
 		return
 	var origin := (target as Node2D).global_position
+	_vfx_event(_main_world(unit), "syn.shock", origin, Color(1.0, 0.55, 0.45, 1.0), 1.0)
 	var victims := _nearby_enemies(unit, origin, rad, target as Node2D)
 	for v in victims:
 		if v.has_method("take_damage"):
@@ -330,6 +342,9 @@ static func _blood_siphon(unit: Node2D, damage: int) -> void:
 		return
 	if unit.has_method("heal"):
 		unit.heal(heal)
+		var world := _main_world(unit)
+		if world != null:
+			_vfx_event(world, "syn.holy", (unit as Node2D).global_position + Vector2(0, -18), Color(0.55, 1.0, 0.65, 1.0), 0.9)
 
 static func _twin_shot(unit: Node2D, target: Node2D, damage: int) -> void:
 	if unit == null or target == null:
@@ -396,6 +411,9 @@ static func _execute_mark(target: Node2D, damage: int) -> void:
 		return
 	if target.has_method("take_damage"):
 		target.take_damage(dmg, false, "execute")
+	var world := _main_world(target)
+	if world != null:
+		_vfx_event(world, "syn.execute", (target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.85, 0.30, 1.0), 1.1)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(1.0, 0.85, 0.30, 1.0))
 
@@ -412,6 +430,9 @@ static func _hex_bomb_tag(target: Node2D, damage: int) -> void:
 	target.set_meta("_hex_bomb_until_ms", until_ms)
 	target.set_meta("_hex_bomb_dmg", dmg)
 	target.set_meta("_hex_bomb_radius", rad)
+	var world := _main_world(target)
+	if world != null:
+		_vfx_event(world, "enemy.elite_spawn", (target as Node2D).global_position + Vector2(0, -18), Color(0.82, 0.65, 1.0, 1.0), 0.75)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.75, 0.45, 1.0, 1.0))
 
@@ -425,6 +446,7 @@ static func _time_dilation(from: Node2D, target: Node2D) -> void:
 	var mult := _param_f("time_dilation", "slow_mult", 0.82)
 	var dur := _param_f("time_dilation", "duration", 0.75)
 	var origin := (target as Node2D).global_position
+	_vfx_event(_main_world(from), "enemy.arcane", origin, Color(0.55, 0.85, 1.0, 1.0), 0.95)
 	var victims := _nearby_enemies(from, origin, rad, null)
 	for v in victims:
 		if v.has_method("apply_slow"):
@@ -455,6 +477,9 @@ static func _stagger(from: Node2D, target: Node2D) -> void:
 	var dur := _param_f("stagger", "duration", 0.35)
 	if target.has_method("apply_slow"):
 		target.apply_slow(mult, dur)
+	var world := _main_world(from)
+	if world != null:
+		_vfx_event(world, "hit.ranged", (target as Node2D).global_position + Vector2(0, -18), Color(0.95, 0.95, 1.0, 1.0), 0.85)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.95, 0.95, 1.0, 1.0))
 
@@ -479,6 +504,7 @@ static func _overload_proc(from: Node2D, target: Node2D, damage: int) -> void:
 		pick.take_damage(dmg, false, "arc")
 	var world := _main_world(from)
 	if world != null:
+		_vfx_event(world, "syn.arc", pick.global_position + Vector2(0, -18), Color(0.75, 0.45, 1.0, 1.0), 0.9)
 		_spawn_arc(world, origin, pick.global_position, Color(0.75, 0.45, 1.0, 0.95))
 
 static func _pinpoint_tag(target: Node2D, damage: int) -> void:
@@ -542,6 +568,9 @@ static func _frost_tag(target: Node2D) -> void:
 		target.set_meta("_frost_until_ms", until_ms)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.55, 0.85, 1.0, 1.0))
+	var world := _main_world(target)
+	if world != null:
+		_vfx_event(world, "syn.frost", (target as Node2D).global_position + Vector2(0, -18), Color(0.55, 0.85, 1.0, 1.0), 0.75)
 
 static func _bleed_edge(target: Node2D, damage: int) -> void:
 	if target == null or not is_instance_valid(target):
@@ -554,6 +583,9 @@ static func _bleed_edge(target: Node2D, damage: int) -> void:
 		target.apply_bleed(dps, dur, tick)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(1.0, 0.25, 0.35, 1.0))
+	var world := _main_world(target)
+	if world != null:
+		_vfx_event(world, "enemy.die", (target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.25, 0.35, 1.0), 0.7)
 
 static func _cinder_brand(target: Node2D, damage: int) -> void:
 	# Applies burn (DOT) on hit.
@@ -573,10 +605,12 @@ static func _cinder_brand(target: Node2D, damage: int) -> void:
 	target.set_meta("_burn_until_ms", until_ms)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(1.0, 0.55, 0.20, 1.0))
-	# VFX: ember burst on application
-	var fb := VfxFlameBurst.new()
-	fb.setup((target as Node2D).global_position + Vector2(0, -22), Color(1.0, 0.55, 0.18, 1.0), 24.0, 10, 0.20, Vector2(0, -1))
-	_spawn_vfx(target as Node2D, fb)
+	# VFX: ember burst on application (EffectBlocks if exported, else fallback)
+	var world := _main_world(target)
+	if world == null or (not _vfx_event(world, "syn.flame", (target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.55, 0.18, 1.0), 0.95)):
+		var fb := VfxFlameBurst.new()
+		fb.setup((target as Node2D).global_position + Vector2(0, -22), Color(1.0, 0.55, 0.18, 1.0), 24.0, 10, 0.20, Vector2(0, -1))
+		_spawn_vfx(target as Node2D, fb)
 
 static func _vampiric_bullets(proj: Node2D, damage: int) -> void:
 	# Heal shooter on projectile hit. Requires Projectile to carry source_unit.
@@ -597,9 +631,11 @@ static func _vampiric_bullets(proj: Node2D, damage: int) -> void:
 	if world != null:
 		var start := (proj as Node2D).global_position
 		_spawn_arc(world, start, su.global_position, Color(0.55, 1.0, 0.65, 0.95))
-	var hp := VfxHolyPulse.new()
-	hp.setup(su.global_position + Vector2(0, -18), Color(0.55, 1.0, 0.65, 1.0), 14.0, 38.0, 0.20)
-	_spawn_vfx(su, hp)
+	# Heal pulse
+	if world == null or (not _vfx_event(world, "syn.holy", su.global_position + Vector2(0, -18), Color(0.55, 1.0, 0.65, 1.0), 0.9)):
+		var hp := VfxHolyPulse.new()
+		hp.setup(su.global_position + Vector2(0, -18), Color(0.55, 1.0, 0.65, 1.0), 14.0, 38.0, 0.20)
+		_spawn_vfx(su, hp)
 
 static func _doomstack(from: Node2D, target: Node2D, damage: int) -> void:
 	# Stacking mark: after N hits, detonate for bonus damage + small AoE.
@@ -620,10 +656,12 @@ static func _doomstack(from: Node2D, target: Node2D, damage: int) -> void:
 	target.set_meta("_doom_until_ms", now_ms + int(round(window * 1000.0)))
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.75, 0.45, 1.0, 1.0))
-	# VFX: show stack brackets briefly
-	var fm := VfxFocusMark.new()
-	fm.setup((target as Node2D).global_position + Vector2(0, -18), Color(0.82, 0.65, 1.0, 1.0), 18.0, stacks, 0.18)
-	_spawn_vfx(target as Node2D, fm)
+	# VFX: show stack ping (EffectBlocks spark; fallback to focus mark)
+	var world := _main_world(target)
+	if world == null or (not _vfx_event(world, "syn.focus_tick", (target as Node2D).global_position + Vector2(0, -18), Color(0.82, 0.65, 1.0, 1.0), 0.8)):
+		var fm := VfxFocusMark.new()
+		fm.setup((target as Node2D).global_position + Vector2(0, -18), Color(0.82, 0.65, 1.0, 1.0), 18.0, stacks, 0.18)
+		_spawn_vfx(target as Node2D, fm)
 	if stacks < stacks_need:
 		return
 	# Detonate
@@ -634,10 +672,11 @@ static func _doomstack(from: Node2D, target: Node2D, damage: int) -> void:
 		return
 	if target.has_method("take_damage"):
 		target.take_damage(boom, false, "blast")
-	# VFX: detonation shockwave
-	var sw := VfxShockwave.new()
-	sw.setup((target as Node2D).global_position, Color(0.82, 0.65, 1.0, 1.0), 18.0, rad * 0.9, 5.0, 0.22)
-	_spawn_vfx(target as Node2D, sw)
+	# VFX: detonation shockwave (EffectBlocks if exported)
+	if world == null or (not _vfx_event(world, "syn.shock", (target as Node2D).global_position, Color(0.82, 0.65, 1.0, 1.0), 1.1)):
+		var sw := VfxShockwave.new()
+		sw.setup((target as Node2D).global_position, Color(0.82, 0.65, 1.0, 1.0), 18.0, rad * 0.9, 5.0, 0.22)
+		_spawn_vfx(target as Node2D, sw)
 	var origin := (target as Node2D).global_position
 	var victims := _nearby_enemies(from if from != null else target, origin, rad, target as Node2D)
 	for v in victims:
@@ -662,10 +701,12 @@ static func _hailburst(from: Node2D, target: Node2D, damage: int) -> void:
 		return
 	var origin := (target as Node2D).global_position
 	var victims := _nearby_enemies(from if from != null else target, origin, rad, null)
-	# VFX: frost nova on shatter
-	var nova := VfxFrostNova.new()
-	nova.setup(origin, Color(0.55, 0.85, 1.0, 1.0), rad, 10, 0.24)
-	_spawn_vfx(target as Node2D, nova)
+	# VFX: frost shatter (EffectBlocks if exported)
+	var world := _main_world(target)
+	if world == null or (not _vfx_event(world, "syn.frost", origin + Vector2(0, -10), Color(0.55, 0.85, 1.0, 1.0), 1.05)):
+		var nova := VfxFrostNova.new()
+		nova.setup(origin, Color(0.55, 0.85, 1.0, 1.0), rad, 10, 0.24)
+		_spawn_vfx(target as Node2D, nova)
 	for v in victims:
 		if v.has_method("take_damage"):
 			v.take_damage(boom, false, "blast")
@@ -690,10 +731,12 @@ static func _predator_instinct(target: Node2D, damage: int) -> void:
 		target.take_damage(bonus, false, "echo")
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(1.0, 0.85, 0.30, 1.0))
-	# VFX: focus brackets
-	var fm := VfxFocusMark.new()
-	fm.setup((target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.85, 0.30, 1.0), 18.0, 0, 0.16)
-	_spawn_vfx(target as Node2D, fm)
+	# VFX: highlight (EffectBlocks if exported)
+	var world := _main_world(target)
+	if world == null or (not _vfx_event(world, "syn.execute", (target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.85, 0.30, 1.0), 0.9)):
+		var fm := VfxFocusMark.new()
+		fm.setup((target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.85, 0.30, 1.0), 18.0, 0, 0.16)
+		_spawn_vfx(target as Node2D, fm)
 
 static func _echo_strike(unit: Node2D, target: Node2D, damage: int, _is_crit: bool) -> void:
 	if unit == null or target == null:

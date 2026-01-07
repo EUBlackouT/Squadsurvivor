@@ -150,6 +150,135 @@ static func effects_for_cd(cd: CharacterData) -> Array[Dictionary]:
 static func active_synergies() -> Array[Dictionary]:
 	return _active.duplicate(true)
 
+static func all_synergy_states() -> Array[Dictionary]:
+	# Returns per-synergy state including current count and best/next tier data.
+	ensure_loaded()
+	var out: Array[Dictionary] = []
+	for s in _synergies:
+		var count_tag := String(s.get("count_tag", ""))
+		if count_tag == "":
+			continue
+		var c: int = int(_tag_counts.get(count_tag, 0))
+		var best: Dictionary = _best_tier(s.get("tiers", []), c)
+		var nxt: Dictionary = _next_tier(s.get("tiers", []), c)
+		out.append({
+			"id": String(s.get("id", "")),
+			"name": String(s.get("name", count_tag)),
+			"count_tag": count_tag,
+			"count": c,
+			"tier_count": int(best.get("count", 0)),
+			"next_tier_count": int(nxt.get("count", 0)),
+			"mods": best.get("mods", {}) as Dictionary,
+			"effects": best.get("effects", []) as Array,
+			"next_mods": nxt.get("mods", {}) as Dictionary,
+			"next_effects": nxt.get("effects", []) as Array
+		})
+	return out
+
+static func synergy_states_for_cd(cd: CharacterData) -> Array[Dictionary]:
+	# Synergies that this Character contributes toward (based on count_tag membership).
+	ensure_loaded()
+	var out: Array[Dictionary] = []
+	if cd == null:
+		return out
+	var tags := _tags_for_cd(cd)
+	for s in _synergies:
+		var count_tag := String(s.get("count_tag", ""))
+		if count_tag == "" or (not tags.has(count_tag)):
+			continue
+		var c: int = int(_tag_counts.get(count_tag, 0))
+		var best: Dictionary = _best_tier(s.get("tiers", []), c)
+		var nxt: Dictionary = _next_tier(s.get("tiers", []), c)
+		out.append({
+			"id": String(s.get("id", "")),
+			"name": String(s.get("name", count_tag)),
+			"count_tag": count_tag,
+			"count": c,
+			"tier_count": int(best.get("count", 0)),
+			"next_tier_count": int(nxt.get("count", 0)),
+			"mods": best.get("mods", {}) as Dictionary,
+			"effects": best.get("effects", []) as Array,
+			"next_mods": nxt.get("mods", {}) as Dictionary,
+			"next_effects": nxt.get("effects", []) as Array
+		})
+	return out
+
+static func synergy_tooltip_text(state: Dictionary) -> String:
+	# Human-friendly tooltip describing current and next tier.
+	var name := String(state.get("name", "Synergy"))
+	var count := int(state.get("count", 0))
+	var tier_n := int(state.get("tier_count", 0))
+	var next_n := int(state.get("next_tier_count", 0))
+	var tag := String(state.get("count_tag", ""))
+	var lines: Array[String] = []
+	lines.append("%s" % name)
+	if tag != "":
+		lines.append("Tag: %s" % tag)
+	if tier_n > 0:
+		lines.append("Roster: %d/%d (active)" % [count, tier_n])
+	else:
+		lines.append("Roster: %d/%d" % [count, max(1, next_n)])
+	var mods := state.get("mods", {}) as Dictionary
+	var effs: Array = state.get("effects", []) as Array
+	var cur_lines := _describe_mods_and_effects(mods, effs)
+	if not cur_lines.is_empty():
+		lines.append("")
+		lines.append("Current:")
+		for l in cur_lines:
+			lines.append("• " + l)
+
+	if next_n > 0 and next_n != tier_n:
+		var nmods := state.get("next_mods", {}) as Dictionary
+		var neffs: Array = state.get("next_effects", []) as Array
+		var nxt_lines := _describe_mods_and_effects(nmods, neffs)
+		if not nxt_lines.is_empty():
+			lines.append("")
+			lines.append("Next (%d):" % next_n)
+			for l2 in nxt_lines:
+				lines.append("• " + l2)
+
+	return "\n".join(lines)
+
+static func synergy_tooltip_bbcode(state: Dictionary) -> String:
+	# Same content as synergy_tooltip_text(), but formatted for RichTextLabel BBCode.
+	var name: String = String(state.get("name", "Synergy"))
+	var count: int = int(state.get("count", 0))
+	var tier_n: int = int(state.get("tier_count", 0))
+	var next_n: int = int(state.get("next_tier_count", 0))
+	var tag: String = String(state.get("count_tag", ""))
+
+	var lines: Array[String] = []
+	lines.append("[b][color=#66e6ff]%s[/color][/b]" % name)
+	if tag != "":
+		lines.append("[color=#98a6bf]Tag:[/color] %s" % tag)
+	if tier_n > 0:
+		lines.append("[color=#98a6bf]Roster:[/color] [b]%d/%d[/b] [color=#66ff88](active)[/color]" % [count, tier_n])
+	elif next_n > 0:
+		lines.append("[color=#98a6bf]Roster:[/color] [b]%d/%d[/b]" % [count, next_n])
+	else:
+		lines.append("[color=#98a6bf]Roster:[/color] [b]%d[/b]" % count)
+
+	var mods: Dictionary = state.get("mods", {}) as Dictionary
+	var effs: Array = state.get("effects", []) as Array
+	var cur_lines: Array[String] = _describe_mods_and_effects(mods, effs)
+	if not cur_lines.is_empty():
+		lines.append("")
+		lines.append("[b]Current[/b]")
+		for l in cur_lines:
+			lines.append("• " + l)
+
+	if next_n > 0 and next_n != tier_n:
+		var nmods: Dictionary = state.get("next_mods", {}) as Dictionary
+		var neffs: Array = state.get("next_effects", []) as Array
+		var nxt_lines: Array[String] = _describe_mods_and_effects(nmods, neffs)
+		if not nxt_lines.is_empty():
+			lines.append("")
+			lines.append("[b]Next (%d)[/b]" % next_n)
+			for l2 in nxt_lines:
+				lines.append("• " + l2)
+
+	return "\n".join(lines)
+
 static func summary_text() -> String:
 	# Compact, HUD-friendly summary.
 	if _active.is_empty():
@@ -161,6 +290,96 @@ static func summary_text() -> String:
 		var c := int(a.get("count", 0))
 		parts.append("%s (%d/%d)" % [name, c, tier_n])
 	return "Synergies: " + "  •  ".join(parts)
+
+static func _next_tier(tiers_raw: Array, count: int) -> Dictionary:
+	# Pick the lowest tier > count.
+	var best: Dictionary = {}
+	var best_n: int = 999999
+	for t in tiers_raw:
+		if typeof(t) != TYPE_DICTIONARY:
+			continue
+		var td: Dictionary = t
+		var n: int = int(td.get("count", 0))
+		if n > count and n < best_n:
+			best = td
+			best_n = n
+	return best
+
+static func _describe_mods_and_effects(mods: Dictionary, effects: Array) -> Array[String]:
+	var out: Array[String] = []
+	for k in mods.keys():
+		var key := String(k)
+		var v := float(mods.get(k, 1.0))
+		var line := _mod_line(key, v)
+		if line != "":
+			out.append(line)
+	for e in effects:
+		if typeof(e) != TYPE_DICTIONARY:
+			continue
+		var d := e as Dictionary
+		var el := _effect_line(d)
+		if el != "":
+			out.append(el)
+	return out
+
+static func _mod_line(key: String, v: float) -> String:
+	match key:
+		"max_hp_mult":
+			return "+%d%% HP" % int(round((v - 1.0) * 100.0))
+		"attack_damage_mult":
+			return "+%d%% Damage" % int(round((v - 1.0) * 100.0))
+		"move_speed_mult":
+			return "+%d%% Move Speed" % int(round((v - 1.0) * 100.0))
+		"attack_cooldown_mult":
+			# Smaller = faster. Convert to attack speed increase.
+			var inc := (1.0 / maxf(0.001, v)) - 1.0
+			return "+%d%% Attack Speed" % int(round(inc * 100.0))
+		_:
+			return ""
+
+static func _effect_line(e: Dictionary) -> String:
+	var t := String(e.get("type", ""))
+	match t:
+		"volley_shot":
+			return "Every %d attacks: bonus shot (%d%% dmg) to a nearby enemy" % [int(e.get("interval_attacks", 4)), int(round(float(e.get("damage_mult", 0.5)) * 100.0))]
+		"pierce_bonus":
+			return "Projectiles pierce +%d" % int(e.get("extra_pierce", 1))
+		"shockstep":
+			return "Every %d melee hits: shockwave (%d%% dmg) in %.0f radius, slows" % [int(e.get("interval_hits", 3)), int(round(float(e.get("damage_mult", 0.22)) * 100.0)), float(e.get("radius", 130.0))]
+		"arc_focus":
+			return "Every %d hits: chain lightning to %d enemies (%d%% dmg) in %.0f radius" % [int(e.get("interval_hits", 6)), int(e.get("chains", 2)), int(round(float(e.get("damage_mult", 0.30)) * 100.0)), float(e.get("radius", 240.0))]
+		"execute_protocol":
+			return "Execute: vs targets under %d%% HP, deal +%d%% dmg" % [int(round(float(e.get("threshold", 0.35)) * 100.0)), int(round(float(e.get("bonus_mult", 0.18)) * 100.0))]
+		"ricochet_matrix":
+			return "On projectile hit: %d%% chance to ricochet (%d%% dmg) in %.0f radius" % [int(round(float(e.get("chance", 0.28)) * 100.0)), int(round(float(e.get("damage_mult", 0.55)) * 100.0)), float(e.get("radius", 290.0))]
+		"crit_arc":
+			return "On crit: %d%% chance to arc (%d%% dmg) in %.0f radius" % [int(round(float(e.get("chance", 0.35)) * 100.0)), int(round(float(e.get("damage_mult", 0.28)) * 100.0)), float(e.get("radius", 240.0))]
+		"hellfire_burn":
+			return "On hit: %d%% chance to burn (%d%% dmg/s) for %.1fs" % [int(round(float(e.get("chance", 0.32)) * 100.0)), int(round(float(e.get("dps_mult", 0.12)) * 100.0)), float(e.get("duration", 2.5))]
+		"inferno_blast":
+			return "Every %d hits: inferno blast (%d%% dmg) in %.0f radius" % [int(e.get("interval_hits", 7)), int(round(float(e.get("damage_mult", 0.22)) * 100.0)), float(e.get("radius", 140.0))]
+		"prismatic_surge":
+			return "Every %d hits: prismatic surge (arc/chill/burn) in %.0f radius" % [int(e.get("interval_hits", 6)), float(e.get("radius", 220.0))]
+		"pack_maul":
+			return "Every %d melee hits: pack maul (%d%% dmg) in %.0f radius, slows" % [int(e.get("interval_hits", 4)), int(round(float(e.get("damage_mult", 0.18)) * 100.0)), float(e.get("radius", 120.0))]
+		"bulwark_aura":
+			return "Aura: pulse slows nearby enemies (%.0f radius)" % float(e.get("radius", 95.0))
+		"aura_heal":
+			return "Aura: heal squad for %d%% max HP" % int(round(float(e.get("heal_frac", 0.02)) * 100.0))
+		"wisp_bolt":
+			return "Periodic wisp bolt (%d%% dmg) in %.0f radius" % [int(round(float(e.get("damage_mult", 0.35)) * 100.0)), float(e.get("radius", 520.0))]
+		"sanctuary_heal":
+			return "Periodic heal: lowest ally heals for %d%% max HP" % int(round(float(e.get("heal_frac", 0.04)) * 100.0))
+		"soul_feast":
+			return "On kill: heal weakest ally for %d%% max HP" % int(round(float(e.get("heal_frac", 0.05)) * 100.0))
+		"death_chill":
+			return "On kill: chill nova slows enemies (%.0f radius)" % float(e.get("radius", 160.0))
+		"focus_fire":
+			return "Focus fire: after %d hits on same target, bonus +%d%% dmg" % [int(e.get("stacks", 6)), int(round(float(e.get("bonus_mult", 0.35)) * 100.0))]
+		"bounty":
+			return "Bounty: %d%% chance on kill to gain +%d Essence" % [int(round(float(e.get("chance", 0.14)) * 100.0)), int(e.get("essence", 1))]
+		_:
+			return ""
 
 #
 # Runtime hooks (mechanic synergies)
@@ -554,6 +773,10 @@ static func _sfx(world: Node2D, event_id: String, pos: Vector2, emitter: Object 
 	var s := world.get_node_or_null("/root/SfxSystem")
 	if s != null and is_instance_valid(s) and s.has_method("play_event"):
 		s.play_event(event_id, pos, emitter)
+	var v := world.get_node_or_null("/root/VfxSystem")
+	if v != null and is_instance_valid(v) and v.has_method("play_event"):
+		# VfxSystem uses the same event ids (syn.arc/syn.flame/etc) mapped in vfx_events.json
+		v.play_event(event_id, pos, world)
 
 static func _spawn_projectile(world: Node2D, from_pos: Vector2, to: Node2D, dmg: int, tint: Color) -> void:
 	if world == null or PROJ_SCENE == null or to == null or not is_instance_valid(to):

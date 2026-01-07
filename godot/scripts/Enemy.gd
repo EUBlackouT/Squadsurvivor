@@ -185,6 +185,12 @@ func _physics_process(delta: float) -> void:
 			# Smoke blind can cause contact attacks to miss.
 			if randf() <= _smoke_hit_chance:
 				_target.take_damage(contact_damage)
+				# VFX: enemy melee hit (EffectBlocks if exported)
+				var world := _main if _main != null else get_tree().get_first_node_in_group("main") as Node2D
+				if world != null:
+					var v := world.get_node_or_null("/root/VfxSystem")
+					if v and is_instance_valid(v) and v.has_method("play_event"):
+						v.play_event("hit.enemy_melee", (_target as Node2D).global_position, world, Color(1, 0.7, 0.7, 1), 1.0)
 				if _vampiric:
 					_heal_from_hit(contact_damage)
 		_contact_t = contact_cooldown
@@ -236,6 +242,9 @@ func _charger_step(delta: float, dist: float, dir: Vector2) -> void:
 			var s := world.get_node_or_null("/root/SfxSystem")
 			if s and s.has_method("play_event"):
 				s.play_event("enemy.dash", global_position, self)
+			var v := world.get_node_or_null("/root/VfxSystem")
+			if v and is_instance_valid(v) and v.has_method("play_event"):
+				v.play_event("enemy.dash", global_position, world)
 		return
 	_melee_step(delta, dist, dir)
 
@@ -318,6 +327,9 @@ func _fire_bolt(tgt: Node2D, tint: Color, dmg_mult: float) -> void:
 	var s := world.get_node_or_null("/root/SfxSystem")
 	if s and s.has_method("play_event"):
 		s.play_event("enemy.spit", global_position, self)
+	var v := world.get_node_or_null("/root/VfxSystem")
+	if v and is_instance_valid(v) and v.has_method("play_event"):
+		v.play_event("enemy.spit", global_position, world)
 
 func apply_smoke_blind(hit_chance: float, duration: float) -> void:
 	_smoke_hit_chance = clampf(hit_chance, 0.10, 1.0)
@@ -336,6 +348,9 @@ func _explode(radius: float, dmg: int) -> void:
 		var s := world.get_node_or_null("/root/SfxSystem")
 		if s and s.has_method("play_event"):
 			s.play_event("enemy.explode", global_position, self)
+		var v := world.get_node_or_null("/root/VfxSystem")
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("enemy.explode", global_position, world)
 	# Damage nearby squad units (player optional)
 	var squad: Array = []
 	if world != null and world.has_method("get_cached_squad_units"):
@@ -386,6 +401,9 @@ func _arcane_zap() -> void:
 	var s := world.get_node_or_null("/root/SfxSystem")
 	if s and s.has_method("play_event"):
 		s.play_event("enemy.arcane", global_position, self)
+	var v := world.get_node_or_null("/root/VfxSystem")
+	if v and is_instance_valid(v) and v.has_method("play_event"):
+		v.play_event("enemy.arcane", global_position, world)
 	if best.has_method("take_damage"):
 		best.take_damage(maxi(1, int(round(float(contact_damage) * 0.85))))
 
@@ -589,6 +607,9 @@ func _die() -> void:
 		var s := world.get_node_or_null("/root/SfxSystem")
 		if s and s.has_method("play_event"):
 			s.play_event("enemy.die", global_position, self)
+		var v := world.get_node_or_null("/root/VfxSystem")
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("enemy.die", global_position, world)
 	var main := get_tree().get_first_node_in_group("main") as Node2D
 	if main and is_instance_valid(main) and main.has_method("on_enemy_killed"):
 		main.on_enemy_killed(is_elite, character_data, bool(get_meta("rift", false)), bool(get_meta("boss", false)))

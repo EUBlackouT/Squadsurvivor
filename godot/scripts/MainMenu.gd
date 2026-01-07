@@ -42,6 +42,7 @@ var _crowd: Node2D = null
 @export var subtitle_font_path: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
 
 func _ready() -> void:
+	UiSkin.apply_global_font(title_font_path, 14)
 	_apply_menu_art()
 
 	# Menu music

@@ -30,6 +30,7 @@ MetaProgression="*res://scripts/MetaProgression.gd"
 CollectionManager="*res://scripts/CollectionManager.gd"
 RunConfig="*res://scripts/RunConfig.gd"
 SfxSystem="*res://scripts/SfxSystem.gd"
+VfxSystem="*res://scripts/VfxSystem.gd"
 
 [display]
 

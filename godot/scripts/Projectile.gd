@@ -20,6 +20,7 @@ var _glow: Sprite2D = null
 var _trail: Line2D = null
 var _trail_points: PackedVector2Array = PackedVector2Array()
 var _trail_last: Vector2 = Vector2.INF
+var _flipbook: VfxFlipbook2D = null
 
 static var _bullet_tex: Texture2D = null
 
@@ -32,7 +33,28 @@ func _ready() -> void:
 		sprite = Sprite2D.new()
 		sprite.name = "Sprite2D"
 		add_child(sprite)
-	# Better bullet: capsule w/ outline + glow + short trail (still ultra-lightweight).
+	# Prefer EffectBlocks-exported flipbook projectile if available.
+	var vfx := get_node_or_null("/root/VfxSystem")
+	var used_flipbook := false
+	if vfx and is_instance_valid(vfx) and vfx.has_method("get_event_cfg") and vfx.has_method("get_frames_for_key"):
+		var cfg: Dictionary = vfx.get_event_cfg("proj.player") as Dictionary
+		var key := String(cfg.get("effect_key", ""))
+		var frames: Array = vfx.get_frames_for_key(key) as Array
+		if not frames.is_empty():
+			_flipbook = VfxFlipbook2D.new()
+			_flipbook.name = "ProjFlipbook"
+			add_child(_flipbook)
+			_flipbook.z_index = int(cfg.get("z", 20))
+			var fps := float(cfg.get("fps", 16))
+			var sc := float(cfg.get("scale", 0.55))
+			_flipbook.setup(frames as Array[Texture2D], fps, true, Color(1, 1, 1, 1), sc)
+			used_flipbook = true
+
+	if used_flipbook:
+		if sprite: sprite.visible = false
+		return
+
+	# Fallback bullet: capsule w/ outline + glow + short trail (still ultra-lightweight).
 	if _bullet_tex == null:
 		_bullet_tex = _make_bullet_tex()
 	sprite.texture = _bullet_tex
@@ -77,6 +99,8 @@ func _ready() -> void:
 	queue_free()
 
 func set_vfx_color(c: Color) -> void:
+	if _flipbook != null and is_instance_valid(_flipbook):
+		_flipbook.set_tint(c)
 	if sprite:
 		sprite.modulate = c
 	if _glow:
@@ -164,6 +188,13 @@ func _spawn_hit_vfx(enemy: Node2D) -> void:
 		return
 	var pos := enemy.global_position + Vector2(0, -18)
 	var dir := (enemy.global_position - global_position).normalized()
+
+	# Prefer exported EffectBlocks flipbook VFX if available.
+	var v := main.get_node_or_null("/root/VfxSystem")
+	if v and is_instance_valid(v) and v.has_method("play_event"):
+		var ok := bool(v.play_event("hit.crit" if is_crit else "hit.ranged", pos, main, Color(1, 1, 1, 1), 1.0))
+		if ok:
+			return
 
 	# Crisp impact flash (reads as "hit" even on dark maps)
 	var c0 := sprite.modulate if sprite != null else Color(0.85, 0.92, 1.0, 1.0)

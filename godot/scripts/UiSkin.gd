@@ -11,6 +11,24 @@ const TEXT: Color = Color(0.92, 0.95, 1.0, 1.0)
 const TEXT_SOFT: Color = Color(0.82, 0.86, 0.92, 0.95)
 const BORDER_SOFT: Color = Color(1, 1, 1, 0.10)
 
+static var _global_font_applied: bool = false
+
+static func apply_global_font(font_path: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf", base_size: int = 14) -> void:
+	# Apply a global fallback font for all UI text (labels/buttons/tooltips/etc).
+	# This avoids having to set fonts per scene/control.
+	if _global_font_applied:
+		return
+	if not ResourceLoader.exists(font_path):
+		return
+	var f: Resource = load(font_path)
+	if f == null:
+		return
+	# Imported .ttf is typically a FontFile (inherits Font).
+	if f is Font:
+		ThemeDB.fallback_font = (f as Font)
+		ThemeDB.fallback_font_size = base_size
+		_global_font_applied = true
+
 static func panel_style(accent: Color = ACCENT, strong: bool = false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = BG_PANEL if strong else BG_PANEL_SOFT

@@ -364,6 +364,9 @@ func _attack(target: Node2D) -> void:
 	var s := _main.get_node_or_null("/root/SfxSystem")
 	if s and s.has_method("play_event"):
 		s.play_event("player.shot", global_position, self)
+	var v := _main.get_node_or_null("/root/VfxSystem")
+	if v and is_instance_valid(v) and v.has_method("play_event"):
+		v.play_event("player.shot", global_position, _main)
 	PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, false)
 	SynergySystem.on_unit_attack(character_data, self, target, final_damage, is_crit, false)
 
@@ -374,6 +377,13 @@ func _spawn_melee_hit_vfx(target: Node2D, dir: Vector2, is_crit: bool) -> void:
 		return
 	var pos := (target as Node2D).global_position + Vector2(0, -18)
 	var tint := _projectile_color_for_unit()
+
+	# Prefer exported EffectBlocks flipbook VFX if available.
+	var v := _main.get_node_or_null("/root/VfxSystem")
+	if v and is_instance_valid(v) and v.has_method("play_event"):
+		var ok := bool(v.play_event("hit.crit" if is_crit else "hit.melee", pos, _main, tint, 1.0))
+		if ok:
+			return
 
 	# Primary: directional streak (reads as an actual hit, not a cube).
 	var streak := VfxMeleeStreak.new()

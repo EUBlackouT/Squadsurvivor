@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "export_root": "res://assets/vfx/effectblocks",
+  "default_fps": 12,
+  "events": {
+    "proj.player": { "effect_key": "laser", "fps": 16, "scale": 0.80, "offset": [0, 0], "z": 25 },
+    "proj.enemy": { "effect_key": "fireballs", "fps": 14, "scale": 0.55, "offset": [0, 0], "z": 25 },
+
+    "player.shot": { "effect_key": "muzzle_flash_1", "fps": 18, "scale": 0.85, "offset": [0, -10], "z": 2100 },
+    "hit.ranged": { "effect_key": "impact_6", "fps": 16, "scale": 0.95, "offset": [0, -18], "z": 2200 },
+    "hit.melee": { "effect_key": "impact_2", "fps": 16, "scale": 1.05, "offset": [0, -18], "z": 2200 },
+    "hit.crit": { "effect_key": "impact_8", "fps": 18, "scale": 1.25, "offset": [0, -18], "z": 2300, "tint": "#ffd86b" },
+    "hit.enemy_melee": { "effect_key": "impact_2", "fps": 16, "scale": 1.00, "offset": [0, -18], "z": 2200, "tint": "#ffb0b0" },
+    "hit.enemy_ranged": { "effect_key": "impact_6", "fps": 16, "scale": 0.95, "offset": [0, -18], "z": 2200, "tint": "#ffb0b0" },
+
+    "enemy.dash": { "effect_key": "dust_ring", "fps": 14 },
+    "enemy.spit": { "effect_key": "fireballs", "fps": 14 },
+    "enemy.explode": { "effect_key": "explosion_electric", "fps": 14, "scale": 1.10, "offset": [0, -6], "z": 2000 },
+    "enemy.arcane": { "effect_key": "electric_waves", "fps": 12 },
+    "enemy.die": { "effect_key": "blood_splash", "fps": 14 },
+    "enemy.elite_spawn": { "effect_key": "portal", "fps": 12 },
+    "boss.spawn": { "effect_key": "worm_hole", "fps": 12 },
+
+    "syn.arc": { "effect_key": "lightning_ball", "fps": 16, "scale": 0.95, "offset": [0, -10], "z": 2250 },
+    "syn.flame": { "effect_key": "fire_magic", "fps": 14 },
+    "syn.frost": { "effect_key": "attack_crystal", "fps": 12 },
+    "syn.holy": { "effect_key": "sparkles", "fps": 14 },
+    "syn.shock": { "effect_key": "shockwave", "fps": 14, "scale": 1.15, "offset": [0, 0], "z": 1900 },
+    "syn.execute": { "effect_key": "impact_7", "fps": 16 },
+    "syn.focus_tick": { "effect_key": "electric_sparks_2", "fps": 18 }
+  }
+}
+
+

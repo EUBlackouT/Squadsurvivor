@@ -5,6 +5,7 @@ extends CanvasLayer
 var _panel: PanelContainer = null
 
 func _ready() -> void:
+	UiSkin.apply_global_font()
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	layer = 230
 	_build_ui()

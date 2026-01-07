@@ -126,6 +126,15 @@ text = ""
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 12
 
+[node name="InspectorSynergiesTitle" type="Label" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo"]
+text = "Synergies"
+theme_override_font_sizes/font_size = 12
+
+[node name="InspectorSynergyChips" type="FlowContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo"]
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
 [node name="InspectorButtons" type="HBoxContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox"]
 theme_override_constants/separation = 10
 alignment = 2
