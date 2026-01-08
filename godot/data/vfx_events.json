@@ -3,7 +3,7 @@
   "export_root": "res://assets/vfx/effectblocks",
   "default_fps": 12,
   "events": {
-    "proj.player": { "effect_key": "laser", "fps": 16, "scale": 0.80, "offset": [0, 0], "z": 25 },
+    "proj.player": { "effect_key": "laser", "fps": 16, "scale": 0.80, "offset": [0, 0], "z": 25, "rot_deg": 90 },
     "proj.enemy": { "effect_key": "fireballs", "fps": 14, "scale": 0.55, "offset": [0, 0], "z": 25 },
 
     "player.shot": { "effect_key": "muzzle_flash_1", "fps": 18, "scale": 0.85, "offset": [0, -10], "z": 2100 },
@@ -22,9 +22,37 @@
     "boss.spawn": { "effect_key": "worm_hole", "fps": 12 },
 
     "syn.arc": { "effect_key": "lightning_ball", "fps": 16, "scale": 0.95, "offset": [0, -10], "z": 2250 },
-    "syn.flame": { "effect_key": "fire_magic", "fps": 14 },
+    # Burn proc VFX: keep it small and orange so it doesn't read as healing.
+    # NOTE: use fire_magic because we already have it exported; fire_light would require re-export.
+    "syn.flame": { "effect_key": "fire_magic", "fps": 14, "scale": 0.35, "offset": [0, -10], "z": 1800, "tint": "#ff7a2a" },
     "syn.frost": { "effect_key": "attack_crystal", "fps": 12 },
-    "syn.holy": { "effect_key": "sparkles", "fps": 14 },
+    "syn.holy": {
+      "scene_3d": "res://PolyBlocks/EffectBlocks/assets/loot/healing.tscn",
+      "viewport_size": 512,
+      "pixel_material": "res://PolyBlocks/PixelRenderer/data/PixelMaterial.tres",
+      "pixel_target_px": 256,
+      "ortho_size": 4.0,
+      "scale": 0.85,
+      "cam_pos": [0, 100, 0],
+      "cam_target": [0, 0, 0],
+      "cam_up": [0, 0, -1],
+      "force_emit": false,
+      "hide_nodes": ["Cross", "Sparkles"],
+      "tint": "#5bffbf",
+      "pixel_params": {
+        "brightness": 0.10,
+        "contrast": 1.25,
+        "value_brightness": 1.35,
+        "gamma": 0.95,
+        "edge_strength": 0.90,
+        "sharpness": 1.35,
+        "outline_thickness": 1.25,
+        "outline_color": [0.08, 0.95, 0.55, 1.0]
+      },
+      "duration_s": 1.1,
+      "offset": [0, -6],
+      "z": 1850
+    },
     "syn.shock": { "effect_key": "shockwave", "fps": 14, "scale": 1.15, "offset": [0, 0], "z": 1900 },
     "syn.execute": { "effect_key": "impact_7", "fps": 16 },
     "syn.focus_tick": { "effect_key": "electric_sparks_2", "fps": 18 }

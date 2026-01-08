@@ -14,6 +14,7 @@ var hit_chance: float = 1.0 # 0..1 (used by Rogue smoke)
 @onready var sprite: Sprite2D = null
 var _flipbook: VfxFlipbook2D = null
 var _tint: Color = Color(1, 1, 1, 1)
+var _flipbook_rot_offset: float = 0.0
 
 func _ready() -> void:
 	add_to_group("enemy_projectiles")
@@ -33,7 +34,9 @@ func _ready() -> void:
 			_flipbook.z_index = int(cfg.get("z", 22))
 			var fps := float(cfg.get("fps", 14))
 			var sc := float(cfg.get("scale", 0.55))
+			_flipbook_rot_offset = deg_to_rad(float(cfg.get("rot_deg", 0.0)))
 			_flipbook.setup(frames as Array[Texture2D], fps, true, _tint, sc)
+			_flipbook.rotation = _flipbook_rot_offset
 			used_flipbook = true
 
 	if not used_flipbook:

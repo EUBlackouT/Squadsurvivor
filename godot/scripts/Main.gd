@@ -361,6 +361,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		if k.keycode == KEY_F12 and k.ctrl_pressed and k.shift_pressed:
 			debug_collision_cleanup_enabled = not debug_collision_cleanup_enabled
 
+		# Ctrl+Shift+F8: toggle VFX debug toasts for heal/flame (shows exact source used).
+		if k.keycode == KEY_F8 and k.ctrl_pressed and k.shift_pressed:
+			var v := get_node_or_null("/root/VfxSystem")
+			if v and is_instance_valid(v) and v.has_method("set_debug_toasts_enabled"):
+				var enabled_now := not bool(v.get("debug_toasts_enabled"))
+				v.set_debug_toasts_enabled(enabled_now)
+				if toast_layer != null:
+					toast_layer.show_toast("VFX debug toasts: %s" % ("ON" if enabled_now else "OFF"), Color(0.65, 0.85, 1.0, 1.0))
+
+		# Ctrl+Shift+H: spawn syn.holy at player position (sanity test)
+		if k.keycode == KEY_H and k.ctrl_pressed and k.shift_pressed:
+			var v := get_node_or_null("/root/VfxSystem")
+			var p := get_tree().get_first_node_in_group("player") as Node2D
+			if v and is_instance_valid(v) and v.has_method("play_event") and p != null and is_instance_valid(p):
+				v.play_event("syn.holy", p.global_position, self)
+
+		# Ctrl+Shift+J: spawn syn.flame at player position (sanity test)
+		if k.keycode == KEY_J and k.ctrl_pressed and k.shift_pressed:
+			var v := get_node_or_null("/root/VfxSystem")
+			var p := get_tree().get_first_node_in_group("player") as Node2D
+			if v and is_instance_valid(v) and v.has_method("play_event") and p != null and is_instance_valid(p):
+				v.play_event("syn.flame", p.global_position, self)
+
 		# Ability: Overclock (Q)
 		if k.keycode == KEY_Q:
 			_try_overclock()

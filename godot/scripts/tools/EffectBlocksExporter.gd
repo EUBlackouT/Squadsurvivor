@@ -119,6 +119,33 @@ func _export_job(d: Dictionary) -> void:
 	# Resize viewport for this job.
 	_sub.size = Vector2i(res, res)
 
+	# Optional per-job camera override (useful for top-down aura-like effects).
+	var cam_cfg_v: Variant = d.get("camera", null)
+	var restore_pos := _cam.position
+	var restore_size := _cam.size
+	var restore_up := Vector3.UP
+	if typeof(cam_cfg_v) == TYPE_DICTIONARY:
+		var cam_cfg := cam_cfg_v as Dictionary
+		if cam_cfg.has("size"):
+			_cam.size = float(cam_cfg.get("size", _cam.size))
+		var pos_v: Variant = cam_cfg.get("pos", null)
+		var tgt_v: Variant = cam_cfg.get("target", null)
+		var up_v: Variant = cam_cfg.get("up", null)
+		var pos := restore_pos
+		var tgt := Vector3.ZERO
+		var up := Vector3.UP
+		if typeof(pos_v) == TYPE_ARRAY and (pos_v as Array).size() >= 3:
+			var a := pos_v as Array
+			pos = Vector3(float(a[0]), float(a[1]), float(a[2]))
+		if typeof(tgt_v) == TYPE_ARRAY and (tgt_v as Array).size() >= 3:
+			var a2 := tgt_v as Array
+			tgt = Vector3(float(a2[0]), float(a2[1]), float(a2[2]))
+		if typeof(up_v) == TYPE_ARRAY and (up_v as Array).size() >= 3:
+			var a3 := up_v as Array
+			up = Vector3(float(a3[0]), float(a3[1]), float(a3[2]))
+		_cam.position = pos
+		_cam.look_at_from_position(pos, tgt, up)
+
 	var out_dir := "%s/%s" % [_dir_root, effect_key]
 	if clear_existing:
 		_clear_dir(out_dir)
@@ -168,6 +195,11 @@ func _export_job(d: Dictionary) -> void:
 			push_warning("EffectBlocksExporter: failed save " + p + " err=" + str(err))
 		# Advance time for effect
 		await get_tree().create_timer(step_s).timeout
+
+	# Restore camera after job
+	_cam.position = restore_pos
+	_cam.size = restore_size
+	_cam.look_at_from_position(_cam.position, Vector3.ZERO, Vector3.UP)
 
 func _probe_viewport() -> bool:
 	# Render a bright unshaded cube and confirm pixels are non-empty.

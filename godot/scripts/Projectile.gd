@@ -21,6 +21,7 @@ var _trail: Line2D = null
 var _trail_points: PackedVector2Array = PackedVector2Array()
 var _trail_last: Vector2 = Vector2.INF
 var _flipbook: VfxFlipbook2D = null
+var _flipbook_rot_offset: float = 0.0
 
 static var _bullet_tex: Texture2D = null
 
@@ -47,7 +48,9 @@ func _ready() -> void:
 			_flipbook.z_index = int(cfg.get("z", 20))
 			var fps := float(cfg.get("fps", 16))
 			var sc := float(cfg.get("scale", 0.55))
+			_flipbook_rot_offset = deg_to_rad(float(cfg.get("rot_deg", 0.0)))
 			_flipbook.setup(frames as Array[Texture2D], fps, true, Color(1, 1, 1, 1), sc)
+			_flipbook.rotation = _flipbook_rot_offset
 			used_flipbook = true
 
 	if used_flipbook:

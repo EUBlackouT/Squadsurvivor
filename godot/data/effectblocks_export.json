@@ -21,7 +21,8 @@
     { "effect_key": "fire_magic", "scene": "res://PolyBlocks/EffectBlocks/assets/fire/fire_magic.tscn", "frames": 18, "fps": 14, "resolution": 256 },
     { "effect_key": "attack_crystal", "scene": "res://PolyBlocks/EffectBlocks/assets/attacks/attack_crystal.tscn", "frames": 18, "fps": 12, "resolution": 256 },
     { "effect_key": "blood_splash", "scene": "res://PolyBlocks/EffectBlocks/assets/splash/blood_splash.tscn", "frames": 18, "fps": 14, "resolution": 192 },
-    { "effect_key": "healing", "scene": "res://PolyBlocks/EffectBlocks/assets/loot/healing.tscn", "frames": 18, "fps": 14, "resolution": 192 }
+    { "effect_key": "healing", "scene": "res://PolyBlocks/EffectBlocks/assets/loot/healing.tscn", "frames": 18, "fps": 14, "resolution": 256,
+      "camera": { "pos": [0, 8, 0], "target": [0, 0, 0], "up": [0, 0, 1], "size": 5.5 } }
   ]
 }
 
