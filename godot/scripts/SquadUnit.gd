@@ -378,6 +378,11 @@ func _spawn_melee_hit_vfx(target: Node2D, dir: Vector2, is_crit: bool) -> void:
 	var pos := (target as Node2D).global_position + Vector2(0, -18)
 	var tint := _projectile_color_for_unit()
 
+	# SFX: melee impact (throttled)
+	var s := _main.get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_event"):
+		s.play_event("hit.crit" if is_crit else "hit.melee", pos, self)
+
 	# Prefer exported EffectBlocks flipbook VFX if available.
 	var v := _main.get_node_or_null("/root/VfxSystem")
 	if v and is_instance_valid(v) and v.has_method("play_event"):
@@ -533,12 +538,22 @@ func _die() -> void:
 	# Small death pop (reuses existing VFX, stays lightweight)
 	if main and is_instance_valid(main):
 		var pos := global_position + Vector2(0, -18)
-		var flash := VfxImpactFlash.new()
-		flash.setup(pos, Color(1.0, 0.55, 0.55, 1.0), 18.0, 0.12)
-		main.add_child(flash)
-		var sw := VfxShockwave.new()
-		sw.setup(pos, Color(1.0, 0.45, 0.45, 1.0), 10.0, 62.0, 3.0, 0.16)
-		main.add_child(sw)
+		# SFX: unit death (throttled)
+		var s := main.get_node_or_null("/root/SfxSystem")
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("unit.die", pos, self)
+		# Prefer EffectBlocks flipbook VFX if available.
+		var v := main.get_node_or_null("/root/VfxSystem")
+		var ok := false
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			ok = bool(v.play_event("unit.die", pos, main, Color(1, 1, 1, 1), 1.0))
+		if not ok:
+			var flash := VfxImpactFlash.new()
+			flash.setup(pos, Color(1.0, 0.55, 0.55, 1.0), 18.0, 0.12)
+			main.add_child(flash)
+			var sw := VfxShockwave.new()
+			sw.setup(pos, Color(1.0, 0.45, 0.45, 1.0), 10.0, 62.0, 3.0, 0.16)
+			main.add_child(sw)
 
 	queue_free()
 

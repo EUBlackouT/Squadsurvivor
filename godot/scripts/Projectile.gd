@@ -192,6 +192,11 @@ func _spawn_hit_vfx(enemy: Node2D) -> void:
 	var pos := enemy.global_position + Vector2(0, -18)
 	var dir := (enemy.global_position - global_position).normalized()
 
+	# SFX: hit impact (throttled by emitter)
+	var s := main.get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_event"):
+		s.play_event("hit.crit" if is_crit else "hit.ranged", pos, self)
+
 	# Prefer exported EffectBlocks flipbook VFX if available.
 	var v := main.get_node_or_null("/root/VfxSystem")
 	if v and is_instance_valid(v) and v.has_method("play_event"):

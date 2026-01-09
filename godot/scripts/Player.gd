@@ -204,12 +204,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			# Feedback
 			var main := get_tree().get_first_node_in_group("main") as Node2D
 			if main:
-				var sw := VfxShockwave.new()
-				sw.setup(global_position, Color(0.45, 0.90, 1.0, 1.0), 10.0, 70.0, 3.0, 0.18)
-				main.add_child(sw)
+				# Prefer EffectBlocks VFX if available.
+				var v := main.get_node_or_null("/root/VfxSystem")
+				var ok := false
+				if v and is_instance_valid(v) and v.has_method("play_event"):
+					ok = bool(v.play_event("player.dash", global_position, main, Color(1, 1, 1, 1), 1.0))
+				if not ok:
+					var sw := VfxShockwave.new()
+					sw.setup(global_position, Color(0.45, 0.90, 1.0, 1.0), 10.0, 70.0, 3.0, 0.18)
+					main.add_child(sw)
+			# SFX: dash whoosh (throttled in SfxSystem).
 			var s := get_node_or_null("/root/SfxSystem")
-			if s and is_instance_valid(s) and s.has_method("play_ui"):
-				s.play_ui("ui.click")
+			if s and is_instance_valid(s) and s.has_method("play_event"):
+				s.play_event("player.dash", global_position, self)
 
 func _set_formation_mode(mode: int) -> void:
 	_formation_mode = mode

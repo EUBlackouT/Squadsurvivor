@@ -23,6 +23,31 @@
     { "effect_key": "blood_splash", "scene": "res://PolyBlocks/EffectBlocks/assets/splash/blood_splash.tscn", "frames": 18, "fps": 14, "resolution": 192 },
     { "effect_key": "healing", "scene": "res://PolyBlocks/EffectBlocks/assets/loot/healing.tscn", "frames": 18, "fps": 14, "resolution": 256,
       "camera": { "pos": [0, 8, 0], "target": [0, 0, 0], "up": [0, 0, 1], "size": 5.5 } }
+    ,
+    { "effect_key": "smoke_light", "scene": "res://PolyBlocks/EffectBlocks/assets/smoke/smoke_light.tscn", "frames": 20, "fps": 12, "resolution": 256 },
+    { "effect_key": "smoke_toxic", "scene": "res://PolyBlocks/EffectBlocks/assets/smoke/smoke_toxic.tscn", "frames": 20, "fps": 12, "resolution": 256 },
+
+    { "effect_key": "explosion_light", "scene": "res://PolyBlocks/EffectBlocks/assets/explosions/explosion_light.tscn", "frames": 24, "fps": 14, "resolution": 256 },
+    { "effect_key": "explosion_heavy", "scene": "res://PolyBlocks/EffectBlocks/assets/explosions/explosion_heavy.tscn", "frames": 26, "fps": 14, "resolution": 320 },
+
+    { "effect_key": "fire_light", "scene": "res://PolyBlocks/EffectBlocks/assets/fire/fire_light.tscn", "frames": 18, "fps": 14, "resolution": 256 },
+    { "effect_key": "fire_heavy", "scene": "res://PolyBlocks/EffectBlocks/assets/fire/fire_heavy.tscn", "frames": 18, "fps": 14, "resolution": 320 },
+
+    { "effect_key": "lightning", "scene": "res://PolyBlocks/EffectBlocks/assets/energy/lightning.tscn", "frames": 18, "fps": 16, "resolution": 256 },
+    { "effect_key": "electric_sparks_3", "scene": "res://PolyBlocks/EffectBlocks/assets/energy/electric_sparks_3.tscn", "frames": 18, "fps": 18, "resolution": 192 },
+
+    { "effect_key": "impact_1", "scene": "res://PolyBlocks/EffectBlocks/assets/impacts/impact_1.tscn", "frames": 18, "fps": 16, "resolution": 160 },
+    { "effect_key": "impact_3", "scene": "res://PolyBlocks/EffectBlocks/assets/impacts/impact_3.tscn", "frames": 18, "fps": 16, "resolution": 160 },
+    { "effect_key": "impact_4", "scene": "res://PolyBlocks/EffectBlocks/assets/impacts/impact_4.tscn", "frames": 18, "fps": 16, "resolution": 160 },
+    { "effect_key": "impact_5", "scene": "res://PolyBlocks/EffectBlocks/assets/impacts/impact_5.tscn", "frames": 18, "fps": 16, "resolution": 160 },
+
+    { "effect_key": "ground_effect_1", "scene": "res://PolyBlocks/EffectBlocks/assets/ground_effects/ground_effect_1.tscn", "frames": 24, "fps": 12, "resolution": 320,
+      "camera": { "pos": [0, 10, 0], "target": [0, 0, 0], "up": [0, 0, -1], "size": 6.5 } },
+    { "effect_key": "ground_effect_2", "scene": "res://PolyBlocks/EffectBlocks/assets/ground_effects/ground_effect_2.tscn", "frames": 24, "fps": 12, "resolution": 320,
+      "camera": { "pos": [0, 10, 0], "target": [0, 0, 0], "up": [0, 0, -1], "size": 6.5 } },
+
+    { "effect_key": "down_arrow", "scene": "res://PolyBlocks/EffectBlocks/assets/loot/down_arrow.tscn", "frames": 16, "fps": 12, "resolution": 160 },
+    { "effect_key": "decal_claw_mark_1", "scene": "res://PolyBlocks/EffectBlocks/assets/decals/decal_claw_mark_1.tscn", "frames": 12, "fps": 12, "resolution": 192 }
   ]
 }
 

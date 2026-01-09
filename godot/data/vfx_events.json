@@ -18,13 +18,21 @@
     "enemy.explode": { "effect_key": "explosion_electric", "fps": 14, "scale": 1.10, "offset": [0, -6], "z": 2000 },
     "enemy.arcane": { "effect_key": "electric_waves", "fps": 12 },
     "enemy.die": { "effect_key": "blood_splash", "fps": 14 },
+    "enemy.vampiric_heal": { "effect_key": "sparkles", "fps": 14, "scale": 0.85, "offset": [0, -12], "z": 2050, "tint": "#ff4b7a" },
     "enemy.elite_spawn": { "effect_key": "portal", "fps": 12 },
     "boss.spawn": { "effect_key": "worm_hole", "fps": 12 },
 
+    "player.dash": { "effect_key": "shockwave", "fps": 14, "scale": 0.90, "offset": [0, 0], "z": 1850, "tint": "#74e2ff" },
+    "unit.die": { "effect_key": "impact_7", "fps": 16, "scale": 0.95, "offset": [0, -18], "z": 2200, "tint": "#ff7b7b" },
+    "callout.aegis": { "effect_key": "shockwave", "fps": 14, "scale": 1.10, "offset": [0, 0], "z": 1850, "tint": "#63ffbf" },
+    "callout.smoke": { "effect_key": "smoke_toxic", "fps": 12, "scale": 1.10, "offset": [0, 0], "z": 1840, "tint": "#bfe6ff", "loop": true },
+    "callout.arc_surge": { "effect_key": "electric_sparks_3", "fps": 18, "scale": 1.10, "offset": [0, -12], "z": 1860, "tint": "#d978ff" },
+    "callout.beacon": { "effect_key": "ground_effect_1", "fps": 12, "scale": 1.10, "offset": [0, 0], "z": 1835, "tint": "#5bffbf", "loop": true },
+    "telegraph.charge": { "effect_key": "down_arrow", "fps": 12, "scale": 0.95, "offset": [0, -18], "z": 2500, "tint": "#ff6a55" },
+
     "syn.arc": { "effect_key": "lightning_ball", "fps": 16, "scale": 0.95, "offset": [0, -10], "z": 2250 },
-    # Burn proc VFX: keep it small and orange so it doesn't read as healing.
-    # NOTE: use fire_magic because we already have it exported; fire_light would require re-export.
-    "syn.flame": { "effect_key": "fire_magic", "fps": 14, "scale": 0.35, "offset": [0, -10], "z": 1800, "tint": "#ff7a2a" },
+    "syn.flame": { "effect_key": "fireballs", "fps": 14, "scale": 0.40, "offset": [0, -12], "z": 1800, "tint": "#ff9a2f" },
+    "syn.wisp": { "effect_key": "sparkles", "fps": 14, "scale": 0.70, "offset": [0, -12], "z": 1800, "tint": "#d978ff" },
     "syn.frost": { "effect_key": "attack_crystal", "fps": 12 },
     "syn.holy": {
       "scene_3d": "res://PolyBlocks/EffectBlocks/assets/loot/healing.tscn",

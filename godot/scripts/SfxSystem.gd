@@ -138,6 +138,11 @@ func _build_streams() -> void:
 	# Combat baseline
 	_streams["player_slash"] = _make_whoosh(0.10, 0.18)
 	_streams["player_shot"] = _make_tick(0.05, 1120.0, 0.12)
+	_streams["hit_ranged"] = _make_tick(0.06, 860.0, 0.16)
+	_streams["hit_melee"] = _make_thump(0.08, 160.0, 0.55)
+	_streams["hit_crit"] = _make_thump(0.10, 210.0, 0.85)
+	_streams["dash_whoosh"] = _make_whoosh(0.12, 0.20)
+	_streams["telegraph_tick"] = _make_tick(0.06, 640.0, 0.10)
 	_streams["enemy_die"] = _make_tick(0.06, 520.0, 0.18)
 	_streams["enemy_spawn_elite"] = _make_thump(0.16, 82.0, 0.65)
 
@@ -162,6 +167,12 @@ func _build_event_cfg() -> void:
 
 	# Core combat (very frequent -> per-emitter throttle)
 	_event_cfg["player.shot"] = {"stream": "player_shot", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 0, "min_ms_emitter": 90}
+	# Hits (very frequent): keep subtle + throttle per-emitter.
+	_event_cfg["hit.ranged"] = {"stream": "hit_ranged", "gain_db": -3.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 0, "min_ms_emitter": 80}
+	_event_cfg["hit.melee"] = {"stream": "hit_melee", "gain_db": -1.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 0, "min_ms_emitter": 90}
+	_event_cfg["hit.crit"] = {"stream": "hit_crit", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 40, "min_ms_emitter": 120}
+	_event_cfg["hit.enemy_melee"] = {"stream": "hit_melee", "gain_db": -2.0 + loud, "pitch": 0.98, "jitter": 0.05, "min_ms_global": 0, "min_ms_emitter": 110}
+	_event_cfg["hit.enemy_ranged"] = {"stream": "hit_ranged", "gain_db": -3.0 + loud, "pitch": 0.98, "jitter": 0.06, "min_ms_global": 0, "min_ms_emitter": 110}
 	_event_cfg["enemy.die"] = {"stream": "enemy_die", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 25, "min_ms_emitter": 0}
 	_event_cfg["enemy.elite_spawn"] = {"stream": "enemy_spawn_elite", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 250, "min_ms_emitter": 250}
 	_event_cfg["boss.spawn"] = {"stream": "enemy_spawn_elite", "gain_db": 4.0 + loud, "pitch": 0.92, "jitter": 0.02, "min_ms_global": 600, "min_ms_emitter": 600}
@@ -171,6 +182,7 @@ func _build_event_cfg() -> void:
 	_event_cfg["syn.shock"] = {"stream": "shockwave", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 120, "min_ms_emitter": 180}
 	_event_cfg["syn.frost"] = {"stream": "frost_nova", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 160, "min_ms_emitter": 240}
 	_event_cfg["syn.flame"] = {"stream": "flame_burst", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 140, "min_ms_emitter": 220}
+	_event_cfg["syn.wisp"] = {"stream": "focus_tick", "gain_db": -1.0 + loud, "pitch": 1.12, "jitter": 0.03, "min_ms_global": 60, "min_ms_emitter": 140}
 	_event_cfg["syn.holy"] = {"stream": "holy_pulse", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 200}
 	_event_cfg["syn.focus_tick"] = {"stream": "focus_tick", "gain_db": -3.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 40, "min_ms_emitter": 120}
 	_event_cfg["syn.execute"] = {"stream": "execute", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 240}
@@ -180,6 +192,20 @@ func _build_event_cfg() -> void:
 	_event_cfg["enemy.spit"] = {"stream": "arc_zap", "gain_db": -2.5 + loud, "pitch": 1.20, "jitter": 0.05, "min_ms_global": 40, "min_ms_emitter": 180}
 	_event_cfg["enemy.explode"] = {"stream": "flame_burst", "gain_db": 4.0 + loud, "pitch": 0.92, "jitter": 0.04, "min_ms_global": 90, "min_ms_emitter": 250}
 	_event_cfg["enemy.arcane"] = {"stream": "arc_zap", "gain_db": 1.2 + loud, "pitch": 1.00, "jitter": 0.05, "min_ms_global": 80, "min_ms_emitter": 260}
+
+	# Player / squad moments
+	_event_cfg["player.dash"] = {"stream": "dash_whoosh", "gain_db": -1.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 60, "min_ms_emitter": 200}
+	_event_cfg["unit.die"] = {"stream": "hit_melee", "gain_db": 0.5 + loud, "pitch": 0.92, "jitter": 0.04, "min_ms_global": 60, "min_ms_emitter": 120}
+	_event_cfg["enemy.vampiric_heal"] = {"stream": "holy_pulse", "gain_db": -2.0 + loud, "pitch": 0.92, "jitter": 0.03, "min_ms_global": 80, "min_ms_emitter": 350}
+
+	# Callouts (rare, should feel impactful)
+	_event_cfg["callout.aegis"] = {"stream": "shockwave", "gain_db": 2.0 + loud, "pitch": 0.98, "jitter": 0.03, "min_ms_global": 300, "min_ms_emitter": 300}
+	_event_cfg["callout.smoke"] = {"stream": "ui_open", "gain_db": 1.0 + loud, "pitch": 0.92, "jitter": 0.03, "min_ms_global": 300, "min_ms_emitter": 300}
+	_event_cfg["callout.arc_surge"] = {"stream": "arc_zap", "gain_db": 1.0 + loud, "pitch": 0.98, "jitter": 0.04, "min_ms_global": 300, "min_ms_emitter": 300}
+	_event_cfg["callout.beacon"] = {"stream": "holy_pulse", "gain_db": 1.5 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 300, "min_ms_emitter": 300}
+
+	# Telegraphs (should be audible but not annoying)
+	_event_cfg["telegraph.charge"] = {"stream": "telegraph_tick", "gain_db": -3.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 120, "min_ms_emitter": 300}
 
 #
 # Synth helpers

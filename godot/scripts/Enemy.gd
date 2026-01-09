@@ -39,9 +39,31 @@ var _charge_windup_t: float = 0.0
 var _charge_dir: Vector2 = Vector2.ZERO
 var _charge_target_pos: Vector2 = Vector2.ZERO
 var _charge_line: Line2D = null
+static var _charge_line_tex: Texture2D = null
 var _volatile_on_death: bool = false
 var _vampiric: bool = false
 var _arcane: bool = false
+
+static func _make_charge_line_tex() -> Texture2D:
+	# Repeating hazard stripe texture for Line2D (tiled).
+	# This replaces the “solid red beam” with a readable telegraph.
+	var w := 64
+	var h := 16
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	# Draw a few diagonal stripes (alpha only; color comes from Line2D.default_color)
+	for x in range(w):
+		# Use integer math (avoid float % int parse error).
+		var y0 := (int(x * 3) / 5) % h
+		for dy in range(3):
+			var y := (y0 + dy) % h
+			img.set_pixel(x, y, Color(1, 1, 1, 0.75))
+		# A second stripe offset for density
+		var y1 := int((y0 + 8) % h)
+		for dy2 in range(2):
+			var yb := (y1 + dy2) % h
+			img.set_pixel(x, yb, Color(1, 1, 1, 0.35))
+	return ImageTexture.create_from_image(img)
 var _arcane_cd: float = 0.0
 var _move_speed_mult: float = 1.0
 var _dmg_mult: float = 1.0
@@ -188,6 +210,10 @@ func _physics_process(delta: float) -> void:
 				# VFX: enemy melee hit (EffectBlocks if exported)
 				var world := _main if _main != null else get_tree().get_first_node_in_group("main") as Node2D
 				if world != null:
+					# SFX: enemy melee hit tick/thump (throttled)
+					var s := world.get_node_or_null("/root/SfxSystem")
+					if s and is_instance_valid(s) and s.has_method("play_event"):
+						s.play_event("hit.enemy_melee", (_target as Node2D).global_position, self)
 					var v := world.get_node_or_null("/root/VfxSystem")
 					if v and is_instance_valid(v) and v.has_method("play_event"):
 						v.play_event("hit.enemy_melee", (_target as Node2D).global_position, world, Color(1, 0.7, 0.7, 1), 1.0)
@@ -253,18 +279,39 @@ func _begin_charge_telegraph() -> void:
 		_charge_line.queue_free()
 		_charge_line = null
 	_charge_line = Line2D.new()
-	_charge_line.width = 3.0
-	_charge_line.default_color = Color(1.0, 0.35, 0.25, 0.85)
+	# Replace ugly solid red line with a soft, patterned telegraph.
+	_charge_line.width = 7.0
+	_charge_line.default_color = Color(1.0, 0.55, 0.25, 0.42)
 	_charge_line.z_index = 50
 	_charge_line.antialiased = true
+	# Texture-tiled hazard stripe
+	if _charge_line_tex == null:
+		_charge_line_tex = _make_charge_line_tex()
+	_charge_line.texture = _charge_line_tex
+	_charge_line.texture_mode = Line2D.LINE_TEXTURE_TILE
+	# Fade ends slightly so it doesn't look like a hitscan beam.
+	var g := Gradient.new()
+	g.colors = PackedColorArray([Color(1, 1, 1, 0.0), Color(1, 1, 1, 1.0), Color(1, 1, 1, 0.0)])
+	g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	_charge_line.gradient = g
 	add_child(_charge_line)
 	_update_charge_telegraph()
 	# Mark the intended endpoint (so dodging feels fair).
 	var world := _main if _main != null else get_tree().get_first_node_in_group("main") as Node2D
 	if world:
-		var fm := VfxFocusMark.new()
-		fm.setup(_charge_target_pos, Color(1.0, 0.35, 0.25, 0.95), 16.0, 72.0, 0.40)
-		world.add_child(fm)
+		# SFX: short telegraph tick (throttled per-emitter)
+		var s := world.get_node_or_null("/root/SfxSystem")
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("telegraph.charge", _charge_target_pos, self)
+		# Prefer EffectBlocks telegraph marker if exported.
+		var v := world.get_node_or_null("/root/VfxSystem")
+		var ok := false
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			ok = bool(v.play_event("telegraph.charge", _charge_target_pos, world, Color(1, 1, 1, 1), 1.0))
+		if not ok:
+			var fm := VfxFocusMark.new()
+			fm.setup(_charge_target_pos, Color(1.0, 0.35, 0.25, 0.95), 16.0, 0, 0.40)
+			world.add_child(fm)
 
 func _update_charge_telegraph() -> void:
 	if _charge_line == null or not is_instance_valid(_charge_line):
@@ -275,9 +322,9 @@ func _update_charge_telegraph() -> void:
 	_charge_line.clear_points()
 	_charge_line.add_point(a)
 	_charge_line.add_point(b)
-	# Pulse alpha a bit
+	# Pulse a bit (subtle; keep it “warning”, not “laser”)
 	var t := float(Time.get_ticks_msec()) / 1000.0
-	_charge_line.default_color.a = 0.55 + 0.30 * absf(sin(t * 10.0))
+	_charge_line.default_color.a = 0.28 + 0.22 * absf(sin(t * 8.0))
 
 func _end_charge_telegraph() -> void:
 	if _charge_line != null and is_instance_valid(_charge_line):
@@ -416,9 +463,18 @@ func _heal_from_hit(dmg: int) -> void:
 	current_hp = mini(current_hp + amt, int(round(float(character_data.max_hp) * _hp_mult)) if character_data != null else current_hp + amt)
 	var world := _main
 	if world != null:
-		var hp := VfxHolyPulse.new()
-		hp.setup(global_position, Color(1.0, 0.35, 0.55, 1.0), 10.0, 36.0, 0.18)
-		world.add_child(hp)
+		var s := world.get_node_or_null("/root/SfxSystem")
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("enemy.vampiric_heal", global_position, self)
+		# Prefer EffectBlocks VFX if available.
+		var v := world.get_node_or_null("/root/VfxSystem")
+		var ok := false
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			ok = bool(v.play_event("enemy.vampiric_heal", global_position, world, Color(1, 1, 1, 1), 1.0))
+		if not ok:
+			var hp := VfxHolyPulse.new()
+			hp.setup(global_position, Color(1.0, 0.35, 0.55, 1.0), 10.0, 36.0, 0.18)
+			world.add_child(hp)
 
 func _apply_archetype_and_affixes() -> void:
 	# Archetype mods

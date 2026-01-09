@@ -529,9 +529,18 @@ func _try_class_callout() -> void:
 			for u in live_squad_units:
 				if is_instance_valid(u) and (u as Node).has_method("apply_aegis"):
 					(u as Node).apply_aegis(duration, 0.65)
-			var sw := VfxShockwave.new()
-			sw.setup(origin, Color(0.40, 1.0, 0.65, 1.0), 14.0, 150.0, 4.0, 0.30)
-			add_child(sw)
+			# Prefer EffectBlocks VFX if available.
+			var v := get_node_or_null("/root/VfxSystem")
+			var ok := false
+			if v and is_instance_valid(v) and v.has_method("play_event"):
+				ok = bool(v.play_event("callout.aegis", origin, self, Color(1, 1, 1, 1), 1.0))
+			if not ok:
+				var sw := VfxShockwave.new()
+				sw.setup(origin, Color(0.40, 1.0, 0.65, 1.0), 14.0, 150.0, 4.0, 0.30)
+				add_child(sw)
+			var s_ev := get_node_or_null("/root/SfxSystem")
+			if s_ev and is_instance_valid(s_ev) and s_ev.has_method("play_event"):
+				s_ev.play_event("callout.aegis", origin, self)
 		CharacterData.Class.ROGUE:
 			# Smoke: enemies in radius have reduced hit chance and mild slow.
 			var radius := 260.0
@@ -550,24 +559,40 @@ func _try_class_callout() -> void:
 			var sf := VfxSmokeField.new()
 			sf.setup(origin, Color(0.70, 0.78, 0.90, 0.55), radius, duration)
 			add_child(sf)
+			var s_ev := get_node_or_null("/root/SfxSystem")
+			if s_ev and is_instance_valid(s_ev) and s_ev.has_method("play_event"):
+				s_ev.play_event("callout.smoke", origin, self)
 		CharacterData.Class.MAGE:
 			# Arc Surge: temporary extra chain lightning procs (implemented in PassiveSystem via main query).
 			_arc_surge_until_s = maxf(_arc_surge_until_s, duration)
 			_arc_surge_dmg_mult = 0.22
-			var hp := VfxHolyPulse.new()
-			hp.setup(origin, Color(0.85, 0.45, 1.0, 1.0), 12.0, 120.0, 0.28)
-			add_child(hp)
+			# Prefer EffectBlocks VFX if available.
+			var v := get_node_or_null("/root/VfxSystem")
+			var ok := false
+			if v and is_instance_valid(v) and v.has_method("play_event"):
+				ok = bool(v.play_event("callout.arc_surge", origin, self, Color(1, 1, 1, 1), 1.0))
+			if not ok:
+				var hp := VfxHolyPulse.new()
+				hp.setup(origin, Color(0.85, 0.45, 1.0, 1.0), 12.0, 120.0, 0.28)
+				add_child(hp)
+			var s_ev := get_node_or_null("/root/SfxSystem")
+			if s_ev and is_instance_valid(s_ev) and s_ev.has_method("play_event"):
+				s_ev.play_event("callout.arc_surge", origin, self)
 		CharacterData.Class.HEALER:
 			# Beacon: heal zone around the player.
 			var hb := VfxHealBeacon.new()
 			hb.setup(origin, 220.0, duration, 0.06, 1.0)
 			add_child(hb)
+			var s_ev := get_node_or_null("/root/SfxSystem")
+			if s_ev and is_instance_valid(s_ev) and s_ev.has_method("play_event"):
+				s_ev.play_event("callout.beacon", origin, self)
 		_:
 			# Fallback: small rally pulse (still feels like "something happened")
 			var sw2 := VfxShockwave.new()
 			sw2.setup(origin, Color(0.55, 0.85, 1.0, 1.0), 10.0, 110.0, 3.0, 0.22)
 			add_child(sw2)
 
+	# UI confirm
 	var s := get_node_or_null("/root/SfxSystem")
 	if s and is_instance_valid(s) and s.has_method("play_ui"):
 		s.play_ui("ui.open")

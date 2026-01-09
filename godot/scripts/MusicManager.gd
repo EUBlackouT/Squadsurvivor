@@ -140,212 +140,288 @@ func _note_hz(midi: int) -> float:
 	return 440.0 * pow(2.0, (float(midi) - 69.0) / 12.0)
 
 func _make_menu_loop(dur: float) -> AudioStreamWAV:
-	# Menu music: should be catchy but not fatiguing.
-	# Structure: 8 bars (A/B sections), restrained lead, consistent groove, seamless loop.
-	# No noise sources (player reported "static").
+	# Menu music: bass-forward + catchy groove (less "annoying", more hook).
+	# Goal: simple bass motif, soft hats (no noise static), and a punchy kick with light sidechain.
 	var n := int(round(dur * float(SAMPLE_RATE)))
 	var out := PackedFloat32Array()
 	out.resize(n)
 
-	var bpm := 112.0
+	var bpm := 106.0
 	var spb := 60.0 / bpm
 	var step_len := spb / 4.0 # 16ths
 	var bar_len := spb * 4.0
 
-	# Chord progression (8 bars): Dm → Bb → C → A → Dm → Gm → Bb → A
-	# NOTE: GDScript does not support nested typed collections like Array[Array[int]].
-	# Keep it untyped and cast when reading.
-	var chords: Array = [
-		[50, 53, 57], # D3 F3 A3
-		[46, 50, 53], # Bb2 D3 F3
-		[48, 52, 55], # C3 E3 G3
-		[45, 49, 52], # A2 C#3 E3 (harmonic minor lift)
-		[50, 53, 57], # Dm
-		[43, 46, 50], # Gm (G2 Bb2 D3)
-		[46, 50, 53], # Bb
-		[45, 49, 52], # A
+	# Tonality: D minor pentatonic (dark + catchy).
+	var root_midi := 38 # D2
+	var scale: Array[int] = [0, 3, 5, 7, 10] # minor pentatonic degrees
+
+	# Harmonic movement (per bar): Dm → Bb → C → A (repeat).
+	var bar_roots: Array[int] = [38, 34, 36, 33, 38, 34, 36, 33]
+
+	# Bass hook: 2-bar phrase (32 steps). -1 = rest.
+	# Catchiness tricks used:
+	# - repetition (same 2-bar phrase repeated twice)
+	# - anticipation (notes on step 15/31 before downbeat)
+	# - octave pop (occasional +12)
+	var bass_hook_a: Array[int] = [
+		0, -1, 0, 0, 3, -1, 0, 5,   0, -1, 0, -1, 7, -1, 5, 3,
+		0, -1, 0, 0, 3, -1, 0, 10,  0, -1, 7, -1, 5, -1, 3, 0
+	]
+	var bass_hook_b: Array[int] = [
+		0, -1, 0, 3, 5, -1, 3, 0,   0, -1, 7, -1, 5, -1, 3, 0,
+		0, -1, 10, -1, 7, -1, 5, 3, 0, -1, 7, -1, 5, -1, 3, 0
 	]
 
-	# Hook motifs (relative degrees). Two variants for A/B sections.
-	# A: iconic, simple, leaves breathing room.
-	var hook_a: Array[int] = [0, 2, 4, 2, -1, 4, 7, 4, 0, 2, 4, 9, -1, 7, 4, 2]
-	# B: answer phrase, slightly different contour.
-	var hook_b: Array[int] = [0, 4, 2, 0, -1, 7, 4, 2, 0, 9, 7, 4, -1, 2, 0, -1]
+	# Sparse "call" stabs (adds hook identity without fatiguing).
+	# Values are scale degrees above root (+24 for mid range). -1 = rest.
+	var stab_pat: Array[int] = [
+		-1, -1, -1, -1, 7, -1, -1, -1,  -1, -1, 5, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, 10, -1, -1, -1, -1, -1, 7, -1, -1, -1, -1, -1
+	]
 
-	# Simple echo (delay) for polish. Keep subtle to avoid muddiness.
-	var delay_s := int(round(0.18 * float(SAMPLE_RATE)))
-	var delay := PackedFloat32Array()
-	delay.resize(maxi(1, delay_s))
-	var di := 0
-	var echo_fb := 0.22
-	var echo_lp := 0.0
+	# Lead melody hook (32 steps): simple, singable, repeated.
+	# 1) “call” on bar 1, 2) “response” on bar 2. Keep rests for groove.
+	var lead_pat_a: Array[int] = [
+		-1, -1, 7, -1, 5, -1, 3, -1,  0, -1, 3, -1, 5, -1, 7, -1,
+		-1, -1, 10, -1, 7, -1, 5, -1, 3, -1, 5, -1, 7, -1, 10, -1
+	]
+	var lead_pat_b: Array[int] = [
+		-1, -1, 7, -1, 5, -1, 3, -1,  0, -1, 3, -1, 5, -1, 7, -1,
+		-1, -1, 12, -1, 10, -1, 7, -1, 5, -1, 7, -1, 10, -1, 7, -1
+	]
 
-	var lp: float = 0.0 # one-pole lowpass to soften digital edge
+	var lp: float = 0.0
 	for i in range(n):
 		var t := float(i) / float(SAMPLE_RATE)
-		var bar_idx := int(floor(fmod(t, bar_len * float(chords.size())) / bar_len))
-		var chord: Array = chords[clampi(bar_idx, 0, chords.size() - 1)] as Array
+		var bar_idx := int(floor(fmod(t, bar_len * 8.0) / bar_len))
+		var bar_t := fmod(t, bar_len)
+		var step_in_bar := int(floor(bar_t / step_len))
+		var st := bar_t - float(step_in_bar) * step_len
+		var gstep := int(floor(t / step_len))
+		var step_2bar := gstep % 32
 
-		# Step sequencer
-		var step := int(floor(t / step_len))
-		var st := t - float(step) * step_len
-		var step_in_bar := int(floor(fmod(t, bar_len) / step_len))
-
-		# Light swing on off-16ths (subtle)
+		# Micro-swing (gentle)
 		if (step_in_bar % 2) == 1:
-			st = maxf(0.0, st - step_len * 0.06)
+			st = maxf(0.0, st - step_len * 0.05)
 
-		# Bass: 8ths (root + occasional fifth)
-		var bass_step_len := spb / 2.0
-		var bstep := int(floor(t / bass_step_len))
-		var bt := t - float(bstep) * bass_step_len
-		var bass_midi: int = int(chord[0])
-		if (bstep % 4) == 2:
-			bass_midi = int(chord[2]) - 12
-		var bhz := _note_hz(bass_midi)
-		var bass_env := _env(bt, bass_step_len, 0.002, bass_step_len * 0.95)
-		var bass := sin(TAU * bhz * bt) * bass_env * 0.30
-		bass += sin(TAU * bhz * 0.5 * bt) * bass_env * 0.10
-		bass += _pulse(fmod(bhz * bt, 1.0), 0.22) * bass_env * 0.04
-
-		# Arp bed: plucky triad arpeggio on 16ths (keeps it moving without spamming a lead)
-		var arp := 0.0
-		var arp_pick := [0, 1, 2, 1]
-		var arp_note := int(chord[arp_pick[step_in_bar % 4]])
-		var ahz := _note_hz(arp_note + 12)
-		var aenv := _env(st, step_len, 0.001, step_len * 0.80)
-		arp += _pulse(fmod(ahz * st, 1.0), 0.18) * aenv * 0.08
-		arp += sin(TAU * ahz * st) * aenv * 0.03
-
-		# Lead hook: only on bars 0-1 and 4-5 (leave breathing room), with rests (-1).
-		var hook := hook_a if bar_idx < 4 else hook_b
-		var deg := hook[step_in_bar % 16]
-		var lead := 0.0
-		if deg != -1 and (bar_idx == 0 or bar_idx == 1 or bar_idx == 4 or bar_idx == 5):
-			var lead_midi: int = int(chord[0]) + 24 + int(deg)
-			var lhz := _note_hz(lead_midi)
-			var lead_env := _env(st, step_len, 0.001, step_len * 0.82)
-			lead += _pulse(fmod(lhz * st, 1.0), 0.14) * lead_env * 0.07
-			lead += sin(TAU * lhz * st) * lead_env * 0.05
-
-		# Simple pad: very low sine triad to glue it together (no noise)
-		var pad := 0.0
-		for ni in range(chord.size()):
-			var p_hz := _note_hz(int(chord[ni]))
-			pad += sin(TAU * p_hz * t) * 0.028
-			pad += sin(TAU * p_hz * 0.5 * t) * 0.012
-
-		# Drums: kick/snare + "hat" using high pulse (no noise source)
-		var drum := 0.0
-		var beat_in_bar := int(floor(fmod(t, bar_len) / spb))
-		var beat_t := fmod(t, spb)
-
-		# Kick on 0 and 2
-		if beat_in_bar == 0 or beat_in_bar == 2:
+		# Kick (4-on-floor), used for sidechain.
+		var beat := int(floor(bar_t / spb))
+		var beat_t := bar_t - float(beat) * spb
+		var kick := 0.0
+		if beat == 0 or beat == 2:
 			var kt := beat_t
-			var kf := lerpf(120.0, 52.0, clampf(kt / 0.09, 0.0, 1.0))
-			drum += sin(TAU * kf * kt) * _env(kt, spb, 0.001, 0.16) * 0.55
+			var kenv := _env(kt, spb, 0.001, 0.18)
+			var kf := lerpf(108.0, 46.0, clampf(kt / 0.10, 0.0, 1.0))
+			kick = sin(TAU * kf * kt) * kenv * 0.62
 
-		# Snare on 1 and 3 (tone burst)
-		if beat_in_bar == 1 or beat_in_bar == 3:
+		# Sidechain amount (duck bass on kick)
+		var duck := clampf(1.0 - absf(kick) * 0.55, 0.40, 1.0)
+
+		# Bass: 2-bar hook + response.
+		var pat := bass_hook_a if bar_idx < 4 else bass_hook_b
+		var deg := pat[step_2bar]
+		var bass := 0.0
+		if deg != -1:
+			# Use bar root for harmony, and continuous phase (t) for smoother bass.
+			var base_midi := int(bar_roots[clampi(bar_idx, 0, bar_roots.size() - 1)])
+			var midi := base_midi + int(deg)
+			# octave pop on selected steps
+			if step_2bar == 7 or step_2bar == 23:
+				midi += 12
+			var hz := _note_hz(midi)
+			var env := _env(st, step_len, 0.002, step_len * 0.92)
+			var sub := sin(TAU * hz * t) * env * 0.62
+			var bite := _pulse(fmod(hz * t, 1.0), 0.18) * env * 0.10
+			bass = _soft_clip((sub + bite) * 0.92) * duck
+
+		# Clap/snare (tone burst, no noise)
+		var clap := 0.0
+		if beat == 1 or beat == 3:
 			var nt := beat_t
-			drum += sin(TAU * 220.0 * nt) * _env(nt, spb, 0.001, 0.10) * 0.20
-			drum += sin(TAU * 330.0 * nt) * _env(nt, spb, 0.001, 0.08) * 0.12
+			var nenv := _env(nt, spb, 0.001, 0.10)
+			clap += sin(TAU * 210.0 * nt) * nenv * 0.20
+			clap += sin(TAU * 420.0 * nt) * nenv * 0.10
 
-		# Hats on off-16ths: very short high pulse, then lowpass will soften
+		# Hats: soft high pulse on 8ths (no noise)
 		var hat := 0.0
 		if (step_in_bar % 2) == 1:
-			var hh := 7800.0
-			var hph := fmod(hh * st, 1.0)
-			hat = _pulse(hph, 0.10) * _env(st, step_len, 0.0005, 0.02) * 0.06
-		drum += hat
+			var hh := 6200.0
+			hat = _pulse(fmod(hh * st, 1.0), 0.10) * _env(st, step_len, 0.0006, 0.018) * 0.05
 
-		# Tiny fill on last bar (bar 7): extra hats on 16ths
-		if bar_idx == 7:
-			var hh2 := 8200.0
-			drum += _pulse(fmod(hh2 * st, 1.0), 0.08) * _env(st, step_len, 0.0005, 0.018) * 0.04
+		# Mid stabs (call/response identity)
+		var stab := 0.0
+		var sdeg := stab_pat[step_2bar]
+		if sdeg != -1:
+			var base_midi := int(bar_roots[clampi(bar_idx, 0, bar_roots.size() - 1)])
+			var midi := base_midi + 24 + int(sdeg)
+			var hz := _note_hz(midi)
+			var envs := _env(st, step_len, 0.001, step_len * 0.55)
+			stab += _pulse(fmod(hz * t, 1.0), 0.12) * envs * 0.07
+			stab += sin(TAU * hz * t) * envs * 0.03
 
-		var mix := bass + arp + lead + pad + drum
-		# Lowpass to reduce "digital edge"
-		lp = lerpf(lp, mix, 0.06)
-		var dry := _soft_clip(lp * 1.05)
+		# Lead hook (melodic): pulse+sine blend, lightly ducked by kick.
+		var lead := 0.0
+		var lpat := lead_pat_a if bar_idx < 4 else lead_pat_b
+		var ldeg := lpat[step_2bar]
+		if ldeg != -1:
+			var base_midi := int(bar_roots[clampi(bar_idx, 0, bar_roots.size() - 1)])
+			var midi := base_midi + 36 + int(ldeg) # up an octave+ for melody
+			var hz := _note_hz(midi)
+			var envl := _env(st, step_len, 0.001, step_len * 0.75)
+			# a touch of vibrato (very subtle)
+			var vib := 1.0 + 0.006 * sin(t * 7.0)
+			var s1 := sin(TAU * hz * vib * t) * envl * 0.10
+			var s2 := _pulse(fmod(hz * vib * t, 1.0), 0.12) * envl * 0.05
+			lead = _soft_clip((s1 + s2) * 1.1) * duck
 
-		# Echo (feedback delay, lightly lowpassed)
-		var dly := delay[di]
-		echo_lp = lerpf(echo_lp, dly, 0.18)
-		var wet := echo_lp * 0.28
-		delay[di] = dry + echo_lp * echo_fb
-		di += 1
-		if di >= delay.size():
-			di = 0
+		# Soft pad glue (triad-ish): extremely quiet, just to make it feel like music.
+		var pad := 0.0
+		var base_midi := int(bar_roots[clampi(bar_idx, 0, bar_roots.size() - 1)])
+		# Minor triad: root, m3, 5
+		var p0 := _note_hz(base_midi + 24)
+		var p1 := _note_hz(base_midi + 24 + 3)
+		var p2 := _note_hz(base_midi + 24 + 7)
+		pad += sin(TAU * p0 * t) * 0.015
+		pad += sin(TAU * p1 * t) * 0.012
+		pad += sin(TAU * p2 * t) * 0.010
 
-		out[i] = _soft_clip(dry + wet)
+		# Tiny fill on last bar: extra hat ticks (still no noise).
+		if bar_idx == 7 and (step_in_bar % 4) == 3:
+			hat += _pulse(fmod(8200.0 * st, 1.0), 0.08) * _env(st, step_len, 0.0005, 0.016) * 0.02
+
+		var mix := kick + bass + clap + hat + stab + lead + pad
+		# Warm lowpass + softclip
+		lp = lerpf(lp, mix, 0.055)
+		out[i] = _soft_clip(lp * 1.05)
 
 	return _to_wav(out, true)
 
 func _make_combat_loop(dur: float) -> AudioStreamWAV:
-	# Energetic pulse + kick/snare. Still dark.
+	# In-map / combat music: bass-first, halftime groove (less hiss/noise, more punch).
 	var n := int(round(dur * float(SAMPLE_RATE)))
 	var out := PackedFloat32Array()
 	out.resize(n)
 
-	var bpm := 136.0
+	# "Ballxpit-ish" feel: 140bpm halftime = 70 groove.
+	var bpm := 140.0
 	var spb := 60.0 / bpm
 	var bar := spb * 4.0
-	var root: int = 45 # A2
-	var scale: Array[int] = [0, 3, 5, 7, 10] # minor pentatonic
+	var step_len := spb / 4.0
+	var root := 33 # A1 (subby)
+	var scale: Array[int] = [0, 3, 5, 7, 10]
 
+	# Bass hook: 2-bar (32 steps) so it actually feels like a "riff" instead of a pattern.
+	var bass_hook_a: Array[int] = [
+		0, -1, 0, 7, -1, 3, -1, 0,   0, -1, 10, -1, 7, -1, 3, 5,
+		0, -1, 0, 7, -1, 5, -1, 3,   0, -1, 10, -1, 7, 5, 3, 0
+	]
+	var bass_hook_b: Array[int] = [
+		0, -1, 3, -1, 0, 7, -1, 5,   0, -1, 10, -1, 7, -1, 5, 3,
+		0, -1, 0, 7, -1, 3, -1, 0,   0, -1, 10, -1, 7, 5, 3, 0
+	]
+
+	# Lead hook for combat (32 steps): higher register, sparse, repeats every 2 bars.
+	var lead_pat_a: Array[int] = [
+		-1, -1, 7, -1, -1, 5, -1, -1,  0, -1, 3, -1, -1, 5, -1, -1,
+		-1, -1, 10, -1, -1, 7, -1, -1, 5, -1, 3, -1, -1, 0, -1, -1
+	]
+	var lead_pat_b: Array[int] = [
+		-1, -1, 7, -1, -1, 5, -1, -1,  0, -1, 3, -1, -1, 5, -1, -1,
+		-1, -1, 12, -1, -1, 10, -1, -1, 7, -1, 5, -1, -1, 3, -1, -1
+	]
+
+	var lp: float = 0.0
 	for i in range(n):
 		var t := float(i) / float(SAMPLE_RATE)
-
-		# Sequencer (16th notes)
-		var step_t := spb / 4.0
-		var step := int(floor(t / step_t))
-		var st := t - float(step) * step_t
-		var deg: int = scale[(step * 3 + (step / 4)) % scale.size()]
-		var midi: int = root + 12 + deg
-		var hz := _note_hz(midi)
-
-		var ph := fmod(hz * st, 1.0)
-		var lead := _pulse(ph, 0.18) * _env(st, step_t, 0.001, step_t * 0.9) * 0.22
-		lead += sin(TAU * hz * 2.0 * st) * _env(st, step_t, 0.001, step_t * 0.7) * 0.06
-
-		# Bass on 8ths
-		var bstep_t := spb / 2.0
-		var bstep := int(floor(t / bstep_t))
-		var bt := t - float(bstep) * bstep_t
-		var bdeg: int = scale[(bstep) % scale.size()]
-		var bhz := _note_hz(root + bdeg)
-		var bass := sin(TAU * bhz * bt) * _env(bt, bstep_t, 0.002, bstep_t * 0.95) * 0.26
-
-		# Drums (simple synthesized kick/snare/hat)
-		var drum := 0.0
 		var bar_t := fmod(t, bar)
 		var beat := int(floor(bar_t / spb))
 		var beat_t := bar_t - float(beat) * spb
+		var step := int(floor(bar_t / step_len))
+		var st := bar_t - float(step) * step_len
+		var gstep := int(floor(t / step_len))
+		var step_2bar := gstep % 32
 
-		# Kick on beats 0 and 2
-		if beat == 0 or beat == 2:
-			var kt := beat_t
-			var kf := lerpf(110.0, 46.0, clampf(kt / 0.10, 0.0, 1.0))
-			drum += sin(TAU * kf * kt) * _env(kt, spb, 0.001, 0.18) * 0.55
+		# Kick: syncopated pattern + sub drop
+		var kick := 0.0
+		var is_kick := (beat == 0 and beat_t < 0.20) or (beat == 2 and beat_t < 0.20) or (beat == 0 and step == 6)
+		if is_kick:
+			var kt := beat_t if (beat == 0 or beat == 2) else st
+			var kenv := _env(kt, spb, 0.001, 0.16)
+			var kf := lerpf(125.0, 46.0, clampf(kt / 0.09, 0.0, 1.0))
+			kick = sin(TAU * kf * kt) * kenv * 0.70
 
-		# Snare on beats 1 and 3
-		if beat == 1 or beat == 3:
+		# Sidechain duck amount derived from kick (must exist even if bass rests).
+		var duck := clampf(1.0 - absf(kick) * 0.60, 0.35, 1.0)
+
+		# Snare/clap: halftime on beat 2 (index 2) + ghost at end
+		var sn := 0.0
+		if beat == 2:
 			var nt := beat_t
-			var hn: float = sin((float(i) + float(beat) * 777.0) * 12.9898) * 43758.5453
-			var noise: float = (hn - floor(hn)) * 2.0 - 1.0
-			drum += noise * _env(nt, spb, 0.001, 0.12) * 0.24
-			drum += sin(TAU * 190.0 * nt) * _env(nt, spb, 0.001, 0.08) * 0.12
+			var envn := _env(nt, spb, 0.001, 0.10)
+			sn += sin(TAU * 220.0 * nt) * envn * 0.22
+			sn += sin(TAU * 440.0 * nt) * envn * 0.10
+		if beat == 3 and beat_t > spb * 0.75:
+			var gt := beat_t - spb * 0.75
+			sn += sin(TAU * 260.0 * gt) * _env(gt, spb * 0.25, 0.001, 0.05) * 0.07
 
-		# Hats on 16ths
-		var ht := st
-		var hn2: float = sin((float(i) + 999.0) * 78.233) * 19341.343
-		var noise2: float = (hn2 - floor(hn2)) * 2.0 - 1.0
-		drum += noise2 * _env(ht, step_t, 0.0005, 0.03) * 0.07
+		# Hats: pulse-based (no noise). Light rolls on bar end.
+		var hat := 0.0
+		if (step % 2) == 1:
+			var hh := 7600.0
+			hat = _pulse(fmod(hh * st, 1.0), 0.10) * _env(st, step_len, 0.0006, 0.02) * 0.06
+		# roll on last beat
+		if beat == 3 and beat_t > spb * 0.5:
+			var rt := fmod(beat_t, step_len * 0.5)
+			hat += _pulse(fmod(8800.0 * rt, 1.0), 0.08) * _env(rt, step_len * 0.5, 0.0004, 0.015) * 0.03
 
-		var mix := lead + bass + drum
-		out[i] = _soft_clip(mix * 1.05)
+		# Bass with simple glide (portamento-ish): use previous sample phase continuity by using t.
+		var bar_idx := int(floor(fmod(t, bar * 4.0) / bar))
+		var pat := bass_hook_a if bar_idx < 2 else bass_hook_b
+		var deg := pat[step_2bar]
+		var bass := 0.0
+		if deg != -1:
+			var midi := root + deg
+			var hz := _note_hz(midi)
+			var envb := _env(st, step_len, 0.002, step_len * 0.90)
+			# sub + distorted square
+			var sub := sin(TAU * hz * t) * envb * 0.60
+			var sq := _pulse(fmod(hz * t, 1.0), 0.22) * envb * 0.10
+			bass = _soft_clip((sub + sq) * 0.95) * duck
+
+		# Lead hook (melody) + light sidechain.
+		var lead := 0.0
+		var lpat := lead_pat_a if bar_idx < 2 else lead_pat_b
+		var ldeg := lpat[step_2bar]
+		if ldeg != -1:
+			var midi := root + 36 + int(ldeg)
+			var hz := _note_hz(midi)
+			var envl := _env(st, step_len, 0.001, step_len * 0.70)
+			var vib := 1.0 + 0.007 * sin(t * 8.0)
+			lead += sin(TAU * hz * vib * t) * envl * 0.10
+			lead += _pulse(fmod(hz * vib * t, 1.0), 0.12) * envl * 0.05
+			lead = _soft_clip(lead * 1.05) * duck
+
+		# Tiny mid "pluck" to keep energy (very low volume) + call/response.
+		var pluck := 0.0
+		if (step % 4) == 0:
+			var pdeg := scale[(step / 4) % scale.size()]
+			var phz := _note_hz(root + 24 + pdeg)
+			pluck = sin(TAU * phz * st) * _env(st, step_len, 0.001, 0.05) * 0.06
+		# response stab on bar 3 (hook variation)
+		if bar_idx == 3 and (step % 8) == 4:
+			var phz2 := _note_hz(root + 24 + 7)
+			pluck += sin(TAU * phz2 * st) * _env(st, step_len, 0.001, 0.06) * 0.05
+
+		# Very soft pad glue (keeps it musical without getting busy)
+		var pad := 0.0
+		var base_midi := root + 12
+		pad += sin(TAU * _note_hz(base_midi) * t) * 0.012
+		pad += sin(TAU * _note_hz(base_midi + 3) * t) * 0.010
+		pad += sin(TAU * _note_hz(base_midi + 7) * t) * 0.008
+
+		var mix := kick + sn + hat + bass + lead + pluck + pad
+		lp = lerpf(lp, mix, 0.06)
+		out[i] = _soft_clip(lp * 1.10)
 
 	return _to_wav(out, true)
 

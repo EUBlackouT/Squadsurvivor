@@ -100,6 +100,10 @@ func _manual_hit_check() -> void:
 				# VFX: enemy ranged impact (EffectBlocks if exported)
 				var world := _main if _main != null else get_tree().get_first_node_in_group("main") as Node2D
 				if world != null:
+					# SFX: enemy ranged hit (throttled)
+					var s := world.get_node_or_null("/root/SfxSystem")
+					if s and is_instance_valid(s) and s.has_method("play_event"):
+						s.play_event("hit.enemy_ranged", n2.global_position, self)
 					var v := world.get_node_or_null("/root/VfxSystem")
 					if v and is_instance_valid(v) and v.has_method("play_event"):
 						v.play_event("hit.enemy_ranged", n2.global_position, world, Color(1, 0.7, 0.7, 1), 1.0)

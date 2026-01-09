@@ -16,6 +16,16 @@ Assets
 - Sheets are under res://assets/structures/*.png.
 - To convert raw strips (even with black backgrounds) use the included editor tool below.
 
+Local-only third-party packs (not in git)
+- Some VFX content is intentionally excluded from git (see repo `.gitignore`):
+  - `res://PolyBlocks/` (third-party pack folder)
+  - `res://assets/vfx/effectblocks/` (exported flipbook frames)
+- If these folders go missing (often due to a manual delete or an aggressive `git clean`),
+  VFX will fall back or disappear.
+- To verify/backup quickly from the repo root:
+  - Run `scripts/check_third_party_godot_assets.ps1`
+  - Run `scripts/backup_third_party_godot_assets.ps1`
+
 Run
 - Click Play; you should see all three structures animate smoothly without lateral/vertical movement.
 

@@ -25,10 +25,44 @@ var _cache_scene3d: Dictionary = {} # path -> PackedScene
 # Debugging helpers (opt-in; avoids spamming normal play).
 var debug_toasts_enabled: bool = false
 var _debug_last_ms: Dictionary = {} # event_id -> int
+var _warned_missing_third_party: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	ensure_loaded()
+	_warn_if_missing_third_party_assets()
+
+func _warn_if_missing_third_party_assets() -> void:
+	# These are intentionally not tracked in git (.gitignore). If they disappear (e.g. after a clean),
+	# we want a loud signal instead of "VFX silently missing".
+	if _warned_missing_third_party:
+		return
+	_warned_missing_third_party = true
+
+	var missing: Array[String] = []
+
+	# 3D pack (used by some scene_3d VFX like syn.holy).
+	if not ResourceLoader.exists("res://PolyBlocks/PixelRenderer/PixelRenderer.tscn"):
+		missing.append("res://PolyBlocks/ (third-party pack folder missing)")
+
+	# Exported flipbooks (used by effect_key VFX).
+	var export_dir_ok := (DirAccess.open(_export_root) != null)
+	if not export_dir_ok:
+		missing.append(_export_root + " (exported flipbooks folder missing)")
+
+	if missing.is_empty():
+		return
+
+	var msg := "Missing local third-party VFX assets:\n- " + "\n- ".join(missing) + "\n\nThese folders are intentionally not committed to git; re-copy/re-extract them locally."
+	push_warning(msg)
+
+	# Try to surface it in-game if we can find the ToastLayer.
+	var main_node: Node = get_tree().get_first_node_in_group("main") as Node
+	if main_node != null and is_instance_valid(main_node):
+		var tl_obj: Variant = main_node.get("toast_layer")
+		var tl: ToastLayer = tl_obj as ToastLayer
+		if tl != null and is_instance_valid(tl):
+			tl.show_toast("Missing local VFX assets (see console warning)", Color(1.0, 0.5, 0.4, 1.0))
 
 func set_debug_toasts_enabled(enabled: bool) -> void:
 	debug_toasts_enabled = enabled
@@ -51,10 +85,13 @@ func ensure_loaded() -> void:
 		return
 	_loaded = true
 	if not ResourceLoader.exists(CFG_PATH):
+		push_warning("VfxSystem: missing config at %s" % CFG_PATH)
 		return
 	var txt := FileAccess.get_file_as_string(CFG_PATH)
 	var parsed: Variant = JSON.parse_string(txt)
 	if typeof(parsed) != TYPE_DICTIONARY:
+		# If vfx_events.json is invalid (e.g., contains comments), everything will silently fall back.
+		push_warning("VfxSystem: failed to parse %s (expected JSON object). First chars: %s" % [CFG_PATH, txt.substr(0, 120)])
 		return
 	var d: Dictionary = parsed
 	_export_root = String(d.get("export_root", _export_root))
@@ -250,8 +287,22 @@ func _get_frames(effect_key: String) -> Array[Texture2D]:
 	# Guardrail: if export produced fully-transparent frames (common when capture camera isn't current),
 	# treat as "not available" so gameplay falls back to old VFX instead of invisible projectiles.
 	if not frames.is_empty():
-		var img := frames[0].get_image() if frames[0] != null else null
-		if img == null or img.get_used_rect().size.x <= 0 or img.get_used_rect().size.y <= 0:
+		# IMPORTANT: many effects start with an empty frame. Only reject the flipbook if *all* sampled
+		# frames look empty (fully transparent / zero used rect).
+		var any_visible := false
+		var sample_n := mini(frames.size(), 6) # keep it cheap
+		for i in range(sample_n):
+			var tex_i := frames[i]
+			if tex_i == null:
+				continue
+			var img := tex_i.get_image()
+			if img == null:
+				continue
+			var r := img.get_used_rect()
+			if r.size.x > 0 and r.size.y > 0:
+				any_visible = true
+				break
+		if not any_visible:
 			frames.clear()
 
 	_cache_frames[effect_key] = frames

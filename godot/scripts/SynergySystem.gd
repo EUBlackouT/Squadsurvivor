@@ -1025,7 +1025,9 @@ static func _effect_wisp_bolt(unit: Node2D, e: Dictionary) -> void:
 		var emb := VfxFlameBurst.new()
 		emb.setup((unit as Node2D).global_position, Color(0.95, 0.35, 0.95, 1.0), 18.0, 8, 0.18)
 		_spawn_vfx(world, emb)
-		_sfx(world, "syn.flame", (unit as Node2D).global_position, unit)
+		# Wisp bolt is an arcane/magic proc — do NOT use syn.flame (burn) here, or the burn VFX will
+		# incorrectly play on the squad unit.
+		_sfx(world, "syn.wisp", (unit as Node2D).global_position, unit)
 	_spawn_projectile(world, (unit as Node2D).global_position, pick, dmg, Color(0.95, 0.35, 0.95, 0.95))
 	if extra > 0:
 		var pick2 := _pick_near_enemy(unit as Node2D, (pick as Node2D).global_position, radius, pick)
