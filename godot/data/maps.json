@@ -21,6 +21,10 @@
         "rune_strength": 0.06,
         "light_strength": 0.14,
         "vignette": 0.42,
+        "scale": 0.021,
+        "detail_scale": 0.094,
+        "crack_strength": 1.20,
+        "grit_strength": 0.95,
 
         "rays_color": "#92ffd3",
         "rays_strength": 0.06,
@@ -79,6 +83,10 @@
         "rune_strength": 0.10,
         "light_strength": 0.18,
         "vignette": 0.28,
+        "scale": 0.017,
+        "detail_scale": 0.110,
+        "crack_strength": 0.92,
+        "grit_strength": 0.62,
 
         "rays_color": "#b99bff",
         "rays_strength": 0.14,
@@ -137,6 +145,10 @@
         "rune_strength": 0.08,
         "light_strength": 0.22,
         "vignette": 0.24,
+        "scale": 0.026,
+        "detail_scale": 0.080,
+        "crack_strength": 0.70,
+        "grit_strength": 1.35,
 
         "rays_color": "#ffb08a",
         "rays_strength": 0.10,

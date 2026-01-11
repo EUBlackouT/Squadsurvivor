@@ -168,15 +168,16 @@ func _update_map_tagline(rc: Node) -> void:
 
 func _danger_score(m: Dictionary) -> float:
 	# Rough, readable heuristic (0..10-ish). Not a balance tool, just UI guidance.
-	var hp := float(m.get("enemy_hp_mult", 1.0))
-	var dmg := float(m.get("enemy_damage_mult", 1.0))
-	var spd := float(m.get("enemy_speed_mult", 1.0))
-	var maxe := float(m.get("max_enemies_mult", 1.0))
-	var si := float(m.get("spawn_interval_mult", 1.0))
+	var hp: float = float(m.get("enemy_hp_mult", 1.0))
+	var dmg: float = float(m.get("enemy_damage_mult", 1.0))
+	var spd: float = float(m.get("enemy_speed_mult", 1.0))
+	var maxe: float = float(m.get("max_enemies_mult", 1.0))
+	var si: float = float(m.get("spawn_interval_mult", 1.0))
 
-	var pressure := (maxe * 0.45) + ((1.0 / max(0.25, si)) * 0.55)
-	var lethality := (hp * 0.50) + (dmg * 0.40) + (spd * 0.10)
-	var s := (pressure * 3.2 + lethality * 4.2)
+	# Use float-only ops to keep type inference unambiguous (warnings treated as errors).
+	var pressure: float = (maxe * 0.45) + ((1.0 / maxf(0.25, si)) * 0.55)
+	var lethality: float = (hp * 0.50) + (dmg * 0.40) + (spd * 0.10)
+	var s: float = (pressure * 3.2 + lethality * 4.2)
 	return clampf(s, 0.0, 10.0)
 
 func _tier_color(score: float) -> String:
@@ -222,7 +223,8 @@ func _update_map_preview(rc: Node) -> void:
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
 	var m: Dictionary = rc.get_map(cur) if rc.has_method("get_map") else {}
 	var vis: Dictionary = {}
-	var vv := m.get("visuals", {})
+	# Explicit type to avoid Variant inference warnings (warnings treated as errors).
+	var vv: Variant = m.get("visuals", {})
 	if typeof(vv) == TYPE_DICTIONARY:
 		vis = vv as Dictionary
 
@@ -235,11 +237,18 @@ func _update_map_preview(rc: Node) -> void:
 
 	var root := Node2D.new()
 	root.name = "PreviewRoot"
+	root.process_mode = Node.PROCESS_MODE_ALWAYS
 	map_preview_vp.add_child(root)
 	_preview_root = root
 
+	# Ensure the SubViewport has a predictable clear color (helps spot rendering issues)
+	# and avoid default gray.
+	map_preview_vp.transparent_bg = false
+	map_preview_vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	map_preview_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
 	var mr := preload("res://scenes/MapRenderer.tscn").instantiate()
-	root.add_child(mr)
+	mr.process_mode = Node.PROCESS_MODE_ALWAYS
 
 	# Configure for preview readability.
 	# Small world so props show up, plus gentle motion.
@@ -265,6 +274,9 @@ func _update_map_preview(rc: Node) -> void:
 			&"prop_count":
 				# Override to be denser than gameplay (but still tasteful).
 				mr.set(nm, 26)
+
+	# Add AFTER configuration so _ready() sees the right params on first run.
+	root.add_child(mr)
 
 func _open_map_overlay() -> void:
 	if map_overlay == null:
@@ -522,5 +534,3 @@ func _apply_font_override(lbl: Label, f: Font) -> void:
 	if lbl == null or f == null:
 		return
 	lbl.add_theme_font_override("font", f)
-
-

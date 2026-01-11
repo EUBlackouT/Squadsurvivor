@@ -194,7 +194,7 @@ theme_override_constants/margin_bottom = 18
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/separation = 12
+theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="MapOverlay/Panel/Pad/VBox"]
 text = "Select Map"
@@ -202,13 +202,13 @@ horizontal_alignment = 1
 theme_override_font_sizes/font_size = 28
 
 [node name="MapList" type="ItemList" parent="MapOverlay/Panel/Pad/VBox"]
-custom_minimum_size = Vector2(0, 240)
+custom_minimum_size = Vector2(0, 190)
 allow_reselect = true
 select_mode = 0
 item_count = 0
 
 [node name="MapPreviewFrame" type="PanelContainer" parent="MapOverlay/Panel/Pad/VBox"]
-custom_minimum_size = Vector2(0, 176)
+custom_minimum_size = Vector2(0, 150)
 
 [node name="Pad" type="MarginContainer" parent="MapOverlay/Panel/Pad/VBox/MapPreviewFrame"]
 anchors_preset = 15
@@ -236,7 +236,7 @@ autowrap_mode = 3
 theme_override_font_sizes/font_size = 13
 
 [node name="MapDetails" type="RichTextLabel" parent="MapOverlay/Panel/Pad/VBox"]
-custom_minimum_size = Vector2(0, 62)
+custom_minimum_size = Vector2(0, 54)
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
