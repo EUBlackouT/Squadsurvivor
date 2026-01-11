@@ -20,12 +20,15 @@ extends Control
 
 @onready var map_overlay: Control = get_node_or_null("MapOverlay") as Control
 @onready var map_list: ItemList = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapList") as ItemList
+@onready var map_preview_vp: SubViewport = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapPreviewFrame/Pad/Preview/VP") as SubViewport
 @onready var map_tagline: Label = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapTagline") as Label
+@onready var map_details: RichTextLabel = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapDetails") as RichTextLabel
 @onready var map_back_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Back") as Button
 @onready var map_start_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Start") as Button
 
 var _map_ids: Array[String] = []
 var _crowd: Node2D = null
+var _preview_root: Node = null
 
 @export var game_title: String = "Squad Protocol"
 @export var game_tagline: String = "Draft a squad. Survive the swarm."
@@ -126,6 +129,7 @@ func _setup_map_select_overlay() -> void:
 			break
 
 	_update_map_tagline(rc)
+	_update_map_preview(rc)
 
 	map_list.item_selected.connect(func(idx: int):
 		if idx < 0 or idx >= _map_ids.size():
@@ -135,6 +139,7 @@ func _setup_map_select_overlay() -> void:
 		if rc.has_method("set_selected_map_id"):
 			rc.set_selected_map_id(id)
 		_update_map_tagline(rc)
+		_update_map_preview(rc)
 	)
 
 	if map_back_btn:
@@ -159,6 +164,107 @@ func _update_map_tagline(rc: Node) -> void:
 		map_tagline.text = ""
 	else:
 		map_tagline.text = "%s\nSigils multiplier: x%.2f" % [t, mult]
+	_update_map_details(m)
+
+func _danger_score(m: Dictionary) -> float:
+	# Rough, readable heuristic (0..10-ish). Not a balance tool, just UI guidance.
+	var hp := float(m.get("enemy_hp_mult", 1.0))
+	var dmg := float(m.get("enemy_damage_mult", 1.0))
+	var spd := float(m.get("enemy_speed_mult", 1.0))
+	var maxe := float(m.get("max_enemies_mult", 1.0))
+	var si := float(m.get("spawn_interval_mult", 1.0))
+
+	var pressure := (maxe * 0.45) + ((1.0 / max(0.25, si)) * 0.55)
+	var lethality := (hp * 0.50) + (dmg * 0.40) + (spd * 0.10)
+	var s := (pressure * 3.2 + lethality * 4.2)
+	return clampf(s, 0.0, 10.0)
+
+func _tier_color(score: float) -> String:
+	if score < 3.5:
+		return "#79ffd2" # chill
+	if score < 6.5:
+		return "#ffd86b" # spicy
+	return "#ff6a55" # brutal
+
+func _bar(score: float) -> String:
+	var n := int(round(score))
+	n = clampi(n, 0, 10)
+	var s := ""
+	for i in range(10):
+		s += "■" if i < n else "·"
+	return s
+
+func _update_map_details(m: Dictionary) -> void:
+	if map_details == null:
+		return
+	var score := _danger_score(m)
+	var col := _tier_color(score)
+	var sig := float(m.get("meta_sigils_mult", 1.0))
+	var ess := float(m.get("essence_mult", 1.0))
+	var boss := bool(m.get("boss_enabled", true))
+	var boss_m := float(m.get("boss_spawn_minutes", 18.0))
+
+	var title := "[b][color=%s]Difficulty[/color][/b]  [color=%s]%s[/color]  (%.1f/10)" % [col, col, _bar(score), score]
+	var rewards := "[b]Rewards[/b]  Sigils x%.2f   Essence x%.2f" % [sig, ess]
+	var b := "[b]Boss[/b]  %s" % ("Yes @ %.0fm" % boss_m if boss else "No")
+	map_details.text = "%s\n%s\n%s" % [title, rewards, b]
+
+func _hash32(s: String) -> int:
+	# Simple stable hash for deterministic previews.
+	var h: int = 2166136261
+	for i in range(s.length()):
+		h = int((h ^ s.unicode_at(i)) * 16777619) & 0x7fffffff
+	return h
+
+func _update_map_preview(rc: Node) -> void:
+	if map_preview_vp == null:
+		return
+	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
+	var m: Dictionary = rc.get_map(cur) if rc.has_method("get_map") else {}
+	var vis: Dictionary = {}
+	var vv := m.get("visuals", {})
+	if typeof(vv) == TYPE_DICTIONARY:
+		vis = vv as Dictionary
+
+	# Rebuild preview scene (small + dense so it reads at a glance).
+	if _preview_root != null and is_instance_valid(_preview_root):
+		_preview_root.queue_free()
+		_preview_root = null
+	for c in map_preview_vp.get_children():
+		(c as Node).queue_free()
+
+	var root := Node2D.new()
+	root.name = "PreviewRoot"
+	map_preview_vp.add_child(root)
+	_preview_root = root
+
+	var mr := preload("res://scenes/MapRenderer.tscn").instantiate()
+	root.add_child(mr)
+
+	# Configure for preview readability.
+	# Small world so props show up, plus gentle motion.
+	for pd in mr.get_property_list():
+		var nm := StringName(String((pd as Dictionary).get("name", "")))
+		match nm:
+			&"map_size":
+				mr.set(nm, Vector2(1400, 900))
+			&"seed":
+				mr.set(nm, _hash32(cur))
+			&"map_visuals":
+				mr.set(nm, vis)
+			&"prop_min_dist_from_center":
+				mr.set(nm, 80.0)
+			&"follow_margin_px":
+				mr.set(nm, 0.0)
+			&"preview_pan_px":
+				mr.set(nm, 120.0)
+			&"preview_pan_speed":
+				mr.set(nm, 0.22)
+			&"spawn_props":
+				mr.set(nm, true)
+			&"prop_count":
+				# Override to be denser than gameplay (but still tasteful).
+				mr.set(nm, 26)
 
 func _open_map_overlay() -> void:
 	if map_overlay == null:

@@ -24,3 +24,4 @@ Write-Host "Creating backup: $outZip" -ForegroundColor Cyan
 Compress-Archive -Force -Path $polyBlocks, $effectblocks -DestinationPath $outZip
 Write-Host "Done." -ForegroundColor Green
 
+

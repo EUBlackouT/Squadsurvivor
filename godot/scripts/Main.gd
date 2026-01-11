@@ -201,20 +201,42 @@ func _make_background() -> void:
 		var mr := MAP_RENDERER_SCENE.instantiate()
 		mr.name = "MapRenderer"
 		add_child(mr)
+
+		# Map visuals from maps.json (optional). If present, MapRenderer uses it to theme itself.
+		var vis: Dictionary = {}
+		if not _map_mod.is_empty():
+			var vv := _map_mod.get("visuals", {})
+			if typeof(vv) == TYPE_DICTIONARY:
+				vis = vv as Dictionary
+
 		# Best-effort optional wiring, safe in strict typing mode.
 		for pd in mr.get_property_list():
 			var nm := StringName(String((pd as Dictionary).get("name", "")))
 			match nm:
 				&"map_size":
 					mr.set(nm, map_size)
+				&"map_visuals":
+					mr.set(nm, vis)
 				&"theme_id":
-					mr.set(nm, map_theme_id)
+					# Prefer per-map theme_id if provided.
+					if not vis.is_empty() and vis.has("theme_id"):
+						mr.set(nm, String(vis.get("theme_id")))
+					else:
+						mr.set(nm, map_theme_id)
 				&"prop_count":
-					mr.set(nm, map_prop_count)
+					# Prefer per-map prop_count if provided.
+					if not vis.is_empty() and vis.has("prop_count"):
+						mr.set(nm, int(vis.get("prop_count")))
+					else:
+						mr.set(nm, map_prop_count)
 				&"fog_enabled":
 					mr.set(nm, map_fog_enabled)
 				&"fog_strength":
-					mr.set(nm, map_fog_strength)
+					# Prefer per-map fog_strength if provided.
+					if not vis.is_empty() and vis.has("fog_strength"):
+						mr.set(nm, float(vis.get("fog_strength")))
+					else:
+						mr.set(nm, map_fog_strength)
 				&"seed":
 					mr.set(nm, random_seed)
 		return

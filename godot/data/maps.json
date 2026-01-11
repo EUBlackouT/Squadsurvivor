@@ -5,6 +5,34 @@
       "id": "graveyard",
       "name": "Graveyard (I)",
       "tagline": "Chill opener. Learn the loop. Not the best farm.",
+      "visuals": {
+        "theme_id": "graveyard",
+        "base_color": "#14191d",
+        "alt_color": "#1f2329",
+        "accent_color": "#2d3a2e",
+        "fog_color": "#9bbda8",
+        "fog_strength": 0.18,
+        "prop_count": 46,
+        "prop_sheets": [
+          "res://assets/structures/green_fountain_sheet.png",
+          "res://assets/structures/obelisk_sheet.png"
+        ],
+        "rune_color": "#60ffc6",
+        "rune_strength": 0.06,
+        "light_strength": 0.14,
+        "vignette": 0.42,
+
+        "rays_color": "#92ffd3",
+        "rays_strength": 0.06,
+        "rays_scale": 0.85,
+
+        "atmo_style": 2,
+        "atmo_color": "#88ffd0",
+        "atmo_strength": 0.14,
+        "atmo_density": 0.85,
+        "atmo_scale": 0.010,
+        "atmo_speed": 0.20
+      },
       "enemy_hp_mult": 0.95,
       "enemy_damage_mult": 0.85,
       "enemy_speed_mult": 0.98,
@@ -35,6 +63,34 @@
       "id": "library",
       "name": "Arcane Library (II)",
       "tagline": "Harder baseline. Better rewards. Drafts start to spike.",
+      "visuals": {
+        "theme_id": "arcane_ruins",
+        "base_color": "#0f141a",
+        "alt_color": "#171f2b",
+        "accent_color": "#34507a",
+        "fog_color": "#93bfff",
+        "fog_strength": 0.14,
+        "prop_count": 44,
+        "prop_sheets": [
+          "res://assets/structures/arcane_cube_sheet.png",
+          "res://assets/structures/obelisk_sheet.png"
+        ],
+        "rune_color": "#d978ff",
+        "rune_strength": 0.10,
+        "light_strength": 0.18,
+        "vignette": 0.28,
+
+        "rays_color": "#b99bff",
+        "rays_strength": 0.14,
+        "rays_scale": 1.10,
+
+        "atmo_style": 0,
+        "atmo_color": "#d978ff",
+        "atmo_strength": 0.22,
+        "atmo_density": 1.25,
+        "atmo_scale": 0.012,
+        "atmo_speed": 0.42
+      },
       "enemy_hp_mult": 1.45,
       "enemy_damage_mult": 1.25,
       "enemy_speed_mult": 1.05,
@@ -65,6 +121,34 @@
       "id": "foundry",
       "name": "Iron Foundry (III)",
       "tagline": "Pressure cooker. You come here to high-roll.",
+      "visuals": {
+        "theme_id": "foundry",
+        "base_color": "#111316",
+        "alt_color": "#1c2026",
+        "accent_color": "#3a2d1f",
+        "fog_color": "#ffb08a",
+        "fog_strength": 0.10,
+        "prop_count": 52,
+        "prop_sheets": [
+          "res://assets/structures/obelisk_sheet.png",
+          "res://assets/structures/arcane_cube_sheet.png"
+        ],
+        "rune_color": "#ff9a2f",
+        "rune_strength": 0.08,
+        "light_strength": 0.22,
+        "vignette": 0.24,
+
+        "rays_color": "#ffb08a",
+        "rays_strength": 0.10,
+        "rays_scale": 1.25,
+
+        "atmo_style": 1,
+        "atmo_color": "#ff9a2f",
+        "atmo_strength": 0.22,
+        "atmo_density": 1.35,
+        "atmo_scale": 0.013,
+        "atmo_speed": 0.65
+      },
       "enemy_hp_mult": 2.10,
       "enemy_damage_mult": 1.55,
       "enemy_speed_mult": 1.10,

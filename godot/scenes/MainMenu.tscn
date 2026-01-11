@@ -207,10 +207,41 @@ allow_reselect = true
 select_mode = 0
 item_count = 0
 
+[node name="MapPreviewFrame" type="PanelContainer" parent="MapOverlay/Panel/Pad/VBox"]
+custom_minimum_size = Vector2(0, 176)
+
+[node name="Pad" type="MarginContainer" parent="MapOverlay/Panel/Pad/VBox/MapPreviewFrame"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Preview" type="SubViewportContainer" parent="MapOverlay/Panel/Pad/VBox/MapPreviewFrame/Pad"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+stretch = true
+
+[node name="VP" type="SubViewport" parent="MapOverlay/Panel/Pad/VBox/MapPreviewFrame/Pad/Preview"]
+size = Vector2i(640, 320)
+transparent_bg = false
+render_target_update_mode = 3
+
 [node name="MapTagline" type="Label" parent="MapOverlay/Panel/Pad/VBox"]
 text = ""
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 13
+
+[node name="MapDetails" type="RichTextLabel" parent="MapOverlay/Panel/Pad/VBox"]
+custom_minimum_size = Vector2(0, 62)
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+text = ""
+theme_override_font_sizes/normal_font_size = 12
 
 [node name="Buttons" type="HBoxContainer" parent="MapOverlay/Panel/Pad/VBox"]
 theme_override_constants/separation = 12

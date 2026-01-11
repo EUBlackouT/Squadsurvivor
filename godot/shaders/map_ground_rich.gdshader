@@ -5,6 +5,11 @@ uniform vec4 u_base_color : source_color = vec4(0.08, 0.10, 0.12, 1.0);
 uniform vec4 u_alt_color  : source_color = vec4(0.12, 0.13, 0.16, 1.0);
 uniform vec4 u_accent_color : source_color = vec4(0.18, 0.22, 0.18, 1.0); // mossy tint
 
+// Optional "wow" layer (subtle, not noisy):
+uniform vec4 u_rune_color : source_color = vec4(0.36, 1.00, 0.78, 1.0);
+uniform float u_rune_strength : hint_range(0.0, 0.4) = 0.0;
+uniform float u_light_strength : hint_range(0.0, 0.5) = 0.14;
+
 uniform float u_scale = 0.020;          // world->noise scale
 uniform float u_detail_scale = 0.092;   // smaller features
 uniform float u_crack_strength : hint_range(0.0, 2.0) = 1.05;
@@ -72,6 +77,20 @@ void fragment() {
 	col *= (1.0 - cracks * 0.22);
 	col += grit * 0.08;
 	col *= blocks;
+
+	// Broad lighting gradient (makes the world feel less flat).
+	vec2 luv = UV * 2.0 - 1.0;
+	float light = 0.5 + 0.5 * dot(normalize(vec2(-0.75, -0.65)), luv);
+	col *= mix(0.92, 1.10, clamp(light, 0.0, 1.0) * u_light_strength);
+
+	// Subtle rune shimmer (static pattern) for "arcane / foundry" vibes.
+	if (u_rune_strength > 0.001) {
+		float k = sin((p.x + p.y) * 0.018) * sin((p.x - p.y) * 0.016);
+		float m = smoothstep(0.86, 0.98, abs(k));
+		float gate = smoothstep(0.35, 0.85, n2);
+		float rune = m * gate * u_rune_strength;
+		col = mix(col, u_rune_color.rgb, rune);
+	}
 
 	// Vignette
 	vec2 uv = UV * 2.0 - 1.0;
