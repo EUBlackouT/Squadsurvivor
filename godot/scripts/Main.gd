@@ -981,6 +981,10 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	if was_boss:
 		base = 15  # Boss kills are very rewarding
 	var mult := float(_map_mod.get("essence_mult", 1.0))
+	# Meta progression essence bonus
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		mult *= float(mp.get_mod("essence_mult", 1.0))
 	essence += maxi(1, int(round(float(base) * mult)))
 
 	# Trophy pool: store recent killed character variants for unlocks

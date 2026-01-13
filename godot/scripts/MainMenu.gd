@@ -9,6 +9,7 @@ extends Control
 @onready var resume_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Resume") as Button
 @onready var play_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Play") as Button
 @onready var armory_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Armory") as Button
+@onready var protocol_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Protocol") as Button
 @onready var settings_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Settings") as Button
 @onready var quit_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Quit") as Button
 
@@ -84,6 +85,15 @@ func _ready() -> void:
 			_play_ui("ui.click")
 			get_tree().change_scene_to_file("res://scenes/Menu.tscn")
 		)
+
+	if protocol_btn:
+		protocol_btn.pressed.connect(func():
+			_play_ui("ui.click")
+			_open_protocol_grid()
+		)
+	else:
+		# Create button dynamically if not in scene
+		_create_protocol_button()
 
 	if settings_btn:
 		settings_btn.pressed.connect(func():
@@ -167,18 +177,26 @@ func _update_map_tagline(rc: Node) -> void:
 	_update_map_details(m)
 
 func _danger_score(m: Dictionary) -> float:
-	# Rough, readable heuristic (0..10-ish). Not a balance tool, just UI guidance.
+	# Calculate difficulty 1-10 based on map multipliers
+	# 1.0 = baseline (5), <1.0 = easier, >1.0 = harder
 	var hp: float = float(m.get("enemy_hp_mult", 1.0))
 	var dmg: float = float(m.get("enemy_damage_mult", 1.0))
 	var spd: float = float(m.get("enemy_speed_mult", 1.0))
 	var maxe: float = float(m.get("max_enemies_mult", 1.0))
-	var si: float = float(m.get("spawn_interval_mult", 1.0))
-
-	# Use float-only ops to keep type inference unambiguous (warnings treated as errors).
-	var pressure: float = (maxe * 0.45) + ((1.0 / maxf(0.25, si)) * 0.55)
-	var lethality: float = (hp * 0.50) + (dmg * 0.40) + (spd * 0.10)
-	var s: float = (pressure * 3.2 + lethality * 4.2)
-	return clampf(s, 0.0, 10.0)
+	var si: float = float(m.get("spawn_interval_mult", 1.0))  # Higher = slower spawns = easier
+	
+	# Convert to deviation from 1.0 (baseline)
+	# Graveyard: hp=0.95, dmg=0.85 → negative deviation → lower difficulty
+	# Foundry: hp=2.10, dmg=1.55 → positive deviation → higher difficulty
+	var hp_dev: float = (hp - 1.0) * 2.5
+	var dmg_dev: float = (dmg - 1.0) * 3.0
+	var spd_dev: float = (spd - 1.0) * 1.5
+	var maxe_dev: float = (maxe - 1.0) * 2.0
+	var si_dev: float = (1.0 - si) * 2.0  # Inverted: lower interval = harder
+	
+	# Base score of 5, modified by deviations
+	var s: float = 5.0 + hp_dev + dmg_dev + spd_dev + maxe_dev + si_dev
+	return clampf(s, 1.0, 10.0)
 
 func _tier_color(score: float) -> String:
 	if score < 3.5:
@@ -458,6 +476,7 @@ func _polish_menu_ui() -> void:
 	_style_button(play_btn, true, primary, secondary)
 	_style_button(resume_btn, true, primary, secondary)
 	_style_button(armory_btn, false, primary, secondary)
+	_style_button(protocol_btn, false, Color(0.8, 0.5, 1.0, 0.25), Color(0.6, 0.3, 0.9, 0.15))  # Purple accent
 	_style_button(settings_btn, false, primary, secondary)
 	_style_button(quit_btn, false, primary, secondary)
 
@@ -569,3 +588,464 @@ func _apply_font_override(lbl: Label, f: Font) -> void:
 	if lbl == null or f == null:
 		return
 	lbl.add_theme_font_override("font", f)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROTOCOL GRID - Meta Progression System
+# ─────────────────────────────────────────────────────────────────────────────
+
+var _protocol_overlay: Control = null
+var _protocol_nodes: Array[Dictionary] = []
+
+const PROTOCOL_UPGRADES := [
+	# Tier 1: Very cheap - buy after first run even if you die (~50-75 sigils)
+	{"id": "hp_boost_1", "name": "Vitality I", "desc": "+10% Squad HP", "cost": 50, "icon": "♥", "row": 0, "col": 1, "color": "#ff6060", "prereq": []},
+	{"id": "dmg_boost_1", "name": "Power I", "desc": "+8% Squad Damage", "cost": 60, "icon": "⚔", "row": 0, "col": 3, "color": "#ffa040", "prereq": []},
+	{"id": "speed_1", "name": "Agility I", "desc": "+5% Move Speed", "cost": 40, "icon": "»", "row": 0, "col": 2, "color": "#60ff90", "prereq": []},
+	
+	# Tier 2: Affordable - 1-2 decent runs (~150-250 sigils)
+	{"id": "hp_boost_2", "name": "Vitality II", "desc": "+15% Squad HP", "cost": 180, "icon": "♥♥", "row": 1, "col": 0, "color": "#ff4040", "prereq": ["hp_boost_1"]},
+	{"id": "dmg_boost_2", "name": "Power II", "desc": "+12% Squad Damage", "cost": 200, "icon": "⚔⚔", "row": 1, "col": 4, "color": "#ff8020", "prereq": ["dmg_boost_1"]},
+	{"id": "speed_2", "name": "Agility II", "desc": "+8% Move Speed", "cost": 150, "icon": "»»", "row": 1, "col": 2, "color": "#40ff70", "prereq": ["speed_1"]},
+	{"id": "crit_1", "name": "Precision I", "desc": "+3% Crit Chance", "cost": 120, "icon": "✧", "row": 1, "col": 1, "color": "#ffff60", "prereq": ["hp_boost_1"]},
+	{"id": "essence_1", "name": "Harvest I", "desc": "+10% Essence Gain", "cost": 100, "icon": "◆", "row": 1, "col": 3, "color": "#60d0ff", "prereq": ["dmg_boost_1"]},
+	
+	# Tier 3: Requires victories (~350-500 sigils)
+	{"id": "hp_boost_3", "name": "Vitality III", "desc": "+20% Squad HP", "cost": 450, "icon": "♥♥♥", "row": 2, "col": 0, "color": "#ff2020", "prereq": ["hp_boost_2"]},
+	{"id": "dmg_boost_3", "name": "Power III", "desc": "+18% Squad Damage", "cost": 500, "icon": "⚔⚔⚔", "row": 2, "col": 4, "color": "#ff6000", "prereq": ["dmg_boost_2"]},
+	{"id": "crit_2", "name": "Precision II", "desc": "+5% Crit Chance", "cost": 350, "icon": "✧✧", "row": 2, "col": 1, "color": "#ffff40", "prereq": ["crit_1"]},
+	{"id": "essence_2", "name": "Harvest II", "desc": "+15% Essence Gain", "cost": 300, "icon": "◆◆", "row": 2, "col": 3, "color": "#40b0ff", "prereq": ["essence_1"]},
+	{"id": "draft_luck", "name": "Fortune", "desc": "+Higher Rarity Drafts", "cost": 400, "icon": "★", "row": 2, "col": 2, "color": "#c080ff", "prereq": ["speed_2"]},
+	
+	# Capstone: Major goal (~800 sigils = ~2 victories)
+	{"id": "starting_unit", "name": "Reinforcement", "desc": "+1 Starting Squad", "cost": 800, "icon": "☗", "row": 3, "col": 2, "color": "#ff80c0", "prereq": ["draft_luck", "crit_2", "essence_2"]},
+]
+
+func _create_protocol_button() -> void:
+	if card == null or not card.has_node("Pad/VBox"):
+		return
+	var vbox := card.get_node("Pad/VBox") as VBoxContainer
+	if vbox == null:
+		return
+	
+	# Find position after Armory
+	var insert_idx := -1
+	for i in range(vbox.get_child_count()):
+		var child := vbox.get_child(i)
+		if child.name == "Armory":
+			insert_idx = i + 1
+			break
+	
+	if insert_idx == -1:
+		return
+	
+	# Create button
+	protocol_btn = Button.new()
+	protocol_btn.name = "Protocol"
+	protocol_btn.text = "PROTOCOL GRID"
+	protocol_btn.custom_minimum_size = Vector2(240, 48)
+	vbox.add_child(protocol_btn)
+	vbox.move_child(protocol_btn, insert_idx)
+	
+	protocol_btn.pressed.connect(func():
+		_play_ui("ui.click")
+		_open_protocol_grid()
+	)
+	
+	# Style it with purple accent
+	_style_button(protocol_btn, false, Color(0.8, 0.5, 1.0, 0.25), Color(0.6, 0.3, 0.9, 0.15))
+
+func _open_protocol_grid() -> void:
+	if _protocol_overlay != null and is_instance_valid(_protocol_overlay):
+		_protocol_overlay.visible = true
+		_update_protocol_grid()
+		return
+	
+	_create_protocol_overlay()
+	_update_protocol_grid()
+
+func _create_protocol_overlay() -> void:
+	_protocol_overlay = Control.new()
+	_protocol_overlay.name = "ProtocolOverlay"
+	_protocol_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_protocol_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_protocol_overlay)
+	
+	# Dark backdrop
+	var bg := ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.02, 0.02, 0.06, 0.92)
+	_protocol_overlay.add_child(bg)
+	
+	# Main panel
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.custom_minimum_size = Vector2(900, 650)
+	panel.position = Vector2(-450, -325)
+	
+	var panel_sb := StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.06, 0.07, 0.12, 0.98)
+	panel_sb.corner_radius_top_left = 16
+	panel_sb.corner_radius_top_right = 16
+	panel_sb.corner_radius_bottom_left = 16
+	panel_sb.corner_radius_bottom_right = 16
+	panel_sb.border_width_left = 3
+	panel_sb.border_width_right = 3
+	panel_sb.border_width_top = 3
+	panel_sb.border_width_bottom = 3
+	panel_sb.border_color = Color(0.6, 0.4, 0.9, 0.6)
+	panel_sb.shadow_color = Color(0.5, 0.3, 0.8, 0.3)
+	panel_sb.shadow_size = 12
+	panel.add_theme_stylebox_override("panel", panel_sb)
+	_protocol_overlay.add_child(panel)
+	
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	panel.add_child(vbox)
+	
+	# Header
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 20)
+	vbox.add_child(header)
+	
+	var title := Label.new()
+	title.name = "Title"
+	title.text = "⬡ PROTOCOL GRID ⬡"
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color(0.85, 0.7, 1.0, 1.0))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	
+	var sigils_lbl := Label.new()
+	sigils_lbl.name = "SigilsLabel"
+	sigils_lbl.text = "★ 0"
+	sigils_lbl.add_theme_font_size_override("font_size", 26)
+	sigils_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4, 1.0))
+	header.add_child(sigils_lbl)
+	
+	# Subtitle
+	var sub := Label.new()
+	sub.text = "Permanent upgrades that persist across all runs"
+	sub.add_theme_font_size_override("font_size", 14)
+	sub.add_theme_color_override("font_color", Color(0.7, 0.75, 0.85, 0.8))
+	vbox.add_child(sub)
+	
+	# Grid container for nodes
+	var grid_wrap := Control.new()
+	grid_wrap.name = "GridWrap"
+	grid_wrap.custom_minimum_size = Vector2(850, 420)
+	grid_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(grid_wrap)
+	
+	# Create upgrade nodes
+	_protocol_nodes.clear()
+	for upgrade in PROTOCOL_UPGRADES:
+		var node := _create_protocol_node(upgrade)
+		grid_wrap.add_child(node["panel"])
+		_protocol_nodes.append(node)
+	
+	# Draw connection lines
+	_draw_protocol_lines(grid_wrap)
+	
+	# Buttons
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 20)
+	vbox.add_child(btn_row)
+	
+	var back_btn := Button.new()
+	back_btn.name = "BackBtn"
+	back_btn.text = "← BACK"
+	back_btn.custom_minimum_size = Vector2(160, 44)
+	back_btn.pressed.connect(func():
+		_play_ui("ui.cancel")
+		_protocol_overlay.visible = false
+	)
+	btn_row.add_child(back_btn)
+	_style_button(back_btn, false, Color(0.6, 0.65, 0.7, 0.4), Color(0.5, 0.55, 0.6, 0.2))
+
+func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
+	var col := int(upgrade.get("col", 0))
+	var row := int(upgrade.get("row", 0))
+	var node_color := Color.from_string(String(upgrade.get("color", "#ffffff")), Color.WHITE)
+	
+	var panel := PanelContainer.new()
+	panel.name = String(upgrade.get("id", "node"))
+	panel.custom_minimum_size = Vector2(140, 90)
+	
+	# Position based on grid
+	var x := 80.0 + float(col) * 160.0
+	var y := 20.0 + float(row) * 100.0
+	panel.position = Vector2(x, y)
+	
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.14, 0.95)
+	sb.corner_radius_top_left = 10
+	sb.corner_radius_top_right = 10
+	sb.corner_radius_bottom_left = 10
+	sb.corner_radius_bottom_right = 10
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(node_color.r, node_color.g, node_color.b, 0.5)
+	panel.add_theme_stylebox_override("panel", sb)
+	
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 2)
+	panel.add_child(content)
+	
+	var icon_lbl := Label.new()
+	icon_lbl.text = String(upgrade.get("icon", "?"))
+	icon_lbl.add_theme_font_size_override("font_size", 22)
+	icon_lbl.add_theme_color_override("font_color", node_color)
+	icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(icon_lbl)
+	
+	var name_lbl := Label.new()
+	name_lbl.name = "Name"
+	name_lbl.text = String(upgrade.get("name", "?"))
+	name_lbl.add_theme_font_size_override("font_size", 13)
+	name_lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(name_lbl)
+	
+	var cost_lbl := Label.new()
+	cost_lbl.name = "Cost"
+	cost_lbl.text = "★ %d" % int(upgrade.get("cost", 0))
+	cost_lbl.add_theme_font_size_override("font_size", 12)
+	cost_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4, 0.9))
+	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(cost_lbl)
+	
+	# Click handler
+	var btn_overlay := Button.new()
+	btn_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	btn_overlay.flat = true
+	btn_overlay.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	panel.add_child(btn_overlay)
+	
+	var upgrade_id := String(upgrade.get("id", ""))
+	btn_overlay.pressed.connect(func():
+		_on_protocol_node_clicked(upgrade_id)
+	)
+	btn_overlay.mouse_entered.connect(func():
+		_on_protocol_node_hovered(upgrade_id, true)
+	)
+	btn_overlay.mouse_exited.connect(func():
+		_on_protocol_node_hovered(upgrade_id, false)
+	)
+	
+	return {
+		"id": upgrade_id,
+		"panel": panel,
+		"stylebox": sb,
+		"color": node_color,
+		"upgrade": upgrade
+	}
+
+func _draw_protocol_lines(container: Control) -> void:
+	# Draw lines connecting prerequisites
+	for node in _protocol_nodes:
+		var upgrade: Dictionary = node.get("upgrade", {})
+		var prereqs: Array = upgrade.get("prereq", [])
+		var panel: Control = node.get("panel")
+		if panel == null:
+			continue
+		
+		var to_pos := panel.position + Vector2(70, 0)  # Top center
+		
+		for prereq_id in prereqs:
+			# Find prereq node
+			for pnode in _protocol_nodes:
+				if String(pnode.get("id", "")) == String(prereq_id):
+					var from_panel: Control = pnode.get("panel")
+					if from_panel == null:
+						continue
+					var from_pos := from_panel.position + Vector2(70, 90)  # Bottom center
+					
+					var line := Line2D.new()
+					line.width = 2.0
+					line.default_color = Color(0.5, 0.4, 0.7, 0.4)
+					line.points = [from_pos, to_pos]
+					line.z_index = -1
+					container.add_child(line)
+					break
+
+func _update_protocol_grid() -> void:
+	var mp := get_node_or_null("/root/MetaProgression")
+	var sigils := 0
+	var unlocked: Array = []
+	
+	if mp and is_instance_valid(mp):
+		if mp.has_method("get_sigils"):
+			sigils = int(mp.get_sigils())
+		if mp.has_method("get_unlocked_upgrades"):
+			unlocked = mp.get_unlocked_upgrades()
+	
+	# Update sigils display
+	if _protocol_overlay:
+		var sigils_lbl := _protocol_overlay.get_node_or_null("PanelContainer/VBoxContainer/HBoxContainer/SigilsLabel") as Label
+		if sigils_lbl == null:
+			# Try alternate path
+			for child in _protocol_overlay.get_children():
+				if child is PanelContainer:
+					for c2 in child.get_children():
+						if c2 is VBoxContainer:
+							for c3 in c2.get_children():
+								if c3 is HBoxContainer:
+									for c4 in c3.get_children():
+										if c4 is Label and c4.name == "SigilsLabel":
+											sigils_lbl = c4
+											break
+		if sigils_lbl:
+			sigils_lbl.text = "★ %d" % sigils
+	
+	# Update node states
+	for node in _protocol_nodes:
+		var id := String(node.get("id", ""))
+		var panel: PanelContainer = node.get("panel")
+		var sb: StyleBoxFlat = node.get("stylebox")
+		var color: Color = node.get("color", Color.WHITE)
+		var upgrade: Dictionary = node.get("upgrade", {})
+		
+		if panel == null or sb == null:
+			continue
+		
+		var is_unlocked := id in unlocked
+		var prereqs: Array = upgrade.get("prereq", [])
+		var prereqs_met := true
+		for prereq_id in prereqs:
+			if not String(prereq_id) in unlocked:
+				prereqs_met = false
+				break
+		
+		var cost := int(upgrade.get("cost", 0))
+		var can_afford := sigils >= cost
+		
+		if is_unlocked:
+			# Unlocked - bright and glowing
+			sb.bg_color = Color(color.r * 0.25, color.g * 0.25, color.b * 0.25, 0.95)
+			sb.border_color = color
+			sb.border_width_left = 3
+			sb.border_width_right = 3
+			sb.border_width_top = 3
+			sb.border_width_bottom = 3
+			panel.modulate = Color(1, 1, 1, 1)
+			# Update cost to show "OWNED"
+			var cost_lbl := panel.get_node_or_null("VBoxContainer/Cost") as Label
+			if cost_lbl:
+				cost_lbl.text = "✓ OWNED"
+				cost_lbl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5, 1.0))
+		elif prereqs_met and can_afford:
+			# Available - normal
+			sb.bg_color = Color(0.1, 0.11, 0.16, 0.95)
+			sb.border_color = Color(color.r, color.g, color.b, 0.7)
+			sb.border_width_left = 2
+			sb.border_width_right = 2
+			sb.border_width_top = 2
+			sb.border_width_bottom = 2
+			panel.modulate = Color(1, 1, 1, 1)
+		elif prereqs_met:
+			# Prereqs met but can't afford - dimmed
+			sb.bg_color = Color(0.08, 0.09, 0.12, 0.95)
+			sb.border_color = Color(color.r * 0.5, color.g * 0.5, color.b * 0.5, 0.5)
+			panel.modulate = Color(0.7, 0.7, 0.7, 1)
+		else:
+			# Locked - very dim
+			sb.bg_color = Color(0.05, 0.05, 0.08, 0.95)
+			sb.border_color = Color(0.3, 0.3, 0.35, 0.3)
+			panel.modulate = Color(0.4, 0.4, 0.4, 0.7)
+
+func _on_protocol_node_clicked(upgrade_id: String) -> void:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp):
+		return
+	
+	# Find upgrade
+	var upgrade: Dictionary = {}
+	for u in PROTOCOL_UPGRADES:
+		if String(u.get("id", "")) == upgrade_id:
+			upgrade = u
+			break
+	
+	if upgrade.is_empty():
+		return
+	
+	var unlocked: Array = []
+	if mp.has_method("get_unlocked_upgrades"):
+		unlocked = mp.get_unlocked_upgrades()
+	
+	# Already owned?
+	if upgrade_id in unlocked:
+		_play_ui("ui.error")
+		return
+	
+	# Check prereqs
+	var prereqs: Array = upgrade.get("prereq", [])
+	for prereq_id in prereqs:
+		if not String(prereq_id) in unlocked:
+			_play_ui("ui.error")
+			return
+	
+	# Check cost
+	var cost := int(upgrade.get("cost", 0))
+	var sigils := 0
+	if mp.has_method("get_sigils"):
+		sigils = int(mp.get_sigils())
+	
+	if sigils < cost:
+		_play_ui("ui.error")
+		return
+	
+	# Purchase!
+	if mp.has_method("spend_sigils"):
+		mp.spend_sigils(cost)
+	if mp.has_method("unlock_upgrade"):
+		mp.unlock_upgrade(upgrade_id)
+	
+	_play_ui("ui.levelup")
+	_update_protocol_grid()
+	
+	# Celebration effect
+	_spawn_purchase_vfx(upgrade_id)
+
+func _on_protocol_node_hovered(upgrade_id: String, hovered: bool) -> void:
+	# Find node
+	for node in _protocol_nodes:
+		if String(node.get("id", "")) == upgrade_id:
+			var panel: PanelContainer = node.get("panel")
+			if panel:
+				if hovered:
+					var tw := panel.create_tween()
+					tw.tween_property(panel, "scale", Vector2(1.08, 1.08), 0.1)
+				else:
+					var tw := panel.create_tween()
+					tw.tween_property(panel, "scale", Vector2(1.0, 1.0), 0.1)
+			break
+
+func _spawn_purchase_vfx(upgrade_id: String) -> void:
+	# Find node position
+	for node in _protocol_nodes:
+		if String(node.get("id", "")) == upgrade_id:
+			var panel: PanelContainer = node.get("panel")
+			var color: Color = node.get("color", Color.WHITE)
+			if panel and panel.get_parent():
+				var pos := panel.global_position + Vector2(70, 45)
+				# Spawn particles
+				for i in range(12):
+					var p := ColorRect.new()
+					p.size = Vector2(6, 6)
+					p.color = color
+					p.position = pos
+					_protocol_overlay.add_child(p)
+					
+					var angle := randf() * TAU
+					var dist := 60.0 + randf() * 40.0
+					var target := pos + Vector2.from_angle(angle) * dist
+					
+					var tw := p.create_tween()
+					tw.set_parallel(true)
+					tw.tween_property(p, "position", target, 0.4).set_ease(Tween.EASE_OUT)
+					tw.tween_property(p, "modulate:a", 0.0, 0.4)
+					tw.chain().tween_callback(p.queue_free)
+			break

@@ -63,7 +63,6 @@ static func execute_attack(
 	ensure_loaded()
 	var w := get_weapon(weapon_id)
 	if w.is_empty():
-		# Fallback to standard projectile
 		_fire_standard_projectile(attacker, target, damage, is_crit, main_node, character_data)
 		return
 	
@@ -88,6 +87,10 @@ static func execute_attack(
 			_fire_beam(attacker, target, damage, is_crit, main_node, character_data, w)
 		"slam":
 			_execute_ground_slam(attacker, damage, is_crit, main_node, character_data, w)
+		"whirlwind":
+			_execute_whirlwind(attacker, damage, is_crit, main_node, character_data, w)
+		"heavy_melee":
+			_execute_heavy_strike(attacker, target, damage, is_crit, main_node, character_data, w)
 		"dot_projectile":
 			_fire_dot_projectile(attacker, target, damage, is_crit, main_node, character_data, w)
 		"slow_projectile":
@@ -119,10 +122,12 @@ static func _fire_standard_projectile(attacker: Node2D, target: Node2D, damage: 
 	_play_sfx(main_node, "player.shot", attacker.global_position)
 
 static func _execute_melee_arc(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
-	var arc_radius := float(w.get("arc_radius", 85))
-	var arc_angle := float(w.get("arc_angle", 120))
-	var falloff := float(w.get("damage_falloff", 0.7))
+	var arc_radius := float(w.get("arc_radius", 110))
+	var arc_angle := float(w.get("arc_angle", 160))
+	var falloff := float(w.get("damage_falloff", 0.8))
+	var dmg_bonus := float(w.get("damage_bonus", 1.5))
 	
+	var base_dmg := int(float(damage) * dmg_bonus)
 	var dir := (target.global_position - attacker.global_position).normalized()
 	var angle_to_target := dir.angle()
 	var half_arc := deg_to_rad(arc_angle / 2.0)
@@ -144,15 +149,45 @@ static func _execute_melee_arc(attacker: Node2D, target: Node2D, damage: int, is
 		var angle_diff := absf(angle_difference(angle_to_target, angle_to_e))
 		if angle_diff > half_arc:
 			continue
-		# Hit this enemy
-		var dmg := damage if hit_count == 0 else int(float(damage) * falloff)
+		# Hit this enemy - full damage to all in arc
+		var dmg := base_dmg if hit_count == 0 else int(float(base_dmg) * falloff)
 		if n2.has_method("take_damage"):
 			n2.take_damage(dmg, is_crit and hit_count == 0, "reaper_slash")
 		hit_count += 1
 	
-	# VFX: big slash arc
-	_play_vfx(main_node, "weapon.reaper_slash", attacker.global_position + dir * arc_radius * 0.5)
-	_play_sfx(main_node, "weapon.reaper_slash", attacker.global_position)
+	# VFX: big visible slash arc
+	_spawn_melee_arc_vfx(main_node, attacker.global_position, dir, arc_radius, arc_angle)
+	_play_sfx(main_node, "weapon.slash", attacker.global_position)
+	
+	# Screen shake for melee impact
+	var shake := main_node.get_node_or_null("/root/ScreenShake")
+	if shake and is_instance_valid(shake) and hit_count > 0:
+		shake.shake(3.0 + float(hit_count), 0.08)
+
+static func _spawn_melee_arc_vfx(main_node: Node2D, origin: Vector2, dir: Vector2, radius: float, angle_deg: float) -> void:
+	# Create visible arc slash
+	var arc := Line2D.new()
+	arc.z_index = 2100
+	arc.width = 8.0
+	arc.default_color = Color(1.0, 0.9, 0.7, 0.9)
+	arc.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	arc.end_cap_mode = Line2D.LINE_CAP_ROUND
+	
+	var base_angle := dir.angle()
+	var half := deg_to_rad(angle_deg / 2.0)
+	var points: PackedVector2Array = []
+	var segments := 12
+	for i in range(segments + 1):
+		var t := float(i) / float(segments)
+		var a := base_angle - half + t * half * 2.0
+		points.append(origin + Vector2.from_angle(a) * radius)
+	arc.points = points
+	main_node.add_child(arc)
+	
+	# Fade out
+	var tw := arc.create_tween()
+	tw.tween_property(arc, "modulate:a", 0.0, 0.15)
+	tw.tween_callback(arc.queue_free)
 
 static func _fire_bomb(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var bomb := WP.BombProjectile.new()
@@ -276,13 +311,16 @@ static func _fire_beam(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 	_play_sfx(main_node, "hit.crit", attacker.global_position)
 
 static func _execute_ground_slam(attacker: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
-	var inner_r := float(w.get("inner_radius", 40))
-	var outer_r := float(w.get("outer_radius", 100))
-	var inner_mult := float(w.get("inner_damage_mult", 1.2))
-	var outer_mult := float(w.get("outer_damage_mult", 0.5))
+	var inner_r := float(w.get("inner_radius", 55))
+	var outer_r := float(w.get("outer_radius", 130))
+	var inner_mult := float(w.get("inner_damage_mult", 1.4))
+	var outer_mult := float(w.get("outer_damage_mult", 0.7))
+	var dmg_bonus := float(w.get("damage_bonus", 1.4))
 	
+	var base_dmg := int(float(damage) * dmg_bonus)
 	var pos := attacker.global_position
 	var enemies := _get_enemies(main_node)
+	var hit_count := 0
 	
 	for e in enemies:
 		if not is_instance_valid(e):
@@ -293,14 +331,98 @@ static func _execute_ground_slam(attacker: Node2D, damage: int, is_crit: bool, m
 		var dist := n2.global_position.distance_to(pos)
 		if dist > outer_r:
 			continue
-		var dmg := int(float(damage) * (inner_mult if dist <= inner_r else outer_mult))
+		var dmg := int(float(base_dmg) * (inner_mult if dist <= inner_r else outer_mult))
 		if n2.has_method("take_damage"):
-			n2.take_damage(dmg, is_crit, "ground_slam")
+			n2.take_damage(dmg, is_crit and hit_count == 0, "ground_slam")
+		hit_count += 1
 	
-	# VFX: big shockwave
-	_play_vfx(main_node, "weapon.ground_slam", pos, Color(0.8, 0.5, 0.2, 1.0), outer_r / 80.0)
-	_play_vfx(main_node, "weapon.ground_slam_inner", pos, Color(0.9, 0.7, 0.4, 1.0), inner_r / 40.0)
+	# VFX: Create visible shockwave rings directly
+	_spawn_slam_vfx(main_node, pos, inner_r, outer_r)
 	_play_sfx(main_node, "weapon.slam", pos)
+	
+	# Screen shake
+	var shake := main_node.get_node_or_null("/root/ScreenShake")
+	if shake and is_instance_valid(shake) and shake.has_method("shake"):
+		shake.shake(6.0, 0.15)
+
+static func _spawn_slam_vfx(main_node: Node2D, pos: Vector2, inner_r: float, outer_r: float) -> void:
+	# Inner shockwave ring
+	var inner := VfxShockwave.new()
+	inner.setup(pos, Color(1.0, 0.7, 0.3, 1.0), 15.0, inner_r * 1.2, 6.0, 0.2)
+	main_node.add_child(inner)
+	
+	# Outer shockwave ring
+	var outer := VfxShockwave.new()
+	outer.setup(pos, Color(0.9, 0.5, 0.2, 0.8), 20.0, outer_r * 1.1, 5.0, 0.3)
+	main_node.add_child(outer)
+	
+	# Ground crack lines
+	for i in range(8):
+		var angle := TAU * float(i) / 8.0 + randf() * 0.3
+		var line := _create_crack_line(pos, angle, outer_r * 0.9)
+		main_node.add_child(line)
+	
+	# Dust particles
+	for i in range(12):
+		var angle := TAU * randf()
+		var dist := randf_range(inner_r * 0.5, outer_r * 0.8)
+		var dust_pos := pos + Vector2.from_angle(angle) * dist
+		var dust := _create_dust_particle(dust_pos)
+		main_node.add_child(dust)
+
+static func _create_crack_line(origin: Vector2, angle: float, length: float) -> Line2D:
+	var line := Line2D.new()
+	line.z_index = 1900
+	line.width = 3.0
+	line.default_color = Color(0.3, 0.2, 0.1, 0.9)
+	
+	var points: PackedVector2Array = [origin]
+	var pos := origin
+	var remaining := length
+	var seg_count := randi_range(3, 5)
+	
+	for i in range(seg_count):
+		var seg_len := remaining / float(seg_count - i) * randf_range(0.7, 1.3)
+		var deviation := randf_range(-0.3, 0.3)
+		pos += Vector2.from_angle(angle + deviation) * seg_len
+		points.append(pos)
+		remaining -= seg_len
+	
+	line.points = points
+	
+	# Fade out
+	var tween := line.create_tween()
+	tween.tween_property(line, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(line.queue_free)
+	
+	return line
+
+static func _create_dust_particle(pos: Vector2) -> Sprite2D:
+	var dust := Sprite2D.new()
+	dust.global_position = pos
+	dust.z_index = 2000
+	
+	var size := 8
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center := Vector2(size / 2.0, size / 2.0)
+	for x in range(size):
+		for y in range(size):
+			var dist := Vector2(x, y).distance_to(center) / (size / 2.0)
+			var alpha := maxf(0.0, 1.0 - dist) * 0.7
+			img.set_pixel(x, y, Color(0.6, 0.5, 0.4, alpha))
+	
+	dust.texture = ImageTexture.create_from_image(img)
+	dust.scale = Vector2(randf_range(1.5, 3.0), randf_range(1.5, 3.0))
+	
+	# Animate upward and fade
+	var tween := dust.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(dust, "position:y", dust.position.y - randf_range(20, 40), 0.4)
+	tween.tween_property(dust, "modulate:a", 0.0, 0.4)
+	tween.set_parallel(false)
+	tween.tween_callback(dust.queue_free)
+	
+	return dust
 
 static func _fire_dot_projectile(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var proj := WP.DotProjectile.new()
@@ -367,12 +489,88 @@ static func _fire_cone(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 		if n2.has_method("apply_burn"):
 			var dps := float(damage) * burn_pct / burn_dur
 			n2.apply_burn(dps, burn_dur, 0.5)
-		# Per-enemy burn VFX
-		_play_vfx(main_node, "weapon.fire_burn", n2.global_position)
+		# Per-enemy burn VFX (small flame on each enemy)
+		_spawn_small_fire(main_node, n2.global_position)
 	
-	# Cone VFX
-	_play_vfx(main_node, "weapon.fire_cone", attacker.global_position + dir * cone_range * 0.4, Color(1.0, 0.4, 0.1, 1.0), cone_range / 100.0)
+	# Spawn proper cone particles
+	_spawn_flame_cone_vfx(main_node, attacker.global_position, dir, cone_range, cone_angle)
 	_play_sfx(main_node, "weapon.fire", attacker.global_position)
+
+static func _spawn_flame_cone_vfx(main_node: Node2D, origin: Vector2, dir: Vector2, cone_range: float, cone_angle: float) -> void:
+	# Create a proper cone-shaped flame effect using multiple small particles
+	var base_angle := dir.angle()
+	var half_cone := deg_to_rad(cone_angle / 2.0)
+	var particle_count := 12
+	
+	for i in range(particle_count):
+		var t := float(i) / float(particle_count - 1) if particle_count > 1 else 0.5
+		var angle_offset := lerpf(-half_cone, half_cone, t)
+		var p_angle := base_angle + angle_offset
+		var particle_dir := Vector2.from_angle(p_angle)
+		
+		# Spawn 2-3 particles along each ray
+		for j in range(3):
+			var dist := cone_range * (0.3 + 0.7 * randf()) * (float(j + 1) / 3.0)
+			var pos := origin + particle_dir * dist
+			var particle := _create_flame_particle(main_node, pos, dist / cone_range)
+			if particle:
+				main_node.add_child(particle)
+
+static func _create_flame_particle(main_node: Node2D, pos: Vector2, intensity: float) -> Node2D:
+	var particle := Sprite2D.new()
+	particle.global_position = pos
+	particle.z_index = 2100
+	
+	# Create a bright, vibrant flame texture
+	var size := 24
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center := Vector2(size / 2.0, size / 2.0)
+	for x in range(size):
+		for y in range(size):
+			var dist := Vector2(x, y).distance_to(center) / (size / 2.0)
+			var alpha := maxf(0.0, 1.0 - dist * dist) * (0.7 + intensity * 0.3)
+			# Bright orange-yellow core, red edges
+			var r := 1.0
+			var g := lerpf(0.3, 0.9, maxf(0.0, 1.0 - dist))
+			var b := lerpf(0.0, 0.3, maxf(0.0, 1.0 - dist * 2.0))
+			img.set_pixel(x, y, Color(r, g, b, alpha))
+	var tex := ImageTexture.create_from_image(img)
+	particle.texture = tex
+	particle.scale = Vector2(2.0 + randf() * 1.5, 2.0 + randf() * 1.5) * (0.6 + intensity * 0.4)
+	particle.modulate = Color(1.0, 0.9, 0.7, 1.0)  # Slight warm tint
+	
+	# Animate fade out
+	var tween := main_node.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(particle, "modulate:a", 0.0, 0.35 + randf() * 0.2)
+	tween.tween_property(particle, "scale", particle.scale * 1.3, 0.35)
+	tween.set_parallel(false)
+	tween.tween_callback(particle.queue_free)
+	
+	return particle
+
+static func _spawn_small_fire(main_node: Node2D, pos: Vector2) -> void:
+	var particle := Sprite2D.new()
+	particle.global_position = pos + Vector2(0, -12)
+	particle.z_index = 2050
+	
+	var img := Image.create(12, 16, false, Image.FORMAT_RGBA8)
+	for x in range(12):
+		for y in range(16):
+			var cx := 6.0
+			var cy := 12.0
+			var dist := Vector2(x - cx, (y - cy) * 0.7).length() / 6.0
+			var alpha := maxf(0.0, 1.0 - dist) * 0.7
+			var g := lerpf(0.3, 0.8, float(16 - y) / 16.0)
+			img.set_pixel(x, y, Color(1.0, g, 0.1, alpha))
+	var tex := ImageTexture.create_from_image(img)
+	particle.texture = tex
+	particle.scale = Vector2(1.2, 1.5)
+	main_node.add_child(particle)
+	
+	var tween := main_node.create_tween()
+	tween.tween_property(particle, "modulate:a", 0.0, 0.4)
+	tween.tween_callback(particle.queue_free)
 
 static func _fire_delayed_strike(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var delay := float(w.get("delay", 0.4))
@@ -388,20 +586,184 @@ static func _fire_delayed_strike(attacker: Node2D, target: Node2D, damage: int, 
 	
 	_play_sfx(main_node, "player.shot", attacker.global_position)
 
+static func _execute_whirlwind(attacker: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
+	var radius := float(w.get("radius", 95))
+	var dmg_bonus := float(w.get("damage_bonus", 1.3))
+	
+	var base_dmg := int(float(damage) * dmg_bonus)
+	var pos := attacker.global_position
+	var enemies := _get_enemies(main_node)
+	var hit_count := 0
+	
+	for e in enemies:
+		if not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_to(pos) > radius:
+			continue
+		if n2.has_method("take_damage"):
+			n2.take_damage(base_dmg, is_crit and hit_count == 0, "whirlwind")
+		hit_count += 1
+	
+	# VFX: spinning slash circle
+	_spawn_whirlwind_vfx(main_node, pos, radius)
+	_play_sfx(main_node, "weapon.slash", pos)
+	
+	if hit_count > 0:
+		var shake := main_node.get_node_or_null("/root/ScreenShake")
+		if shake and is_instance_valid(shake):
+			shake.shake(4.0 + float(hit_count) * 0.5, 0.1)
+
+static func _spawn_whirlwind_vfx(main_node: Node2D, pos: Vector2, radius: float) -> void:
+	# Create spinning slash effect
+	for i in range(3):
+		var arc := Line2D.new()
+		arc.z_index = 2100
+		arc.width = 6.0
+		arc.default_color = Color(0.9, 0.95, 1.0, 0.85)
+		arc.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		arc.end_cap_mode = Line2D.LINE_CAP_ROUND
+		
+		var offset := TAU * float(i) / 3.0
+		var points: PackedVector2Array = []
+		for j in range(8):
+			var t := float(j) / 7.0
+			var a := offset + t * PI * 0.6
+			var r := radius * (0.6 + t * 0.4)
+			points.append(pos + Vector2.from_angle(a) * r)
+		arc.points = points
+		main_node.add_child(arc)
+		
+		var tw := arc.create_tween()
+		tw.tween_property(arc, "rotation", TAU, 0.2)
+		tw.parallel().tween_property(arc, "modulate:a", 0.0, 0.2)
+		tw.tween_callback(arc.queue_free)
+
+static func _execute_heavy_strike(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
+	var cleave_count := int(w.get("cleave_count", 3))
+	var stagger_dur := float(w.get("stagger_duration", 0.5))
+	var dmg_bonus := float(w.get("damage_bonus", 1.8))
+	
+	var base_dmg := int(float(damage) * dmg_bonus)
+	var dir := (target.global_position - attacker.global_position).normalized()
+	var hit_count := 0
+	
+	# Get enemies sorted by distance in front direction
+	var enemies := _get_enemies(main_node)
+	var targets: Array[Node2D] = []
+	for e in enemies:
+		if not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		var to_e := n2.global_position - attacker.global_position
+		if to_e.length() > 100:
+			continue
+		# Must be roughly in front
+		if to_e.normalized().dot(dir) < 0.3:
+			continue
+		targets.append(n2)
+	
+	# Sort by distance
+	targets.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		return a.global_position.distance_squared_to(attacker.global_position) < b.global_position.distance_squared_to(attacker.global_position)
+	)
+	
+	# Hit up to cleave_count
+	for i in range(mini(cleave_count, targets.size())):
+		var t := targets[i]
+		var dmg := base_dmg if i == 0 else int(float(base_dmg) * 0.7)
+		if t.has_method("take_damage"):
+			t.take_damage(dmg, is_crit and i == 0, "heavy_strike")
+		# Stagger effect
+		if t.has_method("apply_stagger"):
+			t.apply_stagger(stagger_dur)
+		elif t.has_method("apply_slow"):
+			t.apply_slow(0.3, stagger_dur)
+		hit_count += 1
+	
+	# Big impact VFX
+	var impact_pos := attacker.global_position + dir * 50
+	_spawn_heavy_strike_vfx(main_node, impact_pos, dir)
+	_play_sfx(main_node, "weapon.slam", impact_pos)
+	
+	var shake := main_node.get_node_or_null("/root/ScreenShake")
+	if shake and is_instance_valid(shake) and hit_count > 0:
+		shake.shake(6.0, 0.12)
+
+static func _spawn_heavy_strike_vfx(main_node: Node2D, pos: Vector2, dir: Vector2) -> void:
+	# Impact flash
+	var flash := VfxImpactFlash.new()
+	flash.setup(pos, Color(1.0, 0.8, 0.4, 1.0), 35.0, 0.15)
+	main_node.add_child(flash)
+	
+	# Shockwave in direction
+	var wave := VfxShockwave.new()
+	wave.setup(pos, Color(0.9, 0.7, 0.3, 0.9), 20.0, 60.0, 5.0, 0.2)
+	main_node.add_child(wave)
+	
+	# Slash line
+	var slash := Line2D.new()
+	slash.z_index = 2100
+	slash.width = 12.0
+	slash.default_color = Color(1.0, 0.9, 0.6, 1.0)
+	slash.points = [pos - dir * 30, pos + dir * 40]
+	main_node.add_child(slash)
+	
+	var tw := slash.create_tween()
+	tw.tween_property(slash, "modulate:a", 0.0, 0.12)
+	tw.tween_callback(slash.queue_free)
+
 static func _execute_lifesteal_melee(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
-	var lifesteal := float(w.get("lifesteal_percent", 0.25))
+	var lifesteal := float(w.get("lifesteal_percent", 0.30))
+	var cleave_count := int(w.get("cleave_count", 3))
+	var cleave_radius := float(w.get("cleave_radius", 70))
+	var dmg_bonus := float(w.get("damage_bonus", 1.4))
 	
+	var base_dmg := int(float(damage) * dmg_bonus)
+	var total_damage := 0
+	var hits := 0
+	
+	# Hit primary target
 	if target.has_method("take_damage"):
-		target.take_damage(damage, is_crit, "vampiric_strike")
+		target.take_damage(base_dmg, is_crit, "vampiric_strike")
+		total_damage += base_dmg
+		hits += 1
 	
-	# Heal attacker
-	var heal_amount := int(float(damage) * lifesteal)
+	# Cleave to nearby enemies
+	if cleave_count > 1:
+		var enemies := _get_enemies(main_node)
+		for e in enemies:
+			if hits >= cleave_count:
+				break
+			if not is_instance_valid(e) or e == target:
+				continue
+			var n2 := e as Node2D
+			if n2 == null:
+				continue
+			if n2.global_position.distance_to(attacker.global_position) > cleave_radius:
+				continue
+			var cleave_dmg := int(float(base_dmg) * 0.7)
+			if n2.has_method("take_damage"):
+				n2.take_damage(cleave_dmg, false, "vampiric_strike")
+				total_damage += cleave_dmg
+				hits += 1
+	
+	# Heal attacker based on total damage
+	var heal_amount := int(float(total_damage) * lifesteal)
 	if heal_amount > 0 and attacker.has_method("heal"):
 		attacker.heal(heal_amount)
+		# Heal VFX
+		var heal_vfx := VfxHolyPulse.new()
+		heal_vfx.setup(attacker.global_position, Color(0.3, 1.0, 0.4, 1.0), 10.0, 25.0, 0.2)
+		main_node.add_child(heal_vfx)
 	
 	# VFX
-	_spawn_melee_vfx(main_node, target.global_position, (target.global_position - attacker.global_position).normalized(), Color(0.8, 0.1, 0.3, 1.0))
-	_play_sfx(main_node, "hit.melee", target.global_position)
+	_spawn_melee_vfx(main_node, target.global_position, (target.global_position - attacker.global_position).normalized(), Color(0.9, 0.2, 0.3, 1.0))
+	_play_sfx(main_node, "weapon.slash", target.global_position)
 
 static func _fire_ricochet(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var ricochet := WP.RicochetProjectile.new()
@@ -491,4 +853,3 @@ static func _spawn_cone_vfx(main_node: Node2D, pos: Vector2, dir: Vector2, range
 	var v := main_node.get_node_or_null("/root/VfxSystem") if main_node else null
 	if v and is_instance_valid(v) and v.has_method("play_event"):
 		v.play_event("syn.flame", pos + dir * range_val * 0.4, main_node, color, range_val / 100.0)
-

@@ -139,6 +139,11 @@ text = "Armory / Run Setup"
 custom_minimum_size = Vector2(0, 46)
 theme_override_font_sizes/font_size = 16
 
+[node name="Protocol" type="Button" parent="Root/Card/Pad/VBox"]
+text = "⬡ PROTOCOL GRID"
+custom_minimum_size = Vector2(0, 46)
+theme_override_font_sizes/font_size = 16
+
 [node name="Settings" type="Button" parent="Root/Card/Pad/VBox"]
 text = "Settings"
 custom_minimum_size = Vector2(0, 46)

@@ -10,12 +10,13 @@
   },
   "reaper_slash": {
     "name": "Reaper Slash",
-    "description": "A massive scythe swing that cleaves all nearby foes",
+    "description": "A massive scythe swing that cleaves all nearby foes. +50% damage.",
     "type": "melee_arc",
     "tags": ["melee", "aoe", "cleave"],
-    "arc_angle": 120,
-    "arc_radius": 85,
-    "damage_falloff": 0.7,
+    "arc_angle": 160,
+    "arc_radius": 110,
+    "damage_falloff": 0.8,
+    "damage_bonus": 1.5,
     "icon": "🌀"
   },
   "bomb_toss": {
@@ -23,7 +24,7 @@
     "description": "Lobs an explosive that detonates on impact",
     "type": "bomb",
     "tags": ["ranged", "aoe", "explosive"],
-    "explosion_radius": 70,
+    "explosion_radius": 80,
     "fuse_time": 0.0,
     "projectile_speed": 380,
     "icon": "💣"
@@ -33,9 +34,9 @@
     "description": "Lightning that arcs between multiple enemies",
     "type": "chain",
     "tags": ["ranged", "multi_target", "lightning"],
-    "chain_count": 3,
-    "chain_damage_decay": 0.75,
-    "chain_range": 120,
+    "chain_count": 4,
+    "chain_damage_decay": 0.80,
+    "chain_range": 140,
     "icon": "⚡"
   },
   "piercing_shot": {
@@ -43,8 +44,8 @@
     "description": "A powerful shot that penetrates through enemies",
     "type": "pierce",
     "tags": ["ranged", "pierce", "line"],
-    "pierce_count": 4,
-    "damage_decay": 0.85,
+    "pierce_count": 5,
+    "damage_decay": 0.90,
     "projectile_speed": 750,
     "icon": "➤"
   },
@@ -53,9 +54,9 @@
     "description": "Fires multiple projectiles in a spread pattern",
     "type": "scatter",
     "tags": ["ranged", "multi_projectile", "spread"],
-    "projectile_count": 5,
-    "spread_angle": 45,
-    "damage_per_proj": 0.4,
+    "projectile_count": 6,
+    "spread_angle": 50,
+    "damage_per_proj": 0.35,
     "icon": "⁂"
   },
   "boomerang": {
@@ -63,8 +64,8 @@
     "description": "A spinning blade that returns after hitting, striking twice",
     "type": "boomerang",
     "tags": ["ranged", "returning", "multi_hit"],
-    "return_damage_mult": 0.6,
-    "travel_distance": 200,
+    "return_damage_mult": 0.7,
+    "travel_distance": 220,
     "projectile_speed": 450,
     "icon": "◎"
   },
@@ -73,29 +74,49 @@
     "description": "A continuous beam that damages all enemies in its path",
     "type": "beam",
     "tags": ["ranged", "continuous", "line"],
-    "beam_length": 350,
-    "beam_width": 16,
-    "tick_rate": 0.1,
-    "duration": 0.5,
+    "beam_length": 400,
+    "beam_width": 20,
+    "tick_rate": 0.08,
+    "duration": 0.6,
     "icon": "═"
   },
   "ground_slam": {
     "name": "Ground Slam",
-    "description": "Slams the ground, creating a shockwave around the user",
+    "description": "Slams the ground, creating a massive shockwave. +40% damage.",
     "type": "slam",
     "tags": ["melee", "aoe", "shockwave"],
-    "inner_radius": 40,
-    "outer_radius": 100,
-    "inner_damage_mult": 1.2,
-    "outer_damage_mult": 0.5,
+    "inner_radius": 55,
+    "outer_radius": 130,
+    "inner_damage_mult": 1.4,
+    "outer_damage_mult": 0.7,
+    "damage_bonus": 1.4,
     "icon": "◉"
+  },
+  "whirlwind": {
+    "name": "Whirlwind",
+    "description": "Spin attack hitting ALL enemies around you. +30% damage.",
+    "type": "whirlwind",
+    "tags": ["melee", "aoe", "spin"],
+    "radius": 95,
+    "damage_bonus": 1.3,
+    "icon": "🌪"
+  },
+  "heavy_strike": {
+    "name": "Heavy Strike",
+    "description": "Devastating blow that staggers. +80% damage, hits 3 targets.",
+    "type": "heavy_melee",
+    "tags": ["melee", "cleave", "stagger"],
+    "cleave_count": 3,
+    "stagger_duration": 0.5,
+    "damage_bonus": 1.8,
+    "icon": "⚔"
   },
   "poison_dart": {
     "name": "Venom Dart",
     "description": "A fast dart that applies stacking poison",
     "type": "dot_projectile",
     "tags": ["ranged", "dot", "poison"],
-    "dot_damage_percent": 0.30,
+    "dot_damage_percent": 0.35,
     "dot_duration": 4.0,
     "dot_tick": 0.5,
     "projectile_speed": 700,
@@ -106,20 +127,20 @@
     "description": "Chilling projectile that slows enemies on hit",
     "type": "slow_projectile",
     "tags": ["ranged", "control", "slow"],
-    "slow_percent": 0.40,
+    "slow_percent": 0.45,
     "slow_duration": 2.5,
     "projectile_speed": 500,
     "icon": "❄"
   },
   "fire_wave": {
     "name": "Flame Cone",
-    "description": "Breathes fire in a cone, igniting enemies",
+    "description": "Breathes fire in a wide cone, igniting enemies",
     "type": "cone",
     "tags": ["ranged", "aoe", "burn"],
-    "cone_angle": 60,
-    "cone_range": 150,
-    "burn_damage_percent": 0.25,
-    "burn_duration": 3.0,
+    "cone_angle": 75,
+    "cone_range": 170,
+    "burn_damage_percent": 0.30,
+    "burn_duration": 3.5,
     "icon": "🔥"
   },
   "spirit_lance": {
@@ -127,17 +148,20 @@
     "description": "Summons spectral spears that strike from above",
     "type": "delayed_strike",
     "tags": ["ranged", "delayed", "magic"],
-    "delay": 0.4,
-    "strike_radius": 35,
-    "strike_count": 3,
+    "delay": 0.35,
+    "strike_radius": 40,
+    "strike_count": 4,
     "icon": "✧"
   },
   "vampiric_bite": {
     "name": "Vampiric Strike",
-    "description": "Melee attack that heals the user for damage dealt",
+    "description": "Cleaving attack that heals for damage dealt. +40% damage.",
     "type": "lifesteal_melee",
-    "tags": ["melee", "sustain", "lifesteal"],
-    "lifesteal_percent": 0.25,
+    "tags": ["melee", "sustain", "lifesteal", "cleave"],
+    "lifesteal_percent": 0.30,
+    "cleave_count": 3,
+    "cleave_radius": 70,
+    "damage_bonus": 1.4,
     "icon": "♠"
   },
   "ricochet": {
@@ -145,9 +169,9 @@
     "description": "Bounces off enemies, hitting multiple targets",
     "type": "ricochet",
     "tags": ["ranged", "bouncing", "multi_target"],
-    "bounce_count": 4,
-    "bounce_range": 150,
-    "damage_per_bounce": 0.9,
+    "bounce_count": 5,
+    "bounce_range": 160,
+    "damage_per_bounce": 0.92,
     "icon": "●"
   },
   "orbital_strike": {
@@ -155,10 +179,9 @@
     "description": "Calls down a devastating strike after a delay",
     "type": "orbital",
     "tags": ["ranged", "delayed", "aoe", "heavy"],
-    "delay": 1.2,
-    "explosion_radius": 90,
-    "damage_mult": 1.8,
+    "delay": 1.0,
+    "explosion_radius": 100,
+    "damage_mult": 2.0,
     "icon": "☄"
   }
 }
-

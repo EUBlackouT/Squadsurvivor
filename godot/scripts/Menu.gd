@@ -12,7 +12,7 @@ extends Control
 @onready var _search_clear: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Clear") as Button
 
 @onready var _inspector_card: PanelContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard") as PanelContainer
-@onready var _inspector_portrait: Control = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorPortrait") as Control
+@onready var _inspector_portrait: PanelContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorPortrait") as PanelContainer
 @onready var _inspector_name: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorName") as Label
 @onready var _inspector_stats: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorStats") as Label
 @onready var _inspector_passives: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorPassives") as Label
@@ -37,6 +37,9 @@ func _ready() -> void:
 	var cm := get_node_or_null("/root/CollectionManager")
 	if cm and is_instance_valid(cm) and cm.has_method("load_save"):
 		cm.load_save()
+	
+	# One-time weapon re-roll for existing characters (uses flag in save)
+	_maybe_reroll_weapons_once(cm)
 
 	_toast = ToastLayer.new()
 	add_child(_toast)
@@ -123,6 +126,26 @@ func _squad_slots() -> int:
 	if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
 		return int(mp.get_squad_slots())
 	return 3
+
+const WEAPON_REROLL_FLAG_PATH := "user://weapon_reroll_done.flag"
+
+func _maybe_reroll_weapons_once(cm: Node) -> void:
+	# One-time weapon re-roll for existing characters that have "standard_bolt"
+	if FileAccess.file_exists(WEAPON_REROLL_FLAG_PATH):
+		return
+	if cm == null or not is_instance_valid(cm):
+		return
+	if not cm.has_method("reroll_all_weapons"):
+		return
+	var rerolled: int = cm.reroll_all_weapons()
+	if rerolled > 0:
+		print("Menu: One-time weapon re-roll for %d characters" % rerolled)
+		if _toast:
+			_toast.show_toast("🔫 Weapons re-rolled for testing!", UiSkin.ACCENT_GOLD)
+	# Write flag so we don't do this again
+	var f := FileAccess.open(WEAPON_REROLL_FLAG_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string("done")
 
 func _open_settings() -> void:
 	if has_node("SettingsMenu"):

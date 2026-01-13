@@ -116,6 +116,29 @@ func _refresh_synergies() -> void:
 func _spawn_squad_unit(cd: CharacterData, offset: Vector2) -> void:
 	if SQUAD_UNIT_SCENE == null:
 		return
+	
+	# Failsafe: if weapon is still standard_bolt, assign a random one
+	if cd.weapon_id == "standard_bolt" or cd.weapon_id == "":
+		WeaponSystem.ensure_loaded()
+		var all_weapons: Array = WeaponSystem.all_weapon_ids()
+		if not all_weapons.is_empty():
+			# Filter out standard_bolt so we get interesting weapons
+			var interesting: Array = []
+			for w in all_weapons:
+				if w != "standard_bolt":
+					interesting.append(w)
+			if interesting.is_empty():
+				interesting = all_weapons
+			cd.weapon_id = interesting[randi() % interesting.size()]
+			# Update attack style based on weapon
+			var tags := WeaponSystem.weapon_tags(cd.weapon_id)
+			if tags.has("melee"):
+				cd.attack_style = CharacterData.AttackStyle.MELEE
+				cd.attack_range = 80.0
+			else:
+				cd.attack_style = CharacterData.AttackStyle.RANGED
+				cd.attack_range = 350.0
+	
 	var unit := SQUAD_UNIT_SCENE.instantiate()
 	unit.character_data = cd
 	var parent := get_parent()

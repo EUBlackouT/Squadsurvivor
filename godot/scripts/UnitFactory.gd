@@ -133,6 +133,16 @@ static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_
 	var eff_minutes := elapsed_minutes
 	if context == "recruit":
 		eff_minutes += float(map_mod.get("recruit_rarity_bias_minutes", 0.0))
+		# Meta progression: draft rarity boost adds effective minutes
+		var mp := Engine.get_singleton("MetaProgression") if Engine.has_singleton("MetaProgression") else null
+		if mp == null:
+			# Fallback: try node lookup
+			var tree := Engine.get_main_loop() as SceneTree
+			if tree:
+				mp = tree.root.get_node_or_null("/root/MetaProgression")
+		if mp and mp.has_method("get_add"):
+			var boost := float(mp.get_add("draft_rarity_boost", 0.0))
+			eff_minutes += boost * 10.0  # 0.15 boost = +1.5 effective minutes
 	var weights: Array[int] = []
 	var ids: Array[String] = []
 	for r in rarities:

@@ -259,3 +259,63 @@ func save() -> void:
 		push_warning("CollectionManager: failed to open save for write")
 		return
 	f.store_string(JSON.stringify(root))
+
+# Re-roll weapons for all existing characters (dev/testing)
+func reroll_all_weapons() -> int:
+	WeaponSystem.ensure_loaded()
+	var all_weapons: Array = WeaponSystem.all_weapon_ids()
+	if all_weapons.is_empty():
+		return 0
+	
+	var count := 0
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	
+	# Re-roll unlocked characters
+	for i in range(unlocked.size()):
+		var data: Dictionary = unlocked[i].get("data", {})
+		var old_weapon := String(data.get("weapon_id", "standard_bolt"))
+		# Pick a new weapon (different from current)
+		var new_weapon := old_weapon
+		var tries := 0
+		while new_weapon == old_weapon and tries < 10:
+			new_weapon = all_weapons[rng.randi() % all_weapons.size()]
+			tries += 1
+		data["weapon_id"] = new_weapon
+		# Update attack_style based on weapon tags
+		var tags := WeaponSystem.weapon_tags(new_weapon)
+		if tags.has("melee"):
+			data["attack_style"] = 0
+			data["attack_range"] = 80.0
+		else:
+			data["attack_style"] = 1
+			data["attack_range"] = 350.0
+		unlocked[i]["data"] = data
+		count += 1
+	
+	# Re-roll active roster
+	for i in range(active_roster.size()):
+		var data: Dictionary = active_roster[i]
+		var old_weapon := String(data.get("weapon_id", "standard_bolt"))
+		var new_weapon := old_weapon
+		var tries := 0
+		while new_weapon == old_weapon and tries < 10:
+			new_weapon = all_weapons[rng.randi() % all_weapons.size()]
+			tries += 1
+		data["weapon_id"] = new_weapon
+		var tags := WeaponSystem.weapon_tags(new_weapon)
+		if tags.has("melee"):
+			data["attack_style"] = 0
+			data["attack_range"] = 80.0
+		else:
+			data["attack_style"] = 1
+			data["attack_range"] = 350.0
+		active_roster[i] = data
+	
+	save()
+	print("CollectionManager: Re-rolled weapons for %d characters" % count)
+	# Print what weapons were assigned
+	for i in range(mini(5, active_roster.size())):
+		var data: Dictionary = active_roster[i]
+		print("  Character %d: %s" % [i, data.get("weapon_id", "UNKNOWN")])
+	return count

@@ -72,7 +72,14 @@ func _exit_tree() -> void:
 func _apply_from_data() -> void:
 	_attack_timer = 0.0
 	var mods := SynergySystem.mods_for_cd(character_data)
-	_max_hp_effective = int(round(float(character_data.max_hp) * float(mods.get("max_hp_mult", 1.0))))
+	
+	# Apply meta progression HP bonus
+	var meta_hp_mult := 1.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		meta_hp_mult = float(mp.get_mod("squad_hp_mult", 1.0))
+	
+	_max_hp_effective = int(round(float(character_data.max_hp) * float(mods.get("max_hp_mult", 1.0)) * meta_hp_mult))
 	_max_hp_effective = maxi(1, _max_hp_effective)
 	current_hp = _max_hp_effective
 
@@ -168,10 +175,7 @@ func _combat_step(_delta: float) -> void:
 	var tgt := _target_enemy
 	var dist := global_position.distance_to(tgt.global_position)
 	var attack_range := character_data.attack_range if character_data != null else 300.0
-	var move_speed := character_data.move_speed if character_data != null else 120.0
-	if character_data != null:
-		var mods := SynergySystem.mods_for_cd(character_data)
-		move_speed *= float(mods.get("move_speed_mult", 1.0))
+	var move_speed := _get_effective_move_speed()
 	# Overclock: speed burst (meta ability)
 	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
 		move_speed *= float(_main.get_overclock_move_speed_mult())
@@ -213,10 +217,7 @@ func _follow_leader(_delta: float) -> void:
 		var target_pos := rp + _formation_offset_world()
 		var to := target_pos - global_position
 		if to.length() > 14.0:
-			var move_speed := character_data.move_speed if character_data != null else 120.0
-			if character_data != null:
-				var mods := SynergySystem.mods_for_cd(character_data)
-				move_speed *= float(mods.get("move_speed_mult", 1.0))
+			var move_speed := _get_effective_move_speed()
 			var mp := get_node_or_null("/root/MetaProgression")
 			var follow_mult := 1.15
 			var speed_mult := 1.0
@@ -244,10 +245,7 @@ func _follow_leader(_delta: float) -> void:
 		if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 			follow_mult *= float(mp.get_mod("dash_follow_mult", 1.0))
 	if to.length() > follow_threshold:
-		var move_speed := character_data.move_speed if character_data != null else 120.0
-		if character_data != null:
-			var mods := SynergySystem.mods_for_cd(character_data)
-			move_speed *= float(mods.get("move_speed_mult", 1.0))
+		var move_speed := _get_effective_move_speed()
 		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
 			move_speed *= float(_main.get_overclock_move_speed_mult())
 		velocity = to.normalized() * (move_speed * follow_mult)
@@ -311,12 +309,24 @@ func _attack(target: Node2D) -> void:
 	if character_data != null:
 		var mods := SynergySystem.mods_for_cd(character_data)
 		final_damage = int(round(float(final_damage) * float(mods.get("attack_damage_mult", 1.0))))
+	
+	# Meta progression bonuses
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		var meta_dmg_mult := float(mp.get_mod("squad_damage_mult", 1.0))
+		final_damage = int(round(float(final_damage) * meta_dmg_mult))
+	
 	# Overclock: damage multiplier (meta buildcraft)
 	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_damage_mult"):
 		final_damage = int(round(float(final_damage) * float(_main.get_overclock_damage_mult())))
-	if character_data != null and character_data.crit_chance > 0.0 and randf() < character_data.crit_chance:
+	
+	# Crit check with meta progression bonus
+	var crit_chance := character_data.crit_chance if character_data != null else 0.0
+	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		crit_chance += float(mp.get_add("squad_crit_add", 0.0))
+	if crit_chance > 0.0 and randf() < crit_chance:
 		is_crit = true
-		final_damage = int(round(float(final_damage) * character_data.crit_mult))
+		final_damage = int(round(float(final_damage) * (character_data.crit_mult if character_data != null else 1.5)))
 
 	# Use weapon system for attack
 	if _main == null or not is_instance_valid(_main):
@@ -539,6 +549,21 @@ func get_max_hp() -> int:
 func get_hp_ratio() -> float:
 	var mh := float(get_max_hp())
 	return float(current_hp) / maxf(1.0, mh)
+
+func _get_effective_move_speed() -> float:
+	var base_speed := character_data.move_speed if character_data != null else 120.0
+	
+	# Synergy mods
+	if character_data != null:
+		var mods := SynergySystem.mods_for_cd(character_data)
+		base_speed *= float(mods.get("move_speed_mult", 1.0))
+	
+	# Meta progression speed bonus
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		base_speed *= float(mp.get_mod("squad_speed_mult", 1.0))
+	
+	return base_speed
 
 func pulse_vfx(tint: Color) -> void:
 	if anim == null:

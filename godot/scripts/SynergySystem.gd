@@ -864,16 +864,99 @@ static func _sfx(world: Node2D, event_id: String, pos: Vector2, emitter: Object 
 		v.play_event(event_id, pos, world)
 
 static func _spawn_projectile(world: Node2D, from_pos: Vector2, to: Node2D, dmg: int, tint: Color) -> void:
-	if world == null or PROJ_SCENE == null or to == null or not is_instance_valid(to):
+	if world == null or to == null or not is_instance_valid(to):
 		return
-	var p := PROJ_SCENE.instantiate()
-	world.add_child(p)
-	(p as Node2D).global_position = from_pos
-	if p.has_method("set_vfx_color"):
-		p.set_vfx_color(tint)
-	if p.has_method("setup_target"):
-		# Signature supports optional source_cd; we omit here.
-		p.setup_target(to, dmg, false, PackedStringArray())
+	# Use custom small bolt instead of standard projectile for synergy effects
+	var bolt := _SynergyBolt.new()
+	bolt.setup(from_pos, to, dmg, tint, world)
+	world.add_child(bolt)
+
+class _SynergyBolt extends Node2D:
+	var _target: Node2D
+	var _target_pos: Vector2
+	var _damage: int
+	var _speed: float = 800.0
+	var _world: Node2D
+	var _sprite: Sprite2D
+	var _trail: Line2D
+	var _trail_points: PackedVector2Array = []
+	var _lifetime: float = 2.0
+	
+	func setup(start: Vector2, target: Node2D, dmg: int, tint: Color, world: Node2D) -> void:
+		global_position = start
+		_target = target
+		_target_pos = target.global_position if target else start
+		_damage = dmg
+		_world = world
+		z_index = 2000
+		
+		# Small glowing bolt
+		_sprite = Sprite2D.new()
+		var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
+		var center := Vector2(5, 5)
+		for x in range(10):
+			for y in range(10):
+				var dist := Vector2(x, y).distance_to(center) / 5.0
+				var alpha := maxf(0.0, 1.0 - dist)
+				img.set_pixel(x, y, Color(tint.r, tint.g, tint.b, alpha))
+		_sprite.texture = ImageTexture.create_from_image(img)
+		_sprite.scale = Vector2(1.5, 1.5)
+		_sprite.modulate = Color(1.2, 1.2, 1.2, 1.0)  # Slightly overbright
+		add_child(_sprite)
+		
+		# Short trail
+		_trail = Line2D.new()
+		_trail.width = 2.0
+		_trail.default_color = Color(tint.r, tint.g, tint.b, 0.5)
+		_trail.z_index = -1
+		add_child(_trail)
+	
+	func _process(delta: float) -> void:
+		# Auto-cleanup via lifetime
+		_lifetime -= delta
+		if _lifetime <= 0.0:
+			queue_free()
+			return
+		
+		if _target and is_instance_valid(_target):
+			_target_pos = _target.global_position
+		
+		var dir := (_target_pos - global_position)
+		var dist := dir.length()
+		
+		if dist < 12.0:
+			_hit()
+			return
+		
+		dir = dir.normalized()
+		global_position += dir * _speed * delta
+		rotation = dir.angle()
+		
+		# Simple trail behind bolt
+		if _trail:
+			_trail.clear_points()
+			for i in range(6):
+				_trail.add_point(Vector2(-i * 6, 0))
+	
+	func _hit() -> void:
+		if _target and is_instance_valid(_target) and _target.has_method("take_damage"):
+			_target.take_damage(_damage, false, "synergy")
+		
+		# Small impact flash
+		var flash := Sprite2D.new()
+		flash.global_position = global_position
+		flash.z_index = 2100
+		var img := Image.create(12, 12, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 0.8))
+		flash.texture = ImageTexture.create_from_image(img)
+		flash.scale = Vector2(1.5, 1.5)
+		if _world:
+			_world.add_child(flash)
+			var tw := flash.create_tween()
+			tw.tween_property(flash, "modulate:a", 0.0, 0.1)
+			tw.tween_callback(flash.queue_free)
+		
+		queue_free()
 
 static func _effect_volley_shot(cd: CharacterData, unit: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
 	var interval: int = int(e.get("interval_attacks", 4))
@@ -1247,5 +1330,3 @@ static func _tags_for_cd(cd: CharacterData) -> PackedStringArray:
 	if cd.archetype_id != "":
 		out.append("arch:%s" % cd.archetype_id)
 	return out
-
-

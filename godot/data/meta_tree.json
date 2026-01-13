@@ -11,6 +11,27 @@
       "mods": {}
     },
 
+    { "id": "hp_boost_1", "name": "Vitality I", "desc": "+10% Squad HP", "cost": 50, "pos": [-300, -200], "prereq": ["core_0"], "mods": { "squad_hp_mult": 1.10 } },
+    { "id": "hp_boost_2", "name": "Vitality II", "desc": "+15% Squad HP", "cost": 180, "pos": [-400, -280], "prereq": ["hp_boost_1"], "mods": { "squad_hp_mult": 1.15 } },
+    { "id": "hp_boost_3", "name": "Vitality III", "desc": "+20% Squad HP", "cost": 450, "pos": [-500, -200], "prereq": ["hp_boost_2"], "mods": { "squad_hp_mult": 1.20 } },
+
+    { "id": "dmg_boost_1", "name": "Power I", "desc": "+8% Squad Damage", "cost": 60, "pos": [300, -200], "prereq": ["core_0"], "mods": { "squad_damage_mult": 1.08 } },
+    { "id": "dmg_boost_2", "name": "Power II", "desc": "+12% Squad Damage", "cost": 200, "pos": [400, -280], "prereq": ["dmg_boost_1"], "mods": { "squad_damage_mult": 1.12 } },
+    { "id": "dmg_boost_3", "name": "Power III", "desc": "+18% Squad Damage", "cost": 500, "pos": [500, -200], "prereq": ["dmg_boost_2"], "mods": { "squad_damage_mult": 1.18 } },
+
+    { "id": "speed_1", "name": "Agility I", "desc": "+5% Move Speed", "cost": 40, "pos": [0, -180], "prereq": ["core_0"], "mods": { "squad_speed_mult": 1.05 } },
+    { "id": "speed_2", "name": "Agility II", "desc": "+8% Move Speed", "cost": 150, "pos": [0, -280], "prereq": ["speed_1"], "mods": { "squad_speed_mult": 1.08 } },
+
+    { "id": "crit_1", "name": "Precision I", "desc": "+3% Crit Chance", "cost": 120, "pos": [-200, -280], "prereq": ["hp_boost_1"], "mods": { "squad_crit_add": 0.03 } },
+    { "id": "crit_2", "name": "Precision II", "desc": "+5% Crit Chance", "cost": 350, "pos": [-200, -360], "prereq": ["crit_1"], "mods": { "squad_crit_add": 0.05 } },
+
+    { "id": "essence_1", "name": "Harvest I", "desc": "+10% Essence Gain", "cost": 100, "pos": [200, -280], "prereq": ["dmg_boost_1"], "mods": { "essence_mult": 1.10 } },
+    { "id": "essence_2", "name": "Harvest II", "desc": "+15% Essence Gain", "cost": 300, "pos": [200, -360], "prereq": ["essence_1"], "mods": { "essence_mult": 1.15 } },
+
+    { "id": "draft_luck", "name": "Fortune", "desc": "Higher rarity draft chance", "cost": 400, "pos": [0, -360], "prereq": ["speed_2"], "mods": { "draft_rarity_boost": 0.15 } },
+
+    { "id": "starting_unit", "name": "Reinforcement", "desc": "+1 Starting Squad Member", "cost": 800, "pos": [0, -440], "prereq": ["draft_luck", "crit_2", "essence_2"], "tags": ["keystone"], "mods": { "starting_squad_add": 1 } },
+
     { "id": "focus_1", "name": "Targeting Drills I", "desc": "Focus lasts longer.", "cost": 250, "pos": [140, -40], "prereq": ["core_0"], "mods": { "focus_duration_mult": 1.10 } },
     { "id": "focus_2", "name": "Targeting Drills II", "desc": "Focus lasts longer.", "cost": 600, "pos": [270, -60], "prereq": ["focus_1"], "mods": { "focus_duration_mult": 1.12 } },
     { "id": "focus_keystone", "name": "Kill Order", "desc": "Focus lasts much longer, but focus switch has a short lockout.", "cost": 1600, "pos": [420, -40], "prereq": ["focus_2"], "tags": ["keystone"], "mods": { "focus_duration_mult": 1.25, "focus_lockout_s": 1.0 } },

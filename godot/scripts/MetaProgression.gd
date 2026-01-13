@@ -174,7 +174,10 @@ func _rebuild_mods() -> void:
 	_mods_dirty = false
 
 func get_squad_slots() -> int:
-	return clampi(squad_slots, 3, max_squad_slots_cap)
+	var base := clampi(squad_slots, 3, max_squad_slots_cap)
+	# Add starting squad bonus from Protocol Grid
+	var bonus := int(get_add("starting_squad_add", 0.0))
+	return clampi(base + bonus, 3, max_squad_slots_cap)
 
 func get_roster_cap() -> int:
 	# Let players prep more than active squad.
@@ -214,6 +217,26 @@ func add_sigils(amount: int) -> void:
 		return
 	sigils += amount
 	save()
+
+# Wrapper methods for Protocol Grid UI
+func get_sigils() -> int:
+	return sigils
+
+func spend_sigils(amount: int) -> bool:
+	if amount <= 0 or sigils < amount:
+		return false
+	sigils -= amount
+	save()
+	return true
+
+func get_unlocked_upgrades() -> Array:
+	return Array(meta_nodes_owned)
+
+func unlock_upgrade(id: String) -> void:
+	if not meta_nodes_owned.has(id):
+		meta_nodes_owned.append(id)
+		_mods_dirty = true
+		save()
 
 func set_last_run(summary: Dictionary) -> void:
 	last_run = summary

@@ -102,15 +102,19 @@ text = "Selected"
 theme_override_font_sizes/font_size = 14
 
 [node name="InspectorBody" type="HBoxContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox"]
-theme_override_constants/separation = 10
+theme_override_constants/separation = 14
 size_flags_vertical = 3
+alignment = 0
 
-[node name="InspectorPortrait" type="Control" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody"]
-custom_minimum_size = Vector2(72, 72)
+[node name="InspectorPortrait" type="PanelContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody"]
+custom_minimum_size = Vector2(76, 76)
+size_flags_horizontal = 0
+size_flags_vertical = 0
 
 [node name="InspectorInfo" type="VBoxContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody"]
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 1
 
 [node name="InspectorName" type="Label" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo"]
 text = "Click a character to preview."

@@ -8,8 +8,8 @@ class_name TileMapWorld
 @export var biome: String = "graveyard" # graveyard | library | foundry
 @export var seed_value: int = 0
 
-@export var prop_count: int = 40
-@export var prop_min_dist_from_center: float = 300.0
+@export var prop_count: int = 80  # More scenery!
+@export var prop_min_dist_from_center: float = 250.0
 
 # Tileset JSON metadata + PNG paths per biome
 # Keys match theme_id from maps.json and map IDs
@@ -36,19 +36,26 @@ const TILESET_DATA = {
 const PROPS = {
 	"graveyard": [
 		"res://assets/map_props/gravestone.png",
-		"res://assets/map_props/dead_tree.png"
+		"res://assets/map_props/dead_tree.png",
+		"res://assets/structures/obelisk_sheet.png",
+		"res://assets/structures/green_fountain_sheet.png"
 	],
 	"library": [
 		"res://assets/map_props/magic_book.png",
-		"res://assets/map_props/crystal_pillar.png"
+		"res://assets/map_props/crystal_pillar.png",
+		"res://assets/structures/arcane_cube_sheet.png",
+		"res://assets/structures/obelisk_sheet.png"
 	],
-	"arcane_ruins": [  # theme_id for library map
+	"arcane_ruins": [
 		"res://assets/map_props/magic_book.png",
-		"res://assets/map_props/crystal_pillar.png"
+		"res://assets/map_props/crystal_pillar.png",
+		"res://assets/structures/arcane_cube_sheet.png",
+		"res://assets/structures/obelisk_sheet.png"
 	],
 	"foundry": [
 		"res://assets/map_props/anvil.png",
-		"res://assets/map_props/cauldron.png"
+		"res://assets/map_props/cauldron.png",
+		"res://assets/structures/obelisk_sheet.png"
 	]
 }
 
@@ -84,6 +91,7 @@ func _setup_tilemap() -> void:
 	_tile_map = TileMapLayer.new()
 	_tile_map.name = "TerrainLayer"
 	_tile_map.z_index = -50  # Behind props and characters
+	_tile_map.modulate = _get_tilemap_modulate()  # Brighten dark tilesets
 	add_child(_tile_map)
 	
 	var data: Dictionary = TILESET_DATA.get(biome, TILESET_DATA["graveyard"])
@@ -112,17 +120,29 @@ func _setup_tilemap() -> void:
 	push_warning("TileMapWorld: Using procedural tileset for biome: %s" % biome)
 	_tile_map.tile_set = TilesetLoader.create_procedural_tileset(biome)
 
+func _get_tilemap_modulate() -> Color:
+	# Brighten tiles that were generated too dark
+	match biome:
+		"graveyard":
+			return Color(1.8, 1.7, 1.5, 1.0)  # Strong brightness boost
+		"library", "arcane_ruins":
+			return Color(1.4, 1.4, 1.5, 1.0)  # Cool brightness
+		"foundry":
+			return Color(1.5, 1.4, 1.3, 1.0)  # Warm glow
+		_:
+			return Color(1.4, 1.4, 1.4, 1.0)
+
 
 func _get_biome_base_color() -> Color:
 	match biome:
 		"graveyard":
-			return Color(0.08, 0.14, 0.12)
+			return Color(0.18, 0.22, 0.16)  # Brighter mossy green-brown
 		"library", "arcane_ruins":
-			return Color(0.08, 0.10, 0.18)
+			return Color(0.12, 0.14, 0.22)  # Brighter purple-blue
 		"foundry":
-			return Color(0.12, 0.08, 0.08)
+			return Color(0.18, 0.12, 0.10)  # Brighter rust-orange
 		_:
-			return Color(0.1, 0.1, 0.1)
+			return Color(0.15, 0.15, 0.15)
 
 func _generate_terrain() -> void:
 	if _tile_map == null:
@@ -215,6 +235,7 @@ func _spawn_props() -> void:
 	var half_h = map_size.y / 2
 	var center_exclusion_sq = prop_min_dist_from_center * prop_min_dist_from_center
 	
+	# Spawn main props (gravestones, trees, etc)
 	for _i in range(prop_count):
 		var pos = Vector2(
 			_rng.randf_range(-half_w + 100, half_w - 100),
@@ -236,6 +257,141 @@ func _spawn_props() -> void:
 		spr.scale = Vector2(scale_factor, scale_factor)
 		
 		_props_node.add_child(spr)
+	
+	# Spawn extra scenery (grass tufts, rocks, bones, etc)
+	_spawn_scenery_details(half_w, half_h, center_exclusion_sq)
+
+func _spawn_scenery_details(half_w: float, half_h: float, center_exclusion_sq: float) -> void:
+	# Spawn lots of small scenery for visual interest
+	var detail_count := prop_count * 3  # 3x more small details than props
+	
+	for _i in range(detail_count):
+		var pos = Vector2(
+			_rng.randf_range(-half_w + 50, half_w - 50),
+			_rng.randf_range(-half_h + 50, half_h - 50)
+		)
+		
+		# Allow closer to center for small details
+		if pos.length_squared() < center_exclusion_sq * 0.4:
+			continue
+		
+		var spr = Sprite2D.new()
+		var roll := _rng.randf()
+		
+		if roll < 0.4:
+			spr.texture = _create_grass_tuft()
+		elif roll < 0.65:
+			spr.texture = _create_small_rock()
+		elif roll < 0.8:
+			spr.texture = _create_bone_scatter() if biome == "graveyard" else _create_small_rock()
+		else:
+			spr.texture = _create_debris()
+		
+		spr.position = pos
+		spr.z_index = int(pos.y) - 10  # Behind main props
+		spr.modulate.a = _rng.randf_range(0.5, 0.85)
+		
+		var scale_factor = _rng.randf_range(0.5, 1.0)
+		spr.scale = Vector2(scale_factor, scale_factor)
+		spr.rotation = _rng.randf() * TAU if _rng.randf() < 0.3 else 0.0
+		
+		_props_node.add_child(spr)
+
+func _create_grass_tuft() -> Texture2D:
+	var size := 16
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var green := Color(0.3, 0.5, 0.25) if biome == "graveyard" else Color(0.2, 0.4, 0.3)
+	if biome == "foundry":
+		green = Color(0.35, 0.3, 0.25)  # Brown-ish dead grass
+	
+	# Draw grass blades
+	for blade in range(_rng.randi_range(3, 6)):
+		var bx := _rng.randi_range(3, size - 4)
+		var height := _rng.randi_range(6, 12)
+		var blade_green := green.lightened(_rng.randf() * 0.3 - 0.15)
+		for y in range(size - 1, size - height - 1, -1):
+			var wobble := int(_rng.randf() * 2 - 1) if y < size - 4 else 0
+			if bx + wobble >= 0 and bx + wobble < size and y >= 0:
+				img.set_pixel(bx + wobble, y, blade_green)
+	
+	return ImageTexture.create_from_image(img)
+
+func _create_small_rock() -> Texture2D:
+	var size := 12
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var base := Color(0.4, 0.38, 0.35)
+	if biome == "library" or biome == "arcane_ruins":
+		base = Color(0.35, 0.35, 0.45)
+	elif biome == "foundry":
+		base = Color(0.45, 0.35, 0.30)
+	
+	var cx := size / 2
+	var cy := size / 2
+	var rx := _rng.randi_range(3, 5)
+	var ry := _rng.randi_range(2, 4)
+	
+	for x in range(size):
+		for y in range(size):
+			var dx := float(x - cx) / float(rx)
+			var dy := float(y - cy) / float(ry)
+			if dx * dx + dy * dy <= 1.0:
+				var shade := 1.0 - (dy * 0.3)
+				var c := base.lightened(shade * 0.15 + _rng.randf() * 0.1 - 0.05)
+				img.set_pixel(x, y, c)
+	
+	return ImageTexture.create_from_image(img)
+
+func _create_bone_scatter() -> Texture2D:
+	var size := 14
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var bone := Color(0.85, 0.82, 0.75)
+	
+	# Draw random bone shapes
+	if _rng.randf() < 0.5:
+		# Small skull
+		for x in range(4, 10):
+			for y in range(3, 9):
+				var dx := float(x - 7)
+				var dy := float(y - 6)
+				if dx * dx / 9 + dy * dy / 6 <= 1.0:
+					img.set_pixel(x, y, bone.darkened(_rng.randf() * 0.1))
+		# Eye sockets
+		img.set_pixel(5, 5, Color(0.2, 0.15, 0.1))
+		img.set_pixel(8, 5, Color(0.2, 0.15, 0.1))
+	else:
+		# Long bone
+		var angle := _rng.randf() * PI
+		for t in range(10):
+			var px := int(7 + cos(angle) * (t - 5))
+			var py := int(7 + sin(angle) * (t - 5))
+			if px >= 0 and px < size and py >= 0 and py < size:
+				img.set_pixel(px, py, bone.darkened(_rng.randf() * 0.1))
+	
+	return ImageTexture.create_from_image(img)
+
+func _create_debris() -> Texture2D:
+	var size := 10
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var base := _get_biome_base_color().lightened(0.1)
+	
+	# Scatter random pixels
+	for _p in range(_rng.randi_range(8, 15)):
+		var x := _rng.randi_range(1, size - 2)
+		var y := _rng.randi_range(1, size - 2)
+		var c := base.lightened(_rng.randf() * 0.3 - 0.15)
+		img.set_pixel(x, y, c)
+		if _rng.randf() < 0.3:
+			img.set_pixel(x + 1, y, c.darkened(0.1))
+	
+	return ImageTexture.create_from_image(img)
 
 func _create_procedural_prop() -> Texture2D:
 	# Create a simple procedural prop (rock/stone)
