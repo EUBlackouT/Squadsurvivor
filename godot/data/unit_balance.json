@@ -1,37 +1,37 @@
 {
   "version": 1,
   "context_stat_mult": {
-    "enemy": { "max_hp": 0.70, "attack_damage": 0.70, "move_speed": 0.88 },
-    "recruit": { "max_hp": 1.0, "attack_damage": 1.08, "move_speed": 1.0 }
+    "enemy": { "max_hp": 0.65, "attack_damage": 0.65, "move_speed": 0.92 },
+    "recruit": { "max_hp": 1.0, "attack_damage": 1.15, "move_speed": 1.05 }
   },
   "enemy_scaling": {
-    "hp_per_minute_mult": 0.06,
-    "damage_per_minute_mult": 0.035
+    "hp_per_minute_mult": 0.055,
+    "damage_per_minute_mult": 0.03
   },
   "rarities": [
     {
       "id": "common",
       "name": "Common",
-      "stat_mult": { "max_hp": 1.0, "attack_damage": 1.0, "move_speed": 1.0, "crit_chance_add": 0.00 },
-      "weight": { "enemy": 86, "recruit": 62 }
+      "stat_mult": { "max_hp": 1.0, "attack_damage": 1.0, "move_speed": 1.0, "crit_chance_add": 0.02 },
+      "weight": { "enemy": 86, "recruit": 55 }
     },
     {
       "id": "rare",
       "name": "Rare",
-      "stat_mult": { "max_hp": 1.12, "attack_damage": 1.12, "move_speed": 1.03, "crit_chance_add": 0.02 },
-      "weight": { "enemy": 11, "recruit": 26 }
+      "stat_mult": { "max_hp": 1.15, "attack_damage": 1.18, "move_speed": 1.05, "crit_chance_add": 0.05 },
+      "weight": { "enemy": 11, "recruit": 30 }
     },
     {
       "id": "epic",
       "name": "Epic",
-      "stat_mult": { "max_hp": 1.28, "attack_damage": 1.28, "move_speed": 1.06, "crit_chance_add": 0.04 },
-      "weight": { "enemy": 2, "recruit": 10 }
+      "stat_mult": { "max_hp": 1.32, "attack_damage": 1.38, "move_speed": 1.08, "crit_chance_add": 0.08 },
+      "weight": { "enemy": 2, "recruit": 12 }
     },
     {
       "id": "legendary",
       "name": "Legendary",
-      "stat_mult": { "max_hp": 1.50, "attack_damage": 1.50, "move_speed": 1.08, "crit_chance_add": 0.07 },
-      "weight": { "enemy": 1, "recruit": 2 }
+      "stat_mult": { "max_hp": 1.55, "attack_damage": 1.65, "move_speed": 1.12, "crit_chance_add": 0.12 },
+      "weight": { "enemy": 1, "recruit": 3 }
     }
   ],
   "archetypes": [
@@ -40,84 +40,90 @@
       "name": "Bruiser",
       "class_hint": "GUARDIAN",
       "base": {
-        "max_hp": 165,
-        "attack_damage": 10,
+        "max_hp": 180,
+        "attack_damage": 12,
         "attack_range": 260.0,
-        "attack_cooldown": 1.10,
-        "move_speed": 100.0,
-        "crit_chance": 0.02,
-        "crit_mult": 1.60
-      }
+        "attack_cooldown": 0.90,
+        "move_speed": 105.0,
+        "crit_chance": 0.06,
+        "crit_mult": 1.70
+      },
+      "weapons": ["reaper_slash", "ground_slam", "vampiric_bite", "standard_bolt"]
     },
     {
       "id": "striker",
       "name": "Striker",
       "class_hint": "WARRIOR",
       "base": {
-        "max_hp": 120,
-        "attack_damage": 14,
+        "max_hp": 130,
+        "attack_damage": 16,
         "attack_range": 290.0,
-        "attack_cooldown": 0.85,
-        "move_speed": 118.0,
-        "crit_chance": 0.05,
-        "crit_mult": 1.70
-      }
+        "attack_cooldown": 0.68,
+        "move_speed": 125.0,
+        "crit_chance": 0.10,
+        "crit_mult": 1.85
+      },
+      "weapons": ["reaper_slash", "piercing_shot", "boomerang", "scatter_shot"]
     },
     {
       "id": "sniper",
       "name": "Sniper",
       "class_hint": "ROGUE",
       "base": {
-        "max_hp": 95,
-        "attack_damage": 12,
-        "attack_range": 520.0,
-        "attack_cooldown": 1.05,
-        "move_speed": 120.0,
-        "crit_chance": 0.10,
-        "crit_mult": 1.90
-      }
+        "max_hp": 100,
+        "attack_damage": 15,
+        "attack_range": 550.0,
+        "attack_cooldown": 0.85,
+        "move_speed": 125.0,
+        "crit_chance": 0.18,
+        "crit_mult": 2.20
+      },
+      "weapons": ["piercing_shot", "ricochet", "poison_dart", "orbital_strike"]
     },
     {
       "id": "caster",
       "name": "Caster",
       "class_hint": "MAGE",
       "base": {
-        "max_hp": 105,
-        "attack_damage": 13,
-        "attack_range": 440.0,
-        "attack_cooldown": 1.00,
-        "move_speed": 112.0,
-        "crit_chance": 0.06,
-        "crit_mult": 1.75
-      }
+        "max_hp": 110,
+        "attack_damage": 15,
+        "attack_range": 480.0,
+        "attack_cooldown": 0.80,
+        "move_speed": 118.0,
+        "crit_chance": 0.12,
+        "crit_mult": 1.90
+      },
+      "weapons": ["chain_lightning", "fire_wave", "beam", "spirit_lance", "frost_bolt"]
     },
     {
       "id": "support",
       "name": "Support",
       "class_hint": "HEALER",
       "base": {
-        "max_hp": 115,
-        "attack_damage": 9,
-        "attack_range": 420.0,
-        "attack_cooldown": 0.95,
-        "move_speed": 116.0,
-        "crit_chance": 0.03,
-        "crit_mult": 1.60
-      }
+        "max_hp": 125,
+        "attack_damage": 11,
+        "attack_range": 450.0,
+        "attack_cooldown": 0.75,
+        "move_speed": 120.0,
+        "crit_chance": 0.08,
+        "crit_mult": 1.75
+      },
+      "weapons": ["frost_bolt", "standard_bolt", "spirit_lance", "vampiric_bite"]
     },
     {
       "id": "summoner",
       "name": "Summoner",
       "class_hint": "SUMMONER",
       "base": {
-        "max_hp": 110,
-        "attack_damage": 10,
-        "attack_range": 380.0,
-        "attack_cooldown": 0.95,
-        "move_speed": 114.0,
-        "crit_chance": 0.04,
-        "crit_mult": 1.65
-      }
+        "max_hp": 115,
+        "attack_damage": 13,
+        "attack_range": 400.0,
+        "attack_cooldown": 0.78,
+        "move_speed": 118.0,
+        "crit_chance": 0.09,
+        "crit_mult": 1.80
+      },
+      "weapons": ["bomb_toss", "spirit_lance", "chain_lightning", "orbital_strike"]
     }
   ],
   "passive_pools": {
@@ -131,7 +137,9 @@
       "blood_siphon",
       "shockwave",
       "execute_mark",
-      "predator_instinct"
+      "predator_instinct",
+      "berserker",
+      "toxic"
     ],
     "rare": [
       "arc_chain",
@@ -150,7 +158,10 @@
       "predator_instinct",
       "hex_bomb",
       "time_dilation",
-      "doomstack"
+      "doomstack",
+      "berserker",
+      "chain_reaction",
+      "toxic"
     ],
     "epic": [
       "arc_chain",
@@ -175,7 +186,12 @@
       "pinpoint",
       "vortex_tag",
       "doomstack",
-      "hailburst"
+      "hailburst",
+      "berserker",
+      "chain_reaction",
+      "glass_cannon",
+      "phantom_strike",
+      "toxic"
     ],
     "legendary": [
       "arc_chain",
@@ -200,9 +216,12 @@
       "pinpoint",
       "vortex_tag",
       "doomstack",
-      "hailburst"
+      "hailburst",
+      "berserker",
+      "chain_reaction",
+      "glass_cannon",
+      "phantom_strike",
+      "toxic"
     ]
   }
 }
-
-

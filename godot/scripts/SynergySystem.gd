@@ -21,6 +21,13 @@ static var _active: Array[Dictionary] = [] # [{name, count_tag, count, tier_coun
 const VFX_ARC_SCENE: PackedScene = preload("res://scenes/VfxArcLightning.tscn")
 const PROJ_SCENE: PackedScene = preload("res://scenes/Projectile.tscn")
 
+static func _get_synergy(syn_id: String) -> Dictionary:
+	ensure_loaded()
+	for s in _synergies:
+		if String(s.get("id", "")) == syn_id:
+			return s
+	return {}
+
 static func ensure_loaded() -> void:
 	if _loaded:
 		return
@@ -240,7 +247,7 @@ static func synergy_tooltip_text(state: Dictionary) -> String:
 	return "\n".join(lines)
 
 static func synergy_tooltip_bbcode(state: Dictionary) -> String:
-	# Same content as synergy_tooltip_text(), but formatted for RichTextLabel BBCode.
+	# Formatted for RichTextLabel BBCode with stylized ASCII indicators.
 	var name: String = String(state.get("name", "Synergy"))
 	var count: int = int(state.get("count", 0))
 	var tier_n: int = int(state.get("tier_count", 0))
@@ -248,24 +255,42 @@ static func synergy_tooltip_bbcode(state: Dictionary) -> String:
 	var tag: String = String(state.get("count_tag", ""))
 
 	var lines: Array[String] = []
-	lines.append("[b][color=#66e6ff]%s[/color][/b]" % name)
-	if tag != "":
-		lines.append("[color=#98a6bf]Tag:[/color] %s" % tag)
+	
+	# Header with status indicator
 	if tier_n > 0:
-		lines.append("[color=#98a6bf]Roster:[/color] [b]%d/%d[/b] [color=#66ff88](active)[/color]" % [count, tier_n])
+		lines.append("[b][color=#66ffaa][[ %s ]][/color][/b]" % name)
 	elif next_n > 0:
-		lines.append("[color=#98a6bf]Roster:[/color] [b]%d/%d[/b]" % [count, next_n])
+		lines.append("[b][color=#ffaa66][ %s ][/color][/b]" % name)
 	else:
-		lines.append("[color=#98a6bf]Roster:[/color] [b]%d[/b]" % count)
+		lines.append("[b][color=#98a6bf]( %s )[/color][/b]" % name)
+	
+	# Progress bar style count
+	if tier_n > 0:
+		lines.append("[color=#66ff88]|===| ACTIVE %d/%d[/color]" % [count, tier_n])
+	elif next_n > 0:
+		var filled := mini(count, next_n)
+		var bar := "|"
+		for i in range(next_n):
+			if i < filled:
+				bar += "="
+			else:
+				bar += "-"
+		bar += "|"
+		lines.append("[color=#888899]%s %d/%d[/color]" % [bar, count, next_n])
+	else:
+		lines.append("[color=#666677]%d units[/color]" % count)
 
 	var mods: Dictionary = state.get("mods", {}) as Dictionary
 	var effs: Array = state.get("effects", []) as Array
 	var cur_lines: Array[String] = _describe_mods_and_effects(mods, effs)
 	if not cur_lines.is_empty():
 		lines.append("")
-		lines.append("[b]Current[/b]")
+		if tier_n > 0:
+			lines.append("[color=#66ffaa]-- Bonuses --[/color]")
+		else:
+			lines.append("[color=#666677]-- Locked --[/color]")
 		for l in cur_lines:
-			lines.append("• " + l)
+			lines.append("  " + l)
 
 	if next_n > 0 and next_n != tier_n:
 		var nmods: Dictionary = state.get("next_mods", {}) as Dictionary
@@ -273,9 +298,9 @@ static func synergy_tooltip_bbcode(state: Dictionary) -> String:
 		var nxt_lines: Array[String] = _describe_mods_and_effects(nmods, neffs)
 		if not nxt_lines.is_empty():
 			lines.append("")
-			lines.append("[b]Next (%d)[/b]" % next_n)
+			lines.append("[color=#ffaa66]-- Next (%d) --[/color]" % next_n)
 			for l2 in nxt_lines:
-				lines.append("• " + l2)
+				lines.append("  " + l2)
 
 	return "\n".join(lines)
 
@@ -290,6 +315,54 @@ static func summary_text() -> String:
 		var c := int(a.get("count", 0))
 		parts.append("%s (%d/%d)" % [name, c, tier_n])
 	return "Synergies: " + "  •  ".join(parts)
+
+static func get_active_synergies() -> Array:
+	# Returns array of active synergy data for UI display
+	var result: Array = []
+	for a in _active:
+		var tier_n := int(a.get("tier_count", 0))
+		if tier_n > 0:
+			result.append({
+				"id": String(a.get("id", "")),
+				"name": String(a.get("name", "")),
+				"tier": _tier_number_from_count(a),
+				"count": int(a.get("count", 0)),
+				"required": tier_n,
+				"mods": a.get("mods", {}),
+				"effects": a.get("effects", [])
+			})
+	return result
+
+static func _tier_number_from_count(state: Dictionary) -> int:
+	# Calculate which tier number this is (1, 2, 3, etc)
+	var count := int(state.get("count", 0))
+	var id := String(state.get("id", ""))
+	var syn := _get_synergy(id)
+	var tiers_raw := syn.get("tiers", []) as Array
+	var tier_num := 0
+	for t in tiers_raw:
+		if typeof(t) != TYPE_DICTIONARY:
+			continue
+		var td: Dictionary = t
+		var n: int = int(td.get("count", 0))
+		if count >= n:
+			tier_num += 1
+	return tier_num
+
+static func synergy_name(syn_id: String) -> String:
+	var syn := _get_synergy(syn_id)
+	return String(syn.get("name", syn_id.capitalize()))
+
+static func synergy_tooltip_text_by_id(syn_id: String, tier: int) -> String:
+	# Get tooltip text for a specific synergy at a specific tier
+	var syn := _get_synergy(syn_id)
+	var tiers_raw := syn.get("tiers", []) as Array
+	if tier < 1 or tier > tiers_raw.size():
+		return ""
+	var tier_data := tiers_raw[tier - 1] as Dictionary
+	var mods := tier_data.get("mods", {}) as Dictionary
+	var effs := tier_data.get("effects", []) as Array
+	return "\n".join(_describe_mods_and_effects(mods, effs))
 
 static func _next_tier(tiers_raw: Array, count: int) -> Dictionary:
 	# Pick the lowest tier > count.
@@ -325,15 +398,27 @@ static func _describe_mods_and_effects(mods: Dictionary, effects: Array) -> Arra
 static func _mod_line(key: String, v: float) -> String:
 	match key:
 		"max_hp_mult":
-			return "+%d%% HP" % int(round((v - 1.0) * 100.0))
+			var pct := int(round((v - 1.0) * 100.0))
+			if pct >= 0:
+				return "[color=#66ff88]+%d%% Max HP[/color]" % pct
+			return "[color=#ff6666]%d%% Max HP[/color]" % pct
 		"attack_damage_mult":
-			return "+%d%% Damage" % int(round((v - 1.0) * 100.0))
+			var pct := int(round((v - 1.0) * 100.0))
+			if pct >= 0:
+				return "[color=#ffaa66]+%d%% Damage[/color]" % pct
+			return "[color=#ff6666]%d%% Damage[/color]" % pct
 		"move_speed_mult":
-			return "+%d%% Move Speed" % int(round((v - 1.0) * 100.0))
+			var pct := int(round((v - 1.0) * 100.0))
+			if pct >= 0:
+				return "[color=#66eeff]+%d%% Move Speed[/color]" % pct
+			return "[color=#ff6666]%d%% Move Speed[/color]" % pct
 		"attack_cooldown_mult":
 			# Smaller = faster. Convert to attack speed increase.
 			var inc := (1.0 / maxf(0.001, v)) - 1.0
-			return "+%d%% Attack Speed" % int(round(inc * 100.0))
+			var pct := int(round(inc * 100.0))
+			if pct >= 0:
+				return "[color=#ffee66]+%d%% Attack Speed[/color]" % pct
+			return "[color=#ff6666]%d%% Attack Speed[/color]" % pct
 		_:
 			return ""
 
@@ -341,43 +426,43 @@ static func _effect_line(e: Dictionary) -> String:
 	var t := String(e.get("type", ""))
 	match t:
 		"volley_shot":
-			return "Every %d attacks: bonus shot (%d%% dmg) to a nearby enemy" % [int(e.get("interval_attacks", 4)), int(round(float(e.get("damage_mult", 0.5)) * 100.0))]
+			return "[color=#88ddff]>> Volley[/color] — Every %d attacks fires a bonus shot for [color=#ffaa66]%d%%[/color] dmg" % [int(e.get("interval_attacks", 4)), int(round(float(e.get("damage_mult", 0.5)) * 100.0))]
 		"pierce_bonus":
-			return "Projectiles pierce +%d" % int(e.get("extra_pierce", 1))
+			return "[color=#88ddff]=> Pierce[/color] — Projectiles pass through [color=#ffaa66]+%d[/color] enemies" % int(e.get("extra_pierce", 1))
 		"shockstep":
-			return "Every %d melee hits: shockwave (%d%% dmg) in %.0f radius, slows" % [int(e.get("interval_hits", 3)), int(round(float(e.get("damage_mult", 0.22)) * 100.0)), float(e.get("radius", 130.0))]
+			return "[color=#bb88ff](( Shockwave[/color] — Every %d melee hits: [color=#ffaa66]%d%%[/color] AoE + slow" % [int(e.get("interval_hits", 3)), int(round(float(e.get("damage_mult", 0.22)) * 100.0))]
 		"arc_focus":
-			return "Every %d hits: chain lightning to %d enemies (%d%% dmg) in %.0f radius" % [int(e.get("interval_hits", 6)), int(e.get("chains", 2)), int(round(float(e.get("damage_mult", 0.30)) * 100.0)), float(e.get("radius", 240.0))]
+			return "[color=#66eeff]~/ Chain[/color] — Every %d hits arcs to %d foes for [color=#ffaa66]%d%%[/color] dmg" % [int(e.get("interval_hits", 6)), int(e.get("chains", 2)), int(round(float(e.get("damage_mult", 0.30)) * 100.0))]
 		"execute_protocol":
-			return "Execute: vs targets under %d%% HP, deal +%d%% dmg" % [int(round(float(e.get("threshold", 0.35)) * 100.0)), int(round(float(e.get("bonus_mult", 0.18)) * 100.0))]
+			return "[color=#ff6666]X/ Execute[/color] — Below [color=#ffaa66]%d%% HP[/color]: take [color=#ff6666]+%d%%[/color] dmg" % [int(round(float(e.get("threshold", 0.35)) * 100.0)), int(round(float(e.get("bonus_mult", 0.18)) * 100.0))]
 		"ricochet_matrix":
-			return "On projectile hit: %d%% chance to ricochet (%d%% dmg) in %.0f radius" % [int(round(float(e.get("chance", 0.28)) * 100.0)), int(round(float(e.get("damage_mult", 0.55)) * 100.0)), float(e.get("radius", 290.0))]
+			return "[color=#88ddff]<> Ricochet[/color] — [color=#ffaa66]%d%%[/color] chance to bounce for [color=#ffaa66]%d%%[/color] dmg" % [int(round(float(e.get("chance", 0.28)) * 100.0)), int(round(float(e.get("damage_mult", 0.55)) * 100.0))]
 		"crit_arc":
-			return "On crit: %d%% chance to arc (%d%% dmg) in %.0f radius" % [int(round(float(e.get("chance", 0.35)) * 100.0)), int(round(float(e.get("damage_mult", 0.28)) * 100.0)), float(e.get("radius", 240.0))]
+			return "[color=#ffee66]!! Crit Arc[/color] — Crits: [color=#ffaa66]%d%%[/color] chance to arc [color=#ffaa66]%d%%[/color] dmg" % [int(round(float(e.get("chance", 0.35)) * 100.0)), int(round(float(e.get("damage_mult", 0.28)) * 100.0))]
 		"hellfire_burn":
-			return "On hit: %d%% chance to burn (%d%% dmg/s) for %.1fs" % [int(round(float(e.get("chance", 0.32)) * 100.0)), int(round(float(e.get("dps_mult", 0.12)) * 100.0)), float(e.get("duration", 2.5))]
+			return "[color=#ff8844]{{ Ignite[/color] — [color=#ffaa66]%d%%[/color] chance: [color=#ff6666]%d%%/s[/color] burn for %.1fs" % [int(round(float(e.get("chance", 0.32)) * 100.0)), int(round(float(e.get("dps_mult", 0.12)) * 100.0)), float(e.get("duration", 2.5))]
 		"inferno_blast":
-			return "Every %d hits: inferno blast (%d%% dmg) in %.0f radius" % [int(e.get("interval_hits", 7)), int(round(float(e.get("damage_mult", 0.22)) * 100.0)), float(e.get("radius", 140.0))]
+			return "[color=#ff4422]** Inferno[/color] — Every %d hits: [color=#ffaa66]%d%%[/color] AoE explosion" % [int(e.get("interval_hits", 7)), int(round(float(e.get("damage_mult", 0.22)) * 100.0))]
 		"prismatic_surge":
-			return "Every %d hits: prismatic surge (arc/chill/burn) in %.0f radius" % [int(e.get("interval_hits", 6)), float(e.get("radius", 220.0))]
+			return "[color=#dd88ff]<> Prismatic[/color] — Every %d hits: random [color=#66eeff]arc[/color]/[color=#88ddff]chill[/color]/[color=#ff8844]burn[/color]" % int(e.get("interval_hits", 6))
 		"pack_maul":
-			return "Every %d melee hits: pack maul (%d%% dmg) in %.0f radius, slows" % [int(e.get("interval_hits", 4)), int(round(float(e.get("damage_mult", 0.18)) * 100.0)), float(e.get("radius", 120.0))]
+			return "[color=#88ff88]// Maul[/color] — Every %d melee hits: [color=#ffaa66]%d%%[/color] AoE + slow" % [int(e.get("interval_hits", 4)), int(round(float(e.get("damage_mult", 0.18)) * 100.0))]
 		"bulwark_aura":
-			return "Aura: pulse slows nearby enemies (%.0f radius)" % float(e.get("radius", 95.0))
+			return "[color=#66ff88](( Bulwark[/color] — Slow nearby enemies by [color=#88ddff]%d%%[/color]" % int(round((1.0 - float(e.get("slow_mult", 0.86))) * 100.0))
 		"aura_heal":
-			return "Aura: heal squad for %d%% max HP" % int(round(float(e.get("heal_frac", 0.02)) * 100.0))
+			return "[color=#66ff88]++ Regen[/color] — Heal all allies [color=#66ff88]%d%% HP[/color] periodically" % int(round(float(e.get("heal_frac", 0.02)) * 100.0))
 		"wisp_bolt":
-			return "Periodic wisp bolt (%d%% dmg) in %.0f radius" % [int(round(float(e.get("damage_mult", 0.35)) * 100.0)), float(e.get("radius", 520.0))]
+			return "[color=#dd88ff]~* Wisp[/color] — Fire spirit bolt for [color=#ffaa66]%d%%[/color] dmg" % int(round(float(e.get("damage_mult", 0.35)) * 100.0))
 		"sanctuary_heal":
-			return "Periodic heal: lowest ally heals for %d%% max HP" % int(round(float(e.get("heal_frac", 0.04)) * 100.0))
+			return "[color=#66ff88]++ Sanctuary[/color] — Heal lowest ally [color=#66ff88]%d%% HP[/color]" % int(round(float(e.get("heal_frac", 0.04)) * 100.0))
 		"soul_feast":
-			return "On kill: heal weakest ally for %d%% max HP" % int(round(float(e.get("heal_frac", 0.05)) * 100.0))
+			return "[color=#88ff88]<+ Soul Feast[/color] — On kill: heal weakest [color=#66ff88]%d%% HP[/color]" % int(round(float(e.get("heal_frac", 0.05)) * 100.0))
 		"death_chill":
-			return "On kill: chill nova slows enemies (%.0f radius)" % float(e.get("radius", 160.0))
+			return "[color=#88ddff]** Chill[/color] — On kill: slow nearby by [color=#88ddff]%d%%[/color]" % int(round((1.0 - float(e.get("slow_mult", 0.86))) * 100.0))
 		"focus_fire":
-			return "Focus fire: after %d hits on same target, bonus +%d%% dmg" % [int(e.get("stacks", 6)), int(round(float(e.get("bonus_mult", 0.35)) * 100.0))]
+			return "[color=#ffee66]:: Focus[/color] — After %d hits same target: [color=#ff6666]+%d%%[/color] dmg" % [int(e.get("stacks", 6)), int(round(float(e.get("bonus_mult", 0.35)) * 100.0))]
 		"bounty":
-			return "Bounty: %d%% chance on kill to gain +%d Essence" % [int(round(float(e.get("chance", 0.14)) * 100.0)), int(e.get("essence", 1))]
+			return "[color=#ffee66]$$ Bounty[/color] — [color=#ffaa66]%d%%[/color] on kill: [color=#ffee66]+%d[/color] Essence" % [int(round(float(e.get("chance", 0.14)) * 100.0)), int(e.get("essence", 1))]
 		_:
 			return ""
 

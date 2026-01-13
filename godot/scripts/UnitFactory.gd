@@ -93,6 +93,7 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	cd.crit_mult = maxf(1.1, crit_m)
 
 	_apply_attack_style_random(cd, rng)
+	_roll_weapon(cd, arch, rng)
 	_roll_passives(cd, rng, context, elapsed_minutes)
 
 	# Best-effort class hint mapping
@@ -210,8 +211,36 @@ static func _class_from_hint(hint: String) -> CharacterData.Class:
 		_:
 			return CharacterData.Class.WARRIOR
 
+static func _roll_weapon(cd: CharacterData, archetype: Dictionary, rng: RandomNumberGenerator) -> void:
+	# Assign a weapon from the archetype's weapon pool
+	var weapons := archetype.get("weapons", ["standard_bolt"]) as Array
+	if weapons.is_empty():
+		cd.weapon_id = "standard_bolt"
+		return
+	cd.weapon_id = String(weapons[rng.randi() % weapons.size()])
+	
+	# Adjust attack style based on weapon type
+	var w := WeaponSystem.get_weapon(cd.weapon_id)
+	var tags := w.get("tags", []) as Array
+	if tags.has("melee"):
+		cd.attack_style = CharacterData.AttackStyle.MELEE
+	else:
+		cd.attack_style = CharacterData.AttackStyle.RANGED
+
 static func _apply_attack_style_random(cd: CharacterData, rng: RandomNumberGenerator) -> void:
 	# Randomly roll melee vs ranged, with tradeoffs.
+	# Skip if weapon already set the style
+	if cd.weapon_id != "" and cd.weapon_id != "standard_bolt":
+		var w := WeaponSystem.get_weapon(cd.weapon_id)
+		var tags := w.get("tags", []) as Array
+		if tags.has("melee"):
+			cd.attack_range = clampf(cd.attack_range * 0.55, 80.0, 220.0)
+			cd.attack_damage = int(round(float(cd.attack_damage) * 1.22))
+			cd.attack_cooldown = maxf(0.25, cd.attack_cooldown * 0.90)
+			cd.max_hp = int(round(float(cd.max_hp) * 1.12))
+			return
+		return
+	
 	var melee := rng.randf() < 0.38
 	if melee:
 		cd.attack_style = CharacterData.AttackStyle.MELEE

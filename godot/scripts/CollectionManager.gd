@@ -35,6 +35,7 @@ func _cd_to_dict(cd: CharacterData) -> Dictionary:
 		"class_type": int(cd.class_type),
 		"tier": int(cd.tier),
 		"attack_style": int(cd.attack_style),
+		"weapon_id": cd.weapon_id,
 		"passive_ids": Array(cd.passive_ids),
 		"crit_chance": float(cd.crit_chance),
 		"crit_mult": float(cd.crit_mult),
@@ -55,6 +56,7 @@ func _dict_to_cd(d: Dictionary) -> CharacterData:
 	cd.class_type = int(d.get("class_type", 0))
 	cd.tier = int(d.get("tier", 1))
 	cd.attack_style = int(d.get("attack_style", 1))
+	cd.weapon_id = String(d.get("weapon_id", "standard_bolt"))
 	var arr: Array = d.get("passive_ids", [])
 	var pids := PackedStringArray()
 	for a in arr:
@@ -79,6 +81,91 @@ func unlock_character(cd: CharacterData) -> bool:
 	unlocked.append({"id": uid, "data": _cd_to_dict(cd)})
 	save()
 	return true
+
+# Dupe system: find existing character with same appearance (pixellab_id)
+func find_dupe_by_appearance(cd: CharacterData) -> int:
+	if cd == null:
+		return -1
+	var target_id := cd.pixellab_id if cd.pixellab_id != "" else cd.sprite_path
+	if target_id == "":
+		return -1
+	for i in range(unlocked.size()):
+		var data: Dictionary = unlocked[i].get("data", {})
+		var existing_id := String(data.get("pixellab_id", ""))
+		if existing_id == "":
+			existing_id = String(data.get("sprite_path", ""))
+		if existing_id == target_id:
+			return i
+	return -1
+
+# Merge duplicate character to upgrade an existing one
+# Returns: { "success": bool, "upgraded_cd": CharacterData, "bonus_text": String }
+func merge_duplicate(cd: CharacterData) -> Dictionary:
+	if cd == null:
+		return {"success": false, "upgraded_cd": null, "bonus_text": ""}
+	
+	var dupe_idx := find_dupe_by_appearance(cd)
+	if dupe_idx < 0:
+		return {"success": false, "upgraded_cd": null, "bonus_text": ""}
+	
+	# Get existing character data
+	var existing_data: Dictionary = unlocked[dupe_idx].get("data", {})
+	var existing_cd := _dict_to_cd(existing_data)
+	
+	# Upgrade bonuses per merge (stacks!)
+	var current_tier: int = int(existing_data.get("tier", 1))
+	var new_tier: int = mini(current_tier + 1, 5)  # Max tier 5 (★★★★★)
+	
+	# Per-tier bonuses (compound!)
+	var hp_bonus := 0.12  # +12% HP per merge
+	var dmg_bonus := 0.10  # +10% damage per merge
+	var crit_bonus := 0.02  # +2% crit chance per merge
+	
+	existing_cd.tier = new_tier
+	existing_cd.max_hp = int(round(float(existing_cd.max_hp) * (1.0 + hp_bonus)))
+	existing_cd.attack_damage = int(round(float(existing_cd.attack_damage) * (1.0 + dmg_bonus)))
+	existing_cd.crit_chance = clampf(existing_cd.crit_chance + crit_bonus, 0.0, 0.50)
+	
+	# Chance to inherit a passive from the dupe (if they have different ones)
+	var inherited_passive := ""
+	for pid in cd.passive_ids:
+		if not existing_cd.passive_ids.has(pid):
+			# 50% chance to inherit this passive
+			if randf() < 0.50:
+				var new_passives := Array(existing_cd.passive_ids)
+				new_passives.append(pid)
+				existing_cd.passive_ids = PackedStringArray(new_passives)
+				inherited_passive = pid
+				break
+	
+	# Update the stored character
+	unlocked[dupe_idx]["data"] = _cd_to_dict(existing_cd)
+	unlocked[dupe_idx]["id"] = _make_unlock_id(existing_cd)
+	
+	# Also update in active roster if present
+	_update_roster_character(existing_cd)
+	
+	save()
+	
+	# Build bonus description
+	var stars := "★".repeat(new_tier)
+	var bonus_text := "%s\n+12%% HP, +10%% DMG, +2%% Crit" % stars
+	if inherited_passive != "":
+		bonus_text += "\n+NEW: %s" % PassiveSystem.passive_name(inherited_passive)
+	
+	return {"success": true, "upgraded_cd": existing_cd, "bonus_text": bonus_text}
+
+func _update_roster_character(cd: CharacterData) -> void:
+	# Find and update this character in active roster
+	var target_id := cd.pixellab_id if cd.pixellab_id != "" else cd.sprite_path
+	for i in range(active_roster.size()):
+		var data: Dictionary = active_roster[i]
+		var roster_id := String(data.get("pixellab_id", ""))
+		if roster_id == "":
+			roster_id = String(data.get("sprite_path", ""))
+		if roster_id == target_id:
+			active_roster[i] = _cd_to_dict(cd)
+			break
 
 func add_to_roster(cd: CharacterData) -> bool:
 	if cd == null:

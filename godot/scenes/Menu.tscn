@@ -55,8 +55,8 @@ anchor_bottom = 1.0
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="Root/Left/LeftPad/LeftVBox"]
-text = "Collection"
-theme_override_font_sizes/font_size = 26
+text = "Your Characters"
+theme_override_font_sizes/font_size = 22
 
 [node name="SearchRow" type="HBoxContainer" parent="Root/Left/LeftPad/LeftVBox"]
 theme_override_constants/separation = 10
@@ -79,61 +79,65 @@ size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="InspectorCard" type="PanelContainer" parent="Root/Left/LeftPad/LeftVBox"]
-custom_minimum_size = Vector2(0, 220)
+custom_minimum_size = Vector2(0, 180)
+clip_contents = true
 
 [node name="InspectorPad" type="MarginContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_bottom = 12
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_bottom = 10
 
 [node name="InspectorVBox" type="VBoxContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="InspectorTitle" type="Label" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox"]
 text = "Selected"
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 14
 
 [node name="InspectorBody" type="HBoxContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox"]
 theme_override_constants/separation = 10
 size_flags_vertical = 3
 
 [node name="InspectorPortrait" type="Control" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody"]
-custom_minimum_size = Vector2(92, 92)
+custom_minimum_size = Vector2(72, 72)
 
 [node name="InspectorInfo" type="VBoxContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody"]
 size_flags_horizontal = 3
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="InspectorName" type="Label" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo"]
 text = "Click a character to preview."
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 16
+text_overrun_behavior = 3
+theme_override_font_sizes/font_size = 13
 
 [node name="InspectorStats" type="Label" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo"]
 text = ""
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
+text_overrun_behavior = 3
+theme_override_font_sizes/font_size = 11
 
 [node name="InspectorPassives" type="Label" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo"]
 text = ""
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
+text_overrun_behavior = 3
+theme_override_font_sizes/font_size = 11
 
 [node name="InspectorSynergiesTitle" type="Label" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo"]
 text = "Synergies"
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 
 [node name="InspectorSynergyChips" type="FlowContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo"]
 size_flags_horizontal = 3
-theme_override_constants/h_separation = 6
-theme_override_constants/v_separation = 6
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
 
 [node name="InspectorButtons" type="HBoxContainer" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox"]
 theme_override_constants/separation = 10
@@ -141,14 +145,14 @@ alignment = 2
 
 [node name="InspectorDetails" type="Button" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons"]
 text = "Details"
-custom_minimum_size = Vector2(120, 42)
+custom_minimum_size = Vector2(100, 38)
 
 [node name="InspectorPrimary" type="Button" parent="Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons"]
-text = "Add to Roster"
-custom_minimum_size = Vector2(170, 42)
+text = "Add to Squad"
+custom_minimum_size = Vector2(140, 38)
 
 [node name="Right" type="PanelContainer" parent="Root"]
-custom_minimum_size = Vector2(360, 0)
+custom_minimum_size = Vector2(320, 0)
 
 [node name="RightPad" type="MarginContainer" parent="Root/Right"]
 anchors_preset = 15
@@ -173,8 +177,8 @@ anchor_bottom = 1.0
 theme_override_constants/separation = 12
 
 [node name="RosterTitle" type="Label" parent="Root/Right/RightPad/RightScroll/RightVBox"]
-text = "Active Roster"
-theme_override_font_sizes/font_size = 22
+text = "Your Squad"
+theme_override_font_sizes/font_size = 20
 
 [node name="RosterBox" type="VBoxContainer" parent="Root/Right/RightPad/RightScroll/RightVBox"]
 theme_override_constants/separation = 8

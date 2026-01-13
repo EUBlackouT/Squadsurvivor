@@ -30,6 +30,7 @@ enum AttackStyle { MELEE, RANGED }
 @export var tier: int = 1  # Kept for UI; stats are data-driven now
 
 @export var attack_style: AttackStyle = AttackStyle.RANGED
+@export var weapon_id: String = "standard_bolt"  # Weapon type determines attack pattern
 @export var passive_ids: PackedStringArray = PackedStringArray()
 @export var crit_chance: float = 0.0
 @export var crit_mult: float = 1.5

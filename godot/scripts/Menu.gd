@@ -44,7 +44,7 @@ func _ready() -> void:
 	_refresh()
 
 	_setup_map_select()
-	_setup_meta_ui()
+	# Meta Progress removed - belongs on MainMenu, not Collection page
 
 	if _search:
 		_search.text_changed.connect(func(_t: String):
@@ -117,11 +117,12 @@ func _ready() -> void:
 						_on_start_run()
 			)
 
-func _meta_cap() -> int:
+func _squad_slots() -> int:
+	# Active roster is limited by squad_slots (what you bring into a run)
 	var mp := get_node_or_null("/root/MetaProgression")
-	if mp and is_instance_valid(mp) and mp.has_method("get_roster_cap"):
-		return int(mp.get_roster_cap())
-	return 6
+	if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
+		return int(mp.get_squad_slots())
+	return 3
 
 func _open_settings() -> void:
 	if has_node("SettingsMenu"):
@@ -241,7 +242,7 @@ func _setup_meta_ui() -> void:
 	_refresh_meta_ui()
 
 func _open_meta_tree() -> void:
-	# Modal: Protocol Grid (meta skill tree).
+	# Modal: Protocol Grid (meta skill tree) - DRAMATIC OVERHAUL
 	if has_node("MetaTreeModal"):
 		get_node("MetaTreeModal").queue_free()
 	var layer := CanvasLayer.new()
@@ -249,21 +250,48 @@ func _open_meta_tree() -> void:
 	layer.layer = 175
 	add_child(layer)
 
+	# Animated backdrop
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.78)
+	bg.color = Color(0, 0, 0, 0.88)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bg_mat := ShaderMaterial.new()
+	bg_mat.shader = preload("res://shaders/ui_arcane_scifi_backdrop.gdshader")
+	bg_mat.set_shader_parameter("base_a", Color(0.02, 0.03, 0.05, 1.0))
+	bg_mat.set_shader_parameter("base_b", Color(0.05, 0.06, 0.10, 1.0))
+	bg_mat.set_shader_parameter("glow_color", Color(0.30, 0.70, 1.0, 1.0))
+	bg_mat.set_shader_parameter("band_strength", 0.12)
+	bg_mat.set_shader_parameter("scanline_strength", 0.06)
+	bg.material = bg_mat
 	layer.add_child(bg)
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.offset_left = -520
-	panel.offset_top = -330
-	panel.offset_right = 520
-	panel.offset_bottom = 330
+	panel.offset_left = -580
+	panel.offset_top = -360
+	panel.offset_right = 580
+	panel.offset_bottom = 360
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
+	panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT_PURPLE))
+	# Neon frame effect
+	var panel_mat := ShaderMaterial.new()
+	panel_mat.shader = preload("res://shaders/ui_neon_frame.gdshader")
+	panel_mat.set_shader_parameter("base_color", Color(0.04, 0.05, 0.07, 0.98))
+	panel_mat.set_shader_parameter("glow_color", Color(0.55, 0.40, 1.0, 0.6))
+	panel_mat.set_shader_parameter("glow_width", 0.018)
+	panel_mat.set_shader_parameter("pulse_speed", 0.6)
+	panel.material = panel_mat
 	layer.add_child(panel)
+	
+	# Entrance animation
+	panel.modulate = Color(1, 1, 1, 0)
+	panel.scale = Vector2(0.95, 0.95)
+	panel.pivot_offset = panel.size * 0.5
+	var enter_tw := panel.create_tween()
+	enter_tw.set_trans(Tween.TRANS_BACK)
+	enter_tw.set_ease(Tween.EASE_OUT)
+	enter_tw.tween_property(panel, "modulate", Color.WHITE, 0.25)
+	enter_tw.parallel().tween_property(panel, "scale", Vector2.ONE, 0.25)
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -278,13 +306,12 @@ func _open_meta_tree() -> void:
 	pad.add_child(root)
 
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
+	header.add_theme_constant_override("separation", 14)
 	root.add_child(header)
 
 	var title := Label.new()
-	title.text = "Protocol Grid"
-	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", UiSkin.TEXT)
+	title.text = "⬡ PROTOCOL GRID"
+	UiSkin.style_page_title(title, UiSkin.ACCENT_PURPLE)
 	header.add_child(title)
 
 	var search := LineEdit.new()
@@ -292,21 +319,55 @@ func _open_meta_tree() -> void:
 	search.placeholder_text = "Search nodes…"
 	search.clear_button_enabled = true
 	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	search.add_theme_font_size_override("font_size", 14)
+	# Style the search box
+	var search_sb := StyleBoxFlat.new()
+	search_sb.bg_color = Color(0.06, 0.07, 0.09, 0.9)
+	search_sb.border_width_left = 1
+	search_sb.border_width_right = 1
+	search_sb.border_width_top = 1
+	search_sb.border_width_bottom = 1
+	search_sb.border_color = Color(0.55, 0.40, 1.0, 0.35)
+	search_sb.corner_radius_top_left = 8
+	search_sb.corner_radius_top_right = 8
+	search_sb.corner_radius_bottom_left = 8
+	search_sb.corner_radius_bottom_right = 8
+	search.add_theme_stylebox_override("normal", search_sb)
 	header.add_child(search)
 
 	header.add_spacer(true)
 
+	# Sigils display with icon
+	var sig_container := HBoxContainer.new()
+	sig_container.add_theme_constant_override("separation", 6)
+	header.add_child(sig_container)
+	
+	var sig_icon := Label.new()
+	sig_icon.text = "✦"
+	sig_icon.add_theme_font_size_override("font_size", 18)
+	sig_icon.add_theme_color_override("font_color", UiSkin.ACCENT_GOLD)
+	sig_container.add_child(sig_icon)
+	
 	var sig_lbl := Label.new()
 	sig_lbl.name = "SigilsLabel"
-	sig_lbl.add_theme_font_size_override("font_size", 14)
-	sig_lbl.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
-	header.add_child(sig_lbl)
+	sig_lbl.add_theme_font_size_override("font_size", 16)
+	sig_lbl.add_theme_color_override("font_color", UiSkin.ACCENT_GOLD)
+	sig_container.add_child(sig_lbl)
 
 	var close := Button.new()
-	close.text = "Close"
-	close.custom_minimum_size = Vector2(110, 38)
-	UiSkin.style_secondary_button(close)
-	close.pressed.connect(func(): layer.queue_free())
+	close.text = "✕ Close"
+	close.custom_minimum_size = Vector2(120, 42)
+	UiSkin.style_secondary_button(close, UiSkin.ACCENT_RED)
+	UiSkin.add_hover_scale(close, 1.03)
+	close.pressed.connect(func(): 
+		# Exit animation
+		var exit_tw := panel.create_tween()
+		exit_tw.set_trans(Tween.TRANS_SINE)
+		exit_tw.set_ease(Tween.EASE_IN)
+		exit_tw.tween_property(panel, "modulate", Color(1, 1, 1, 0), 0.15)
+		exit_tw.parallel().tween_property(panel, "scale", Vector2(0.97, 0.97), 0.15)
+		exit_tw.tween_callback(func(): layer.queue_free())
+	)
 	header.add_child(close)
 
 	var body := HBoxContainer.new()
@@ -314,21 +375,38 @@ func _open_meta_tree() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(body)
 
-	# Graph area
+	# Graph area with dramatic styling
 	var graph_frame := PanelContainer.new()
-	graph_frame.custom_minimum_size = Vector2(720, 0)
+	graph_frame.custom_minimum_size = Vector2(780, 0)
 	graph_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	graph_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	graph_frame.add_theme_stylebox_override("panel", UiSkin.panel_style(Color(0.75, 0.85, 1.0, 1.0), false))
+	var graph_sb := StyleBoxFlat.new()
+	graph_sb.bg_color = Color(0.02, 0.025, 0.04, 0.98)
+	graph_sb.border_width_left = 2
+	graph_sb.border_width_right = 2
+	graph_sb.border_width_top = 2
+	graph_sb.border_width_bottom = 2
+	graph_sb.border_color = Color(0.55, 0.40, 1.0, 0.25)
+	graph_sb.corner_radius_top_left = 12
+	graph_sb.corner_radius_top_right = 12
+	graph_sb.corner_radius_bottom_left = 12
+	graph_sb.corner_radius_bottom_right = 12
+	graph_frame.add_theme_stylebox_override("panel", graph_sb)
 	body.add_child(graph_frame)
 
-	# Animated backdrop (makes the tree feel like a "system" not a spreadsheet).
+	# Animated backdrop with deeper colors
 	var back := ColorRect.new()
 	back.set_anchors_preset(Control.PRESET_FULL_RECT)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back.color = Color(1, 1, 1, 0.10)
+	back.color = Color(1, 1, 1, 1.0)
 	var back_mat := ShaderMaterial.new()
 	back_mat.shader = preload("res://shaders/ui_arcane_scifi_backdrop.gdshader")
+	back_mat.set_shader_parameter("base_a", Color(0.015, 0.02, 0.035, 1.0))
+	back_mat.set_shader_parameter("base_b", Color(0.03, 0.04, 0.06, 1.0))
+	back_mat.set_shader_parameter("glow_color", Color(0.45, 0.35, 0.9, 1.0))
+	back_mat.set_shader_parameter("band_strength", 0.08)
+	back_mat.set_shader_parameter("scanline_strength", 0.04)
+	back_mat.set_shader_parameter("noise_strength", 0.04)
 	back.material = back_mat
 	graph_frame.add_child(back)
 
@@ -345,19 +423,39 @@ func _open_meta_tree() -> void:
 	graph.custom_minimum_size = Vector2(1600, 980)
 	graph_scroll.add_child(graph)
 
-	# Legend (owned / available / locked)
+	# Legend with styled background
+	var legend_panel := PanelContainer.new()
+	legend_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	legend_panel.offset_left = 12
+	legend_panel.offset_bottom = -12
+	legend_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var legend_sb := StyleBoxFlat.new()
+	legend_sb.bg_color = Color(0.02, 0.025, 0.04, 0.85)
+	legend_sb.border_width_left = 1
+	legend_sb.border_width_right = 1
+	legend_sb.border_width_top = 1
+	legend_sb.border_width_bottom = 1
+	legend_sb.border_color = Color(0.4, 0.5, 0.6, 0.25)
+	legend_sb.corner_radius_top_left = 8
+	legend_sb.corner_radius_top_right = 8
+	legend_sb.corner_radius_bottom_left = 8
+	legend_sb.corner_radius_bottom_right = 8
+	legend_sb.content_margin_left = 12
+	legend_sb.content_margin_right = 12
+	legend_sb.content_margin_top = 8
+	legend_sb.content_margin_bottom = 8
+	legend_panel.add_theme_stylebox_override("panel", legend_sb)
+	graph_frame.add_child(legend_panel)
+	
 	var legend := RichTextLabel.new()
 	legend.bbcode_enabled = true
 	legend.scroll_active = false
 	legend.fit_content = true
 	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	legend.text = "[b]Legend[/b]  [color=#66e6ff]Owned[/color]  [color=#caa6ff]Available[/color]  [color=#6c7482]Locked[/color]  [color=#ffd36b]Keystone[/color]"
-	legend.add_theme_font_size_override("normal_font_size", 12)
-	legend.add_theme_color_override("default_color", Color(0.82, 0.86, 0.92, 0.95))
-	legend.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	legend.offset_left = 12
-	legend.offset_bottom = -10
-	graph_frame.add_child(legend)
+	legend.text = "[b]◈ Legend[/b]   [color=#66e6ff]● Owned[/color]   [color=#caa6ff]● Available[/color]   [color=#505866]● Locked[/color]   [color=#ffd36b]✦ Keystone[/color]"
+	legend.add_theme_font_size_override("normal_font_size", 13)
+	legend.add_theme_color_override("default_color", Color(0.75, 0.80, 0.88, 0.95))
+	legend_panel.add_child(legend)
 
 	# Drag-to-pan (LMB) inside the graph.
 	var dragging := false
@@ -376,11 +474,24 @@ func _open_meta_tree() -> void:
 			graph_scroll.accept_event()
 	)
 
-	# Side inspector
+	# Side inspector with glowing style
 	var side := PanelContainer.new()
-	side.custom_minimum_size = Vector2(260, 0)
+	side.custom_minimum_size = Vector2(280, 0)
 	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, false))
+	var side_sb := StyleBoxFlat.new()
+	side_sb.bg_color = Color(0.04, 0.045, 0.06, 0.98)
+	side_sb.border_width_left = 2
+	side_sb.border_width_right = 2
+	side_sb.border_width_top = 2
+	side_sb.border_width_bottom = 2
+	side_sb.border_color = Color(0.40, 0.85, 1.0, 0.30)
+	side_sb.corner_radius_top_left = 14
+	side_sb.corner_radius_top_right = 14
+	side_sb.corner_radius_bottom_left = 14
+	side_sb.corner_radius_bottom_right = 14
+	side_sb.shadow_size = 20
+	side_sb.shadow_color = Color(0.40, 0.85, 1.0, 0.08)
+	side.add_theme_stylebox_override("panel", side_sb)
 	body.add_child(side)
 
 	var spad := MarginContainer.new()
@@ -700,54 +811,43 @@ func _meta_tree_refresh(layer: CanvasLayer) -> void:
 			show = (name.find(q) >= 0)
 		b.visible = show
 
-		# Stylized "gem" buttons
+		# Stylized "gem" buttons with dramatic glow effects
 		var is_key := bool(b.get_meta("_is_key", false))
 		var is_core := bool(b.get_meta("_is_core", false))
 		var accent := UiSkin.ACCENT
 		if is_key:
-			accent = Color(1.0, 0.85, 0.35, 1.0)
+			accent = UiSkin.ACCENT_GOLD
 		elif is_core:
-			accent = Color(0.55, 1.0, 0.95, 1.0)
+			accent = Color(0.40, 1.0, 0.85, 1.0)
 		elif can_buy and (not owned):
-			accent = Color(0.78, 0.65, 1.0, 1.0)
+			accent = UiSkin.ACCENT_PURPLE
 
-		var sb := StyleBoxFlat.new()
-		sb.corner_radius_top_left = 18
-		sb.corner_radius_top_right = 18
-		sb.corner_radius_bottom_left = 18
-		sb.corner_radius_bottom_right = 18
-		sb.border_width_left = 2
-		sb.border_width_right = 2
-		sb.border_width_top = 2
-		sb.border_width_bottom = 2
-		if owned:
-			sb.bg_color = Color(accent.r, accent.g, accent.b, 0.22)
-			sb.border_color = Color(accent.r, accent.g, accent.b, 0.95)
-			sb.shadow_size = 16
-			sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.20)
-			b.disabled = false
-			b.modulate = Color(1, 1, 1, 1)
-		elif can_buy:
-			sb.bg_color = Color(accent.r, accent.g, accent.b, 0.12)
-			sb.border_color = Color(accent.r, accent.g, accent.b, 0.55)
-			sb.shadow_size = 10
-			sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.12)
-			b.disabled = false
-			b.modulate = Color(1, 1, 1, 1)
-		else:
-			sb.bg_color = Color(0.06, 0.07, 0.09, 0.75)
-			sb.border_color = Color(1, 1, 1, 0.10)
-			sb.shadow_size = 6
-			sb.shadow_color = Color(0, 0, 0, 0.55)
-			b.disabled = true
-			b.modulate = Color(1, 1, 1, 0.55)
+		var sb := UiSkin.node_button_style(accent, owned, can_buy, is_key)
 		b.add_theme_stylebox_override("normal", sb)
+		
+		# Create hover style with enhanced glow
 		var hover := sb.duplicate() as StyleBoxFlat
-		hover.bg_color = Color(sb.bg_color.r, sb.bg_color.g, sb.bg_color.b, minf(0.40, sb.bg_color.a + 0.10))
-		hover.border_color = Color(sb.border_color.r, sb.border_color.g, sb.border_color.b, minf(1.0, sb.border_color.a + 0.18))
+		hover.bg_color = Color(sb.bg_color.r + 0.03, sb.bg_color.g + 0.03, sb.bg_color.b + 0.04, minf(0.45, sb.bg_color.a + 0.12))
+		hover.border_color = Color(sb.border_color.r, sb.border_color.g, sb.border_color.b, minf(1.0, sb.border_color.a + 0.25))
+		hover.shadow_size = int(sb.shadow_size * 1.5)
+		hover.shadow_color = Color(accent.r, accent.g, accent.b, minf(0.45, sb.shadow_color.a + 0.15))
 		b.add_theme_stylebox_override("hover", hover)
 		b.add_theme_stylebox_override("focus", hover)
 		b.add_theme_stylebox_override("pressed", hover)
+		
+		# State-based appearance
+		if owned:
+			b.disabled = false
+			b.modulate = Color(1, 1, 1, 1)
+			b.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+		elif can_buy:
+			b.disabled = false
+			b.modulate = Color(1, 1, 1, 1)
+			b.add_theme_color_override("font_color", Color(0.92, 0.90, 0.98, 1))
+		else:
+			b.disabled = true
+			b.modulate = Color(1, 1, 1, 0.50)
+			b.add_theme_color_override("font_color", Color(0.6, 0.65, 0.7, 0.8))
 
 	# Recolor edges based on node state (and hide edges filtered by search)
 	for ed in edge_lines:
@@ -770,14 +870,17 @@ func _meta_tree_refresh(layer: CanvasLayer) -> void:
 		var a_buy := bool(mp.can_buy_node(a)) if mp.has_method("can_buy_node") else false
 		var b_buy := bool(mp.can_buy_node(b)) if mp.has_method("can_buy_node") else false
 		if a_owned and b_owned:
-			line.width = 3.0
-			line.default_color = Color(0.40, 0.90, 1.0, 0.50)
+			# Bright glowing connection for owned paths
+			line.width = 4.0
+			line.default_color = Color(0.40, 0.90, 1.0, 0.70)
 		elif (a_owned and b_buy) or (b_owned and a_buy):
-			line.width = 2.5
-			line.default_color = Color(0.78, 0.65, 1.0, 0.28)
+			# Pulsing purple for available paths
+			line.width = 3.0
+			line.default_color = Color(0.70, 0.50, 1.0, 0.45)
 		else:
+			# Dim grey for locked paths
 			line.width = 2.0
-			line.default_color = Color(0.60, 0.80, 1.0, 0.10)
+			line.default_color = Color(0.40, 0.45, 0.55, 0.15)
 
 	if selected_id == "":
 		if sel_title: sel_title.text = "Select a node"
@@ -922,7 +1025,7 @@ func _refresh() -> void:
 	_sync_synergy_system()
 	_refresh_collection()
 	_refresh_roster()
-	_refresh_meta_ui()
+	# Meta UI removed from this page - it's in MainMenu now
 
 func _refresh_collection() -> void:
 	if collection_box == null:
@@ -959,15 +1062,39 @@ func _refresh_collection() -> void:
 		var cls_name := _class_name(cls)
 		var cls_tag := _class_tag(cls)
 
-		# Card row (reads better than a naked HBox).
+		# Card row with glow and hover effects
 		var card := PanelContainer.new()
 		card.mouse_filter = Control.MOUSE_FILTER_PASS
-		card.add_theme_stylebox_override("panel", UiSkin.panel_style(UnitFactory.rarity_color(rarity), false))
+		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var rarity_col := UnitFactory.rarity_color(rarity)
+		card.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, false))
 		collection_box.add_child(card)
+		
+		# Add hover glow effect
+		UiSkin.add_hover_glow(card, rarity_col)
+		
+		# Add subtle scale on hover
+		card.pivot_offset = Vector2(card.size.x * 0.5, card.size.y * 0.5) if card.size.x > 0 else Vector2.ZERO
+		card.mouse_entered.connect(func():
+			var tw := card.create_tween()
+			tw.set_trans(Tween.TRANS_BACK)
+			tw.set_ease(Tween.EASE_OUT)
+			tw.tween_property(card, "scale", Vector2(1.01, 1.01), 0.1)
+		)
+		card.mouse_exited.connect(func():
+			var tw := card.create_tween()
+			tw.set_trans(Tween.TRANS_SINE)
+			tw.set_ease(Tween.EASE_OUT)
+			tw.tween_property(card, "scale", Vector2.ONE, 0.08)
+		)
 
 		card.gui_input.connect(func(ev: InputEvent):
 			if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 				_select_unlock(data)
+				# Click feedback
+				var s := get_node_or_null("/root/SfxSystem")
+				if s and s.has_method("play_ui"):
+					s.play_ui("ui.click")
 		)
 
 		var pad := MarginContainer.new()
@@ -1023,11 +1150,36 @@ func _refresh_collection() -> void:
 		details.pressed.connect(func(): _show_details(data))
 
 		var add := Button.new()
-		add.text = "Add"
 		add.custom_minimum_size = Vector2(92, 34)
-		UiSkin.style_primary_button(add)
+		
+		# Check if already in roster or squad is full
+		var cm2 := get_node_or_null("/root/CollectionManager")
+		var is_in_roster := false
+		var is_squad_full := false
+		if cm2 and is_instance_valid(cm2):
+			is_squad_full = cm2.active_roster.size() >= _squad_slots()
+			for r in cm2.active_roster:
+				if typeof(r) == TYPE_DICTIONARY:
+					var rd := r as Dictionary
+					if String(rd.get("pixellab_id", "")) == String(data.get("pixellab_id", "")) and String(data.get("pixellab_id", "")) != "":
+						is_in_roster = true
+						break
+		
+		if is_in_roster:
+			add.text = "✓"
+			add.tooltip_text = "Already in squad"
+			add.disabled = true
+			UiSkin.style_secondary_button(add, UiSkin.ACCENT_GREEN)
+		elif is_squad_full:
+			add.text = "Full"
+			add.tooltip_text = "Squad is full"
+			add.disabled = true
+			UiSkin.style_secondary_button(add, UiSkin.ACCENT_RED)
+		else:
+			add.text = "Add"
+			UiSkin.style_primary_button(add)
+			add.pressed.connect(func(): _add_unlock_to_roster(data))
 		btns.add_child(add)
-		add.pressed.connect(func(): _add_unlock_to_roster(data))
 
 func _make_collection_preview(data: Dictionary) -> Control:
 	var rarity := String(data.get("rarity_id", "common"))
@@ -1122,26 +1274,57 @@ func _refresh_roster() -> void:
 		return
 
 	var roster: Array = cm.active_roster
-	var cap := _meta_cap()
+	var cap := _squad_slots()
+	
+	# Show slot counter header
+	var slot_header := HBoxContainer.new()
+	slot_header.add_theme_constant_override("separation", 8)
+	roster_box.add_child(slot_header)
+	
+	var slot_label := Label.new()
+	slot_label.text = "Squad Slots"
+	slot_label.add_theme_font_size_override("font_size", 14)
+	slot_label.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+	slot_header.add_child(slot_label)
+	
+	slot_header.add_spacer(true)
+	
+	var slot_count := Label.new()
+	var filled := mini(roster.size(), cap)
+	slot_count.text = "%d / %d" % [filled, cap]
+	slot_count.add_theme_font_size_override("font_size", 16)
+	if filled >= cap:
+		slot_count.add_theme_color_override("font_color", UiSkin.ACCENT_GREEN)
+	else:
+		slot_count.add_theme_color_override("font_color", UiSkin.TEXT)
+	slot_header.add_child(slot_count)
+	
 	for i in range(cap):
 		var row_card := PanelContainer.new()
-		row_card.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, false))
+		var is_filled := i < roster.size() and typeof(roster[i]) == TYPE_DICTIONARY
+		row_card.add_theme_stylebox_override("panel", UiSkin.card_style(UiSkin.ACCENT if is_filled else Color(0.4, 0.45, 0.5, 1.0), false))
 		roster_box.add_child(row_card)
 
 		var pad := MarginContainer.new()
-		pad.add_theme_constant_override("margin_left", 10)
-		pad.add_theme_constant_override("margin_right", 10)
-		pad.add_theme_constant_override("margin_top", 8)
-		pad.add_theme_constant_override("margin_bottom", 8)
+		pad.add_theme_constant_override("margin_left", 8)
+		pad.add_theme_constant_override("margin_right", 8)
+		pad.add_theme_constant_override("margin_top", 6)
+		pad.add_theme_constant_override("margin_bottom", 6)
 		row_card.add_child(pad)
 
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
+		row.add_theme_constant_override("separation", 8)
 		pad.add_child(row)
 
-		var label := Label.new()
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		if i < roster.size() and typeof(roster[i]) == TYPE_DICTIONARY:
+		# Slot number indicator
+		var slot_num := Label.new()
+		slot_num.text = "%d" % (i + 1)
+		slot_num.add_theme_font_size_override("font_size", 14)
+		slot_num.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+		slot_num.custom_minimum_size = Vector2(20, 0)
+		row.add_child(slot_num)
+
+		if is_filled:
 			var d: Dictionary = roster[i]
 			var rarity := String(d.get("rarity_id", "common"))
 			var arch := String(d.get("archetype_id", "bruiser"))
@@ -1150,28 +1333,51 @@ func _refresh_roster() -> void:
 			var cls_tag := _class_tag(cls)
 			# Portrait
 			row.add_child(_make_collection_preview(d))
+			var label := Label.new()
+			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var show_arch := (arch.strip_edges().to_lower() != cls_tag)
-			label.text = "%d) %s • %s%s" % [
-				i + 1,
+			label.text = "%s • %s%s" % [
 				UnitFactory.rarity_name(rarity),
 				cls_name,
 				(" • %s" % arch) if show_arch else ""
 			]
+			label.add_theme_font_size_override("font_size", 13)
 			label.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
-		else:
-			label.text = "%d) (empty)" % [i + 1]
-		row.add_child(label)
-
-		if i < roster.size():
+			row.add_child(label)
+			
 			var remove := Button.new()
-			remove.text = "Remove"
-			remove.custom_minimum_size = Vector2(110, 34)
-			UiSkin.style_secondary_button(remove)
+			remove.text = "✕"
+			remove.tooltip_text = "Remove from squad"
+			remove.custom_minimum_size = Vector2(36, 36)
+			UiSkin.style_secondary_button(remove, UiSkin.ACCENT_RED)
 			row.add_child(remove)
 			remove.pressed.connect(func():
 				cm.remove_from_roster(i)
 				_refresh()
 			)
+		else:
+			var empty_label := Label.new()
+			empty_label.text = "Empty slot"
+			empty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			empty_label.add_theme_font_size_override("font_size", 13)
+			empty_label.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+			row.add_child(empty_label)
+	
+	# Show unlock hint if not at max slots
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
+		var cur_slots := int(mp.get_squad_slots())
+		var max_slots := int(mp.max_squad_slots_cap) if "max_squad_slots_cap" in mp else 8
+		if cur_slots < max_slots:
+			var hint_box := HBoxContainer.new()
+			hint_box.add_theme_constant_override("separation", 6)
+			roster_box.add_child(hint_box)
+			
+			var hint := Label.new()
+			hint.text = "↳ Unlock more slots via Protocol Grid"
+			hint.add_theme_font_size_override("font_size", 11)
+			hint.add_theme_color_override("font_color", UiSkin.ACCENT_PURPLE)
+			hint_box.add_child(hint)
 
 func _add_unlock_to_roster(data: Dictionary) -> void:
 	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
@@ -1179,10 +1385,10 @@ func _add_unlock_to_roster(data: Dictionary) -> void:
 		cm = get_node_or_null("/root/CollectionManager")
 	if cm == null:
 		return
-	var cap := _meta_cap()
+	var cap := _squad_slots()
 	if cm.active_roster.size() >= cap:
 		if _toast:
-			_toast.show_toast("Roster full (max %d). Remove someone first." % cap, Color(1.0, 0.55, 0.45, 1.0))
+			_toast.show_toast("Squad full (%d/%d). Remove someone or unlock more slots." % [cap, cap], Color(1.0, 0.55, 0.45, 1.0))
 		return
 	var cd: CharacterData = (cm._dict_to_cd(data) as CharacterData) if cm.has_method("_dict_to_cd") else null
 	if cd == null:
@@ -1227,33 +1433,42 @@ func _refresh_inspector() -> void:
 	var cls_name := _class_name(cls)
 	var cls_tag := _class_tag(cls)
 	var show_arch := (arch.strip_edges().to_lower() != cls_tag)
+	# Compact name line
 	_inspector_name.text = "%s • %s%s" % [UnitFactory.rarity_name(rarity), cls_name, (" • %s" % arch) if show_arch else ""]
 	_inspector_name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
-	var style := "MELEE" if int(_selected_unlock.get("attack_style", 1)) == 0 else "RANGED"
-	_inspector_stats.text = "%s  |  HP %d  DMG %d  CD %.2f  RNG %d" % [
-		style,
+	
+	# Weapon and stats on one compact line
+	var weapon_id := String(_selected_unlock.get("weapon_id", "standard_bolt"))
+	var weapon_name := WeaponSystem.weapon_name(weapon_id) if weapon_id != "" else ("Melee" if int(_selected_unlock.get("attack_style", 1)) == 0 else "Ranged")
+	_inspector_stats.text = "%s | HP %d  DMG %d  CD %.1f" % [
+		weapon_name,
 		int(_selected_unlock.get("max_hp", 100)),
 		int(_selected_unlock.get("attack_damage", 10)),
-		float(_selected_unlock.get("attack_cooldown", 1.0)),
-		int(float(_selected_unlock.get("attack_range", 300.0)))
+		float(_selected_unlock.get("attack_cooldown", 1.0))
 	]
 
+	# Compact passives
 	var pids: Array = _selected_unlock.get("passive_ids", [])
 	var pnames: Array[String] = []
 	for pid in pids:
 		pnames.append(PassiveSystem.passive_name(String(pid)))
-	_inspector_passives.text = "Passives: " + (", ".join(pnames) if not pnames.is_empty() else "—")
+	_inspector_passives.text = (", ".join(pnames) if not pnames.is_empty() else "No passives")
 	_refresh_synergy_ui_for_unlock(_selected_unlock)
 
 	if _inspector_portrait != null:
 		var p := _make_detail_portrait(_selected_unlock)
-		p.custom_minimum_size = Vector2(92, 92)
+		p.custom_minimum_size = Vector2(72, 72)
 		_inspector_portrait.add_child(p)
 
 	# Determine primary action: Add if not in roster, else show hint.
 	var cm := get_node_or_null("/root/CollectionManager")
 	var in_roster := false
+	var squad_full := false
 	if cm and is_instance_valid(cm):
+		# Check if squad is full
+		var cap := _squad_slots()
+		squad_full = cm.active_roster.size() >= cap
+		# Check if already in roster
 		for r in cm.active_roster:
 			if typeof(r) == TYPE_DICTIONARY:
 				var rd := r as Dictionary
@@ -1261,11 +1476,15 @@ func _refresh_inspector() -> void:
 					in_roster = true
 					break
 	if in_roster:
-		_inspector_primary_btn.text = "Already in Roster"
+		_inspector_primary_btn.text = "In Squad ✓"
 		_inspector_primary_btn.disabled = true
-		UiSkin.style_secondary_button(_inspector_primary_btn)
+		UiSkin.style_secondary_button(_inspector_primary_btn, UiSkin.ACCENT_GREEN)
+	elif squad_full:
+		_inspector_primary_btn.text = "Squad Full"
+		_inspector_primary_btn.disabled = true
+		UiSkin.style_secondary_button(_inspector_primary_btn, UiSkin.ACCENT_RED)
 	else:
-		_inspector_primary_btn.text = "Add to Roster"
+		_inspector_primary_btn.text = "Add to Squad"
 		_inspector_primary_btn.disabled = false
 		UiSkin.style_primary_button(_inspector_primary_btn)
 
@@ -1290,26 +1509,45 @@ func _matches_query(data: Dictionary, q: String) -> bool:
 	return true
 
 func _apply_skin() -> void:
-	# Apply Neon Protocol look consistently.
+	# Apply dramatic Neon Protocol look
 	var left_panel := get_node_or_null("Root/Left") as PanelContainer
 	var right_panel := get_node_or_null("Root/Right") as PanelContainer
 	if left_panel:
-		left_panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
+		left_panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT))
 	if right_panel:
-		right_panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
+		right_panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT_PURPLE))
 
-	# Inspector card panel
+	# Style the title
+	var title_lbl := get_node_or_null("Root/Left/LeftPad/LeftVBox/Title") as Label
+	if title_lbl:
+		UiSkin.style_page_title(title_lbl, UiSkin.ACCENT)
+
+	# Inspector card panel with glow
 	if _inspector_card:
-		_inspector_card.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, false))
+		_inspector_card.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT))
+		# Add subtle neon material
+		var neon := ShaderMaterial.new()
+		neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
+		neon.set_shader_parameter("base_color", Color(0.06, 0.07, 0.09, 0.98))
+		neon.set_shader_parameter("glow_color", Color(0.4, 0.85, 1.0, 0.4))
+		neon.set_shader_parameter("glow_width", 0.015)
+		neon.set_shader_parameter("pulse_speed", 0.8)
+		_inspector_card.material = neon
 
-	# Buttons
-	UiSkin.style_primary_button(start_btn)
-	UiSkin.style_secondary_button(resume_btn)
+	# Style buttons with hover effects
+	UiSkin.style_primary_button(start_btn, UiSkin.ACCENT_GREEN)
+	if start_btn:
+		UiSkin.add_hover_scale(start_btn, 1.02)
+	UiSkin.style_secondary_button(resume_btn, UiSkin.ACCENT_GOLD)
+	if resume_btn:
+		UiSkin.add_hover_scale(resume_btn, 1.02)
 	UiSkin.style_secondary_button(settings_btn)
-	UiSkin.style_secondary_button(back_btn)
+	UiSkin.style_secondary_button(back_btn, UiSkin.ACCENT_RED)
 	UiSkin.style_secondary_button(_search_clear)
 	UiSkin.style_secondary_button(_inspector_details_btn)
 	UiSkin.style_primary_button(_inspector_primary_btn)
+	if _inspector_primary_btn:
+		UiSkin.add_hover_scale(_inspector_primary_btn, 1.02)
 
 	# OptionButton styling (inherits Button)
 	if map_select:
@@ -1364,7 +1602,8 @@ func _show_details(data: Dictionary) -> void:
 	pad.add_child(v)
 
 	var arch := String(data.get("archetype_id", "bruiser"))
-	var style := "MELEE" if int(data.get("attack_style", 1)) == 0 else "RANGED"
+	var weapon_id := String(data.get("weapon_id", "standard_bolt"))
+	var weapon_name := WeaponSystem.weapon_name(weapon_id) if weapon_id != "" else ("MELEE" if int(data.get("attack_style", 1)) == 0 else "RANGED")
 	var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
 	var cls_name := _class_name(cls)
 	var cls_tag := _class_tag(cls)
@@ -1388,7 +1627,7 @@ func _show_details(data: Dictionary) -> void:
 		UnitFactory.rarity_name(rarity),
 		cls_name,
 		(" • %s" % arch) if show_arch else "",
-		style
+		weapon_name
 	]
 	t.add_theme_font_size_override("font_size", 24)
 	t.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
@@ -1662,10 +1901,10 @@ func _make_synergy_chip(state: Dictionary) -> Control:
 	b.tooltip_text = SynergySystem.synergy_tooltip_bbcode(state)
 	b.tooltip_accent = (Color(0.65, 0.85, 1.0, 1.0) if tier_n > 0 else Color(0.75, 0.80, 0.86, 1.0))
 	b.mouse_default_cursor_shape = Control.CURSOR_HELP
-	b.add_theme_font_size_override("font_size", 13)
-	b.custom_minimum_size = Vector2(0, 30)
+	b.add_theme_font_size_override("font_size", 10)
+	b.custom_minimum_size = Vector2(0, 22)
 
-	# Styling: "pill" chip with subtle glow when active.
+	# Styling: compact "pill" chip with subtle glow when active.
 	var active: bool = tier_n > 0
 	var accent: Color = (Color(0.65, 0.85, 1.0, 1.0) if active else Color(0.75, 0.80, 0.86, 1.0))
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
@@ -1675,12 +1914,16 @@ func _make_synergy_chip(state: Dictionary) -> Control:
 	sb.border_width_top = 1
 	sb.border_width_bottom = 1
 	sb.border_color = Color(accent.r, accent.g, accent.b, 0.65 if active else 0.25)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
+	sb.corner_radius_top_left = 10
+	sb.corner_radius_top_right = 10
+	sb.corner_radius_bottom_left = 10
+	sb.corner_radius_bottom_right = 10
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
 	if active:
-		sb.shadow_size = 10
+		sb.shadow_size = 6
 		sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.12)
 	b.add_theme_stylebox_override("normal", sb)
 	var hov: StyleBoxFlat = (sb.duplicate() as StyleBoxFlat)

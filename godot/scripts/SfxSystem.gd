@@ -135,6 +135,7 @@ func _build_streams() -> void:
 	_streams["ui_drop"] = _make_chime(0.14, 920.0, 0.40)
 	_streams["ui_victory"] = _make_chime(0.26, 520.0, 0.55)
 	_streams["ui_defeat"] = _make_thump(0.18, 70.0, 0.85)
+	_streams["ui_levelup"] = _make_levelup_chime(0.30)
 	# Combat baseline
 	_streams["player_slash"] = _make_whoosh(0.10, 0.18)
 	_streams["player_shot"] = _make_tick(0.05, 1120.0, 0.12)
@@ -145,6 +146,25 @@ func _build_streams() -> void:
 	_streams["telegraph_tick"] = _make_tick(0.06, 640.0, 0.10)
 	_streams["enemy_die"] = _make_tick(0.06, 520.0, 0.18)
 	_streams["enemy_spawn_elite"] = _make_thump(0.16, 82.0, 0.65)
+	
+	# Weapon-specific sounds
+	_streams["weapon_slash"] = _make_slash(0.14, 0.35)
+	_streams["weapon_bomb_launch"] = _make_whoosh(0.12, 0.25)
+	_streams["weapon_bomb_explode"] = _make_explosion(0.22, 120.0, 0.75)
+	_streams["weapon_chain_zap"] = _make_zap(0.08, 1400.0, 300.0, 0.30)
+	_streams["weapon_pierce"] = _make_whoosh(0.08, 0.20)
+	_streams["weapon_scatter"] = _make_tick(0.04, 1200.0, 0.15)
+	_streams["weapon_boomerang"] = _make_whoosh(0.10, 0.18)
+	_streams["weapon_beam"] = _make_beam(0.25, 280.0, 0.20)
+	_streams["weapon_slam"] = _make_thump(0.18, 65.0, 0.90)
+	_streams["weapon_poison"] = _make_tick(0.06, 680.0, 0.22)
+	_streams["weapon_frost"] = _make_glass(0.12, 920.0, 0.28)
+	_streams["weapon_fire"] = _make_whoosh(0.14, 0.35)
+	_streams["weapon_spirit"] = _make_chime(0.12, 680.0, 0.30)
+	_streams["weapon_vampiric"] = _make_chime(0.10, 440.0, 0.25)
+	_streams["weapon_ricochet"] = _make_tick(0.05, 1100.0, 0.18)
+	_streams["weapon_orbital_charge"] = _make_beam(0.35, 180.0, 0.15)
+	_streams["weapon_orbital_strike"] = _make_explosion(0.30, 80.0, 0.95)
 
 func _build_event_cfg() -> void:
 	_event_cfg.clear()
@@ -164,6 +184,7 @@ func _build_event_cfg() -> void:
 	_event_cfg["ui.save"] = {"stream": "ui_confirm", "gain_db": 1.0 + loud, "pitch": 0.95, "jitter": 0.02, "min_ms_global": 250, "min_ms_emitter": 250}
 	_event_cfg["ui.resume_load"] = {"stream": "ui_confirm", "gain_db": 1.0 + loud, "pitch": 1.05, "jitter": 0.02, "min_ms_global": 250, "min_ms_emitter": 250}
 	_event_cfg["ui.pick"] = {"stream": "ui_confirm", "gain_db": 0.5 + loud, "pitch": 1.02, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 120}
+	_event_cfg["ui.levelup"] = {"stream": "ui_levelup", "gain_db": 3.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 200, "min_ms_emitter": 200}
 
 	# Core combat (very frequent -> per-emitter throttle)
 	_event_cfg["player.shot"] = {"stream": "player_shot", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 0, "min_ms_emitter": 90}
@@ -206,6 +227,25 @@ func _build_event_cfg() -> void:
 
 	# Telegraphs (should be audible but not annoying)
 	_event_cfg["telegraph.charge"] = {"stream": "telegraph_tick", "gain_db": -3.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 120, "min_ms_emitter": 300}
+	
+	# Weapon-specific sounds
+	_event_cfg["weapon.reaper_slash"] = {"stream": "weapon_slash", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 60, "min_ms_emitter": 150}
+	_event_cfg["weapon.bomb_launch"] = {"stream": "weapon_bomb_launch", "gain_db": -1.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 80, "min_ms_emitter": 200}
+	_event_cfg["weapon.bomb_explode"] = {"stream": "weapon_bomb_explode", "gain_db": 3.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 100, "min_ms_emitter": 250}
+	_event_cfg["weapon.chain_lightning"] = {"stream": "weapon_chain_zap", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 30, "min_ms_emitter": 80}
+	_event_cfg["weapon.pierce"] = {"stream": "weapon_pierce", "gain_db": -0.5 + loud, "pitch": 1.05, "jitter": 0.06, "min_ms_global": 50, "min_ms_emitter": 120}
+	_event_cfg["weapon.scatter"] = {"stream": "weapon_scatter", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 60, "min_ms_emitter": 150}
+	_event_cfg["weapon.boomerang"] = {"stream": "weapon_boomerang", "gain_db": -1.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 100, "min_ms_emitter": 250}
+	_event_cfg["weapon.beam"] = {"stream": "weapon_beam", "gain_db": 1.5 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 150, "min_ms_emitter": 300}
+	_event_cfg["weapon.slam"] = {"stream": "weapon_slam", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 280}
+	_event_cfg["weapon.poison"] = {"stream": "weapon_poison", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 60, "min_ms_emitter": 140}
+	_event_cfg["weapon.frost"] = {"stream": "weapon_frost", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 80, "min_ms_emitter": 180}
+	_event_cfg["weapon.fire"] = {"stream": "weapon_fire", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 100, "min_ms_emitter": 200}
+	_event_cfg["weapon.spirit"] = {"stream": "weapon_spirit", "gain_db": 0.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 80, "min_ms_emitter": 160}
+	_event_cfg["weapon.vampiric"] = {"stream": "weapon_vampiric", "gain_db": -0.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 100, "min_ms_emitter": 200}
+	_event_cfg["weapon.ricochet"] = {"stream": "weapon_ricochet", "gain_db": -1.5 + loud, "pitch": 1.0, "jitter": 0.10, "min_ms_global": 30, "min_ms_emitter": 60}
+	_event_cfg["weapon.orbital_charge"] = {"stream": "weapon_orbital_charge", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 200, "min_ms_emitter": 400}
+	_event_cfg["weapon.orbital_strike"] = {"stream": "weapon_orbital_strike", "gain_db": 4.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 300, "min_ms_emitter": 500}
 
 #
 # Synth helpers
@@ -305,6 +345,87 @@ func _make_chime(dur: float, base: float, bright: float) -> AudioStreamWAV:
 		s += sin(TAU * base * 3.0 * t) * (0.06 + bright * 0.10)
 		s *= _env(t, dur, 0.002, dur * 0.96)
 		out[i] = s * 0.75
+	return _to_wav(out)
+
+func _make_levelup_chime(dur: float) -> AudioStreamWAV:
+	# Exciting ascending arpeggio for level up / upgrade
+	var n := int(round(dur * SAMPLE_RATE))
+	var out := PackedFloat32Array()
+	out.resize(n)
+	# C5 -> E5 -> G5 -> C6 (major arpeggio)
+	var notes: Array[float] = [523.25, 659.25, 783.99, 1046.50]
+	var note_dur := dur / float(notes.size())
+	for i in range(n):
+		var t := float(i) / float(SAMPLE_RATE)
+		var note_idx := mini(int(t / note_dur), notes.size() - 1)
+		var note_t := fmod(t, note_dur)
+		var freq := notes[note_idx]
+		var s := sin(TAU * freq * t) * 0.40
+		s += sin(TAU * freq * 2.0 * t) * 0.20
+		s += sin(TAU * freq * 3.0 * t) * 0.08
+		# Per-note envelope
+		var env := _env(note_t, note_dur, 0.003, note_dur * 0.85)
+		# Overall envelope
+		var overall := _env(t, dur, 0.001, dur * 0.70)
+		out[i] = s * env * overall * 0.85
+	return _to_wav(out)
+
+func _make_slash(dur: float, noise_amt: float) -> AudioStreamWAV:
+	# Swooshy slash sound - filtered noise with fast attack/decay
+	var n := int(round(dur * SAMPLE_RATE))
+	var out := PackedFloat32Array()
+	out.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var hp_state := 0.0
+	for i in range(n):
+		var t := float(i) / float(SAMPLE_RATE)
+		var env := _env(t, dur, 0.01, dur * 0.8)
+		var noise := rng.randf_range(-1.0, 1.0) * noise_amt
+		# High-pass filter for swoosh character
+		var raw := noise * env
+		hp_state = hp_state * 0.85 + raw * 0.15
+		var hp := raw - hp_state
+		# Pitch sweep down
+		var sweep := sin(t * 600.0 * (1.0 - t / dur * 0.7)) * 0.3
+		out[i] = clampf((hp + sweep) * env, -1.0, 1.0)
+	return _to_wav(out)
+
+func _make_explosion(dur: float, base_f: float, drive: float) -> AudioStreamWAV:
+	# Deep explosion with rumble and noise
+	var n := int(round(dur * SAMPLE_RATE))
+	var out := PackedFloat32Array()
+	out.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	for i in range(n):
+		var t := float(i) / float(SAMPLE_RATE)
+		var env := _env(t, dur, 0.005, dur * 0.9)
+		# Low rumble
+		var rumble := sin(t * base_f * (1.0 - t / dur * 0.5)) * 0.6
+		# Noise burst
+		var noise := rng.randf_range(-1.0, 1.0) * (1.0 - t / dur) * 0.5
+		var raw := (rumble + noise) * env * drive
+		out[i] = clampf(raw, -1.0, 1.0)
+	return _to_wav(out)
+
+func _make_beam(dur: float, base_f: float, noise_amt: float) -> AudioStreamWAV:
+	# Sustained energy beam sound
+	var n := int(round(dur * SAMPLE_RATE))
+	var out := PackedFloat32Array()
+	out.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	for i in range(n):
+		var t := float(i) / float(SAMPLE_RATE)
+		var env := _env(t, dur, 0.02, dur * 0.2)
+		# Harmonic drone
+		var drone := sin(t * base_f) * 0.4 + sin(t * base_f * 2.0) * 0.2 + sin(t * base_f * 3.0) * 0.1
+		# Modulation wobble
+		var wobble := sin(t * 12.0) * 0.15
+		# Light noise
+		var noise := rng.randf_range(-1.0, 1.0) * noise_amt
+		out[i] = clampf((drone * (1.0 + wobble) + noise) * env, -1.0, 1.0)
 	return _to_wav(out)
 
 func _make_tick(dur: float, f: float, noise_amt: float) -> AudioStreamWAV:

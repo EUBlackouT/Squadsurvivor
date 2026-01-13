@@ -10,20 +10,20 @@ extends Node2D
 @export var map_fog_enabled: bool = true
 @export var map_fog_strength: float = 0.16
 
-@export var initial_enemy_count: int = 5
+@export var initial_enemy_count: int = 8  # Start with more enemies for immediate action
 @export var max_enemies_alive: int = 90 # legacy cap, superseded by ramp below
 @export var enemy_spawn_interval: float = 1.15 # legacy interval, superseded by ramp below
 @export var enemy_spawn_burst: int = 1 # legacy burst, superseded by ramp below
-@export var difficulty_ramp_minutes: float = 12.0
+@export var difficulty_ramp_minutes: float = 10.0  # Faster ramp = more exciting
 # >1.0 makes early game chill and midgame ramp faster (e.g. 2.0–3.0 is "chill then spicy").
-@export var ramp_curve_power: float = 2.85
+@export var ramp_curve_power: float = 2.2  # Less curved = earlier action
 # "Vampire Survivors" target: early minutes are cleanable, midgame starts to pressure hard.
-@export var spawn_interval_start: float = 2.60
-@export var spawn_interval_end: float = 0.68
-@export var max_enemies_start: int = 18
-@export var max_enemies_end: int = 155
-@export var spawn_radius_min: float = 820.0
-@export var spawn_radius_max: float = 1300.0
+@export var spawn_interval_start: float = 1.80  # Faster spawns from the start
+@export var spawn_interval_end: float = 0.55    # More hectic late game
+@export var max_enemies_start: int = 25         # More enemies early
+@export var max_enemies_end: int = 180          # Bigger swarms late
+@export var spawn_radius_min: float = 700.0     # Enemies spawn closer = more action
+@export var spawn_radius_max: float = 1100.0
 
 @export var run_timer_max_minutes: float = 18.0
 @export var enable_bosses: bool = false # overridden by map mod if present
@@ -43,6 +43,7 @@ const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
 
 const DAMAGE_NUMBERS_LAYER_SCRIPT: Script = preload("res://scripts/DamageNumbersLayer.gd")
 const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
+const TILE_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TileMapWorld.gd")
 
 var damage_numbers: Node = null
 var toast_layer: ToastLayer
@@ -69,13 +70,13 @@ var _game_over: bool = false
 var _victory: bool = false
 
 #
-# Draft system: RNG drops (no capture meter)
+# Draft system: RNG drops (no capture meter) - Should feel RARE and SPECIAL
 #
-@export var draft_drop_chance_normal: float = 0.022 # ~1 in 45 kills baseline (with pity + cooldown)
-@export var draft_drop_chance_elite: float = 0.18   # elites feel exciting, but shouldn't spam drafts
-@export var draft_drop_pity_add_per_kill: float = 0.0022
-@export var draft_drop_pity_cap: float = 0.06
-@export var draft_drop_min_seconds_between: float = 20.0
+@export var draft_drop_chance_normal: float = 0.008  # Very rare (~1 in 125 kills base)
+@export var draft_drop_chance_elite: float = 0.06    # Elites give hope but not guaranteed
+@export var draft_drop_pity_add_per_kill: float = 0.001  # Very slow pity buildup
+@export var draft_drop_pity_cap: float = 0.03        # Low pity cap
+@export var draft_drop_min_seconds_between: float = 75.0  # At least 75s between drafts!
 
 var _draft_pity: float = 0.0
 var _last_draft_time_s: float = -9999.0
@@ -172,10 +173,20 @@ func _ready() -> void:
 		_spawn_rifts()
 	_setup_hud()
 
-	# Global systems
+	# Global systems - play map-specific combat music
 	var mm := get_node_or_null("/root/MusicManager")
-	if mm and is_instance_valid(mm) and mm.has_method("play"):
-		mm.play("combat")
+	if mm and is_instance_valid(mm):
+		# Get map theme for music selection
+		var music_theme := map_theme_id
+		var vv: Variant = _map_mod.get("visuals", {})
+		if typeof(vv) == TYPE_DICTIONARY:
+			var vis: Dictionary = vv as Dictionary
+			if vis.has("theme_id"):
+				music_theme = String(vis.get("theme_id"))
+		if mm.has_method("play_combat_for_map"):
+			mm.play_combat_for_map(music_theme)
+		elif mm.has_method("play"):
+			mm.play("combat")
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm and is_instance_valid(tm) and tm.has_method("show_tip"):
 		tm.show_tip("movement")
@@ -196,18 +207,37 @@ func _elapsed_minutes() -> float:
 	return ((Time.get_ticks_msec() / 1000.0) - run_start_time) / 60.0
 
 func _make_background() -> void:
-	# Preferred: MapRenderer (procedural rich ground + fog + props).
+	# Determine biome from map_mod or theme_id
+	var biome := "graveyard"
+	var vis: Dictionary = {}
+	if not _map_mod.is_empty():
+		var vv: Variant = _map_mod.get("visuals", {})
+		if typeof(vv) == TYPE_DICTIONARY:
+			vis = vv as Dictionary
+		if vis.has("theme_id"):
+			biome = String(vis.get("theme_id"))
+		elif _map_mod.has("id"):
+			biome = String(_map_mod.get("id"))
+	if biome.is_empty():
+		biome = map_theme_id
+	
+	# Try TileMapWorld (tile-based real maps) first
+	if use_rich_map and TILE_MAP_WORLD_SCRIPT != null:
+		var tmw := Node2D.new()
+		tmw.set_script(TILE_MAP_WORLD_SCRIPT)
+		tmw.name = "TileMapWorld"
+		tmw.set("map_size", map_size)
+		tmw.set("biome", biome)
+		tmw.set("seed_value", random_seed)
+		tmw.set("prop_count", map_prop_count)
+		add_child(tmw)
+		return
+	
+	# Fallback: MapRenderer (shader-based procedural ground + fog + props).
 	if use_rich_map and MAP_RENDERER_SCENE != null:
 		var mr := MAP_RENDERER_SCENE.instantiate()
 		mr.name = "MapRenderer"
 		add_child(mr)
-
-		# Map visuals from maps.json (optional). If present, MapRenderer uses it to theme itself.
-		var vis: Dictionary = {}
-		if not _map_mod.is_empty():
-			var vv := _map_mod.get("visuals", {})
-			if typeof(vv) == TYPE_DICTIONARY:
-				vis = vv as Dictionary
 
 		# Best-effort optional wiring, safe in strict typing mode.
 		for pd in mr.get_property_list():
@@ -218,13 +248,8 @@ func _make_background() -> void:
 				&"map_visuals":
 					mr.set(nm, vis)
 				&"theme_id":
-					# Prefer per-map theme_id if provided.
-					if not vis.is_empty() and vis.has("theme_id"):
-						mr.set(nm, String(vis.get("theme_id")))
-					else:
-						mr.set(nm, map_theme_id)
+					mr.set(nm, biome)
 				&"prop_count":
-					# Prefer per-map prop_count if provided.
 					if not vis.is_empty() and vis.has("prop_count"):
 						mr.set(nm, int(vis.get("prop_count")))
 					else:
@@ -232,7 +257,6 @@ func _make_background() -> void:
 				&"fog_enabled":
 					mr.set(nm, map_fog_enabled)
 				&"fog_strength":
-					# Prefer per-map fog_strength if provided.
 					if not vis.is_empty() and vis.has("fog_strength"):
 						mr.set(nm, float(vis.get("fog_strength")))
 					else:
@@ -353,6 +377,16 @@ func _physics_process(delta: float) -> void:
 		]
 
 func _unhandled_input(event: InputEvent) -> void:
+	# TAB: Show/hide passive overlay
+	if event is InputEventKey:
+		var k := event as InputEventKey
+		if k.keycode == KEY_TAB:
+			if k.pressed and not k.echo:
+				_show_passive_overlay()
+			elif not k.pressed:
+				_hide_passive_overlay()
+			return
+	
 	# Debug helper: toggle damage number layer to verify what's drawing the "orbs".
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k := event as InputEventKey
@@ -636,11 +670,11 @@ func get_overclock_cd_left() -> float:
 	return _overclock_cd_s
 
 func get_overclock_rate_mult() -> float:
-	# Attack speed multiplier while active.
+	# Attack speed multiplier while active - MAKE IT FEEL POWERFUL
 	if not is_overclock_active():
 		return 1.0
 	var mp := get_node_or_null("/root/MetaProgression")
-	var rate_mult := 1.25
+	var rate_mult := 1.65  # 65% faster attacks - noticeable power spike
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		rate_mult *= float(mp.get_mod("overclock_attack_speed_mult", 1.0))
 	return rate_mult
@@ -649,7 +683,7 @@ func get_overclock_move_speed_mult() -> float:
 	if not is_overclock_active():
 		return 1.0
 	var mp := get_node_or_null("/root/MetaProgression")
-	var ms_mult := 1.15
+	var ms_mult := 1.35  # Faster movement during overclock
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		ms_mult *= float(mp.get_mod("overclock_move_speed_mult", 1.0))
 	return ms_mult
@@ -658,7 +692,7 @@ func get_overclock_damage_mult() -> float:
 	if not is_overclock_active():
 		return 1.0
 	var mp := get_node_or_null("/root/MetaProgression")
-	var dmg_mult := 1.0
+	var dmg_mult := 1.30  # 30% damage boost during overclock
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		dmg_mult *= float(mp.get_mod("overclock_damage_mult", 1.0))
 	return dmg_mult
@@ -685,8 +719,8 @@ func _try_overclock() -> void:
 		burst_dmg = int(round(float(mp.get_add("overclock_burst_damage_add", 0.0))))
 		burst_rad = float(mp.get_add("overclock_burst_radius_add", 0.0))
 
-	var duration := 4.0 * dur_mult
-	var cooldown := 18.0 * cd_mult
+	var duration := 5.5 * dur_mult  # Longer duration = more fun
+	var cooldown := 12.0 * cd_mult  # Shorter cooldown = more frequent power spikes
 	_overclock_until_s = duration
 	_overclock_cd_s = maxf(0.25, cooldown)
 
@@ -743,7 +777,12 @@ func _tick_spawns() -> void:
 	for i in range(burst):
 		if live_enemies.size() >= cap:
 			break
-		_spawn_enemy(false, false, false)
+		# Elite spawn chance scales with time - more elites = more excitement!
+		var r := _ramp01_curved()
+		var elite_chance := lerpf(0.06, 0.22, r)  # 6% early -> 22% late
+		elite_chance *= float(_map_mod.get("elite_spawn_mult", 1.0))
+		var roll_elite := rng.randf() < elite_chance
+		_spawn_enemy(roll_elite, false, false)
 
 func _ramp01() -> float:
 	var t := _elapsed_minutes()
@@ -919,11 +958,15 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	# RNG draft drops (no capture bar)
 	_roll_draft_drop(is_elite, was_boss)
 
-	# Micro feedback: small shake on kills (bigger on elites/bosses).
+	# Micro feedback: shake on kills (bigger on elites/bosses) - FEELS IMPACTFUL
 	var ss := get_node_or_null("/root/ScreenShake")
 	if ss and is_instance_valid(ss) and ss.has_method("shake"):
-		var inten := 6.0 if (is_elite or was_boss) else 1.5
-		ss.shake(inten, 0.10)
+		var inten := 2.5  # Base shake on every kill
+		if is_elite:
+			inten = 7.0  # Elites feel like an accomplishment
+		if was_boss:
+			inten = 14.0  # Boss kills are HUGE
+		ss.shake(inten, 0.12)
 
 	# Global synergy triggers (on-kill effects like Undying heal)
 	SynergySystem.on_enemy_killed(self, is_elite, was_boss)
@@ -933,8 +976,10 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	if is_elite:
 		_run_elite_kills += 1
 
-	# Essence economy for rerolls
-	var base := 1 if not is_elite else 3
+	# Essence economy for rerolls - generous rewards feel good!
+	var base := 2 if not is_elite else 5  # More essence per kill
+	if was_boss:
+		base = 15  # Boss kills are very rewarding
 	var mult := float(_map_mod.get("essence_mult", 1.0))
 	essence += maxi(1, int(round(float(base) * mult)))
 
@@ -1313,7 +1358,8 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		portrait_pad.add_child(portrait)
 
 	var style_label := Label.new()
-	style_label.text = "STYLE: %s" % ("MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED")
+	var draft_weapon_name := WeaponSystem.weapon_name(cd.weapon_id) if cd.weapon_id != "" else ("MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED")
+	style_label.text = "WEAPON: %s" % draft_weapon_name
 	style_label.add_theme_font_size_override("font_size", 12)
 	style_label.add_theme_color_override("font_color", Color(0.78, 0.88, 1.0, 0.90))
 	v.add_child(style_label)
@@ -1466,11 +1512,12 @@ func _show_character_details(cd: CharacterData, ui: CanvasLayer) -> void:
 	t.add_theme_font_size_override("font_size", 26)
 	v.add_child(t)
 
+	var weapon_name := WeaponSystem.weapon_name(cd.weapon_id) if cd.weapon_id != "" else ("MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED")
 	var b := Label.new()
 	b.text = "%s • %s • %s\nHP %d  DMG %d  CD %.2f  RNG %d\nCrit %.0f%%  x%.2f" % [
 		UnitFactory.rarity_name(cd.rarity_id),
 		cd.archetype_id,
-		"MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED",
+		weapon_name,
 		cd.max_hp, cd.attack_damage, cd.attack_cooldown, int(cd.attack_range),
 		cd.crit_chance * 100.0, cd.crit_mult
 	]
@@ -1493,18 +1540,45 @@ func _show_character_details(cd: CharacterData, ui: CanvasLayer) -> void:
 func _select_character(cd: CharacterData, ui: CanvasLayer) -> void:
 	# Unlock into persistent collection (NOT directly into squad).
 	var cm := get_node_or_null("/root/CollectionManager")
-	if cm and is_instance_valid(cm) and cm.has_method("unlock_character"):
-		var ok: bool = bool(cm.unlock_character(cd))
+	if cm and is_instance_valid(cm):
 		var s := get_node_or_null("/root/SfxSystem")
-		if s and s.has_method("play_ui"):
-			s.play_ui("ui.pick" if ok else "ui.cancel")
-		if toast_layer != null:
-			var rarity := UnitFactory.rarity_name(cd.rarity_id)
-			var col := UnitFactory.rarity_color(cd.rarity_id)
+		var rarity := UnitFactory.rarity_name(cd.rarity_id)
+		var col := UnitFactory.rarity_color(cd.rarity_id)
+		
+		# First try to unlock as new character
+		if cm.has_method("unlock_character"):
+			var ok: bool = bool(cm.unlock_character(cd))
 			if ok:
-				toast_layer.show_toast("Unlocked: %s • %s" % [rarity, cd.archetype_id], col)
-			else:
-				toast_layer.show_toast("Already unlocked: %s • %s" % [rarity, cd.archetype_id], Color(0.7, 0.8, 0.9, 1.0))
+				# New character unlocked!
+				if s and s.has_method("play_ui"):
+					s.play_ui("ui.pick")
+				if toast_layer != null:
+					toast_layer.show_toast("Unlocked: %s • %s" % [rarity, cd.archetype_id], col)
+				_close_draft(ui)
+				return
+		
+		# If not new, try to merge as duplicate (upgrade existing character!)
+		if cm.has_method("merge_duplicate"):
+			var result: Dictionary = cm.merge_duplicate(cd)
+			if result.get("success", false):
+				# Dupe merged - upgrade!
+				if s and s.has_method("play_ui"):
+					s.play_ui("ui.levelup")  # Special sound for upgrade
+				if toast_layer != null:
+					var bonus_text: String = result.get("bonus_text", "")
+					toast_layer.show_toast("UPGRADED!\n%s" % bonus_text, Color(1.0, 0.85, 0.25, 1.0))
+				# Screen shake for the upgrade feel
+				var ss := get_node_or_null("/root/ScreenShake")
+				if ss and is_instance_valid(ss) and ss.has_method("shake"):
+					ss.shake(5.0, 0.15)
+				_close_draft(ui)
+				return
+		
+		# Fallback: exact duplicate with no merge possible
+		if s and s.has_method("play_ui"):
+			s.play_ui("ui.cancel")
+		if toast_layer != null:
+			toast_layer.show_toast("Already maxed: %s" % cd.archetype_id, Color(0.7, 0.8, 0.9, 1.0))
 	_close_draft(ui)
 
 func _close_draft(ui: Node) -> void:
@@ -1523,6 +1597,7 @@ func _setup_hud() -> void:
 	autosave_lbl.name = "AutosaveLabel"
 	autosave_lbl.text = "Autosaving…"
 	autosave_lbl.visible = false
+	autosave_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	autosave_lbl.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	autosave_lbl.offset_left = -170
 	autosave_lbl.offset_right = -18
@@ -1539,6 +1614,7 @@ func _setup_hud() -> void:
 	container.offset_left = 18
 	container.offset_top = 18
 	container.add_theme_constant_override("separation", 6)
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block game input
 	hud.add_child(container)
 
 	var timer := Label.new()
@@ -1553,8 +1629,9 @@ func _setup_hud() -> void:
 
 	var cmd := Label.new()
 	cmd.name = "CommandLabel"
-	cmd.text = "Commands: LMB Focus • RMB Rally • Shift Dash"
-	cmd.add_theme_color_override("font_color", Color(0.80, 0.92, 1.0, 0.92))
+	cmd.text = "LMB Focus Enemy • RMB Rally Squad • Q Overclock • F Callout • TAB Passives"
+	cmd.add_theme_font_size_override("font_size", 13)
+	cmd.add_theme_color_override("font_color", Color(0.70, 0.85, 0.95, 0.85))
 	container.add_child(cmd)
 
 	var syn := Label.new()
@@ -1579,6 +1656,336 @@ func _setup_hud() -> void:
 	perf.name = "PerfLabel"
 	perf.text = ""
 	container.add_child(perf)
+	
+	# Passive overlay panel (shown when holding TAB)
+	_create_passive_overlay(hud)
+
+var _passive_overlay: PanelContainer = null
+
+func _create_passive_overlay(hud: CanvasLayer) -> void:
+	_passive_overlay = PanelContainer.new()
+	_passive_overlay.name = "PassiveOverlay"
+	_passive_overlay.visible = false
+	_passive_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block mouse input
+	_passive_overlay.set_anchors_preset(Control.PRESET_CENTER)
+	_passive_overlay.offset_left = -380
+	_passive_overlay.offset_right = 380
+	_passive_overlay.offset_top = -280
+	_passive_overlay.offset_bottom = 280
+	
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.03, 0.04, 0.06, 0.96)
+	sb.border_width_left = 3
+	sb.border_width_right = 3
+	sb.border_width_top = 3
+	sb.border_width_bottom = 3
+	sb.border_color = Color(0.35, 0.75, 1.0, 0.8)
+	sb.corner_radius_top_left = 16
+	sb.corner_radius_top_right = 16
+	sb.corner_radius_bottom_left = 16
+	sb.corner_radius_bottom_right = 16
+	sb.shadow_color = Color(0.2, 0.5, 0.8, 0.3)
+	sb.shadow_size = 8
+	_passive_overlay.add_theme_stylebox_override("panel", sb)
+	hud.add_child(_passive_overlay)
+	
+	var scroll := ScrollContainer.new()
+	scroll.name = "ScrollContainer"  # Name it so we can find it!
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_passive_overlay.add_child(scroll)
+	
+	var content := VBoxContainer.new()
+	content.name = "PassiveContent"
+	content.add_theme_constant_override("separation", 16)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scroll.add_child(content)
+	
+	var title := Label.new()
+	title.name = "Title"
+	title.text = "══════ SQUAD PASSIVES ══════"
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(0.55, 0.95, 1.0, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(title)
+	
+	var hint := Label.new()
+	hint.text = "Release TAB to close"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", Color(0.55, 0.65, 0.75, 0.7))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(hint)
+	
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 10)
+	content.add_child(spacer)
+
+func _show_passive_overlay() -> void:
+	if _passive_overlay == null:
+		return
+	if _game_over or _victory:
+		return
+	_update_passive_overlay()
+	_passive_overlay.visible = true
+
+func _hide_passive_overlay() -> void:
+	if _passive_overlay == null:
+		return
+	_passive_overlay.visible = false
+
+func _update_passive_overlay() -> void:
+	if _passive_overlay == null:
+		return
+	var content := _passive_overlay.get_node_or_null("ScrollContainer/PassiveContent") as VBoxContainer
+	if content == null:
+		push_warning("PassiveOverlay: content node not found")
+		return
+	
+	# Clear old unit sections (keep title, hint, and spacer = first 3 children)
+	for i in range(content.get_child_count() - 1, 2, -1):
+		content.get_child(i).queue_free()
+	
+	# Check if we have squad units
+	var valid_units: Array = []
+	for unit in live_squad_units:
+		if is_instance_valid(unit):
+			var cd: CharacterData = (unit as Node).get("character_data") as CharacterData
+			if cd != null:
+				valid_units.append({"unit": unit, "cd": cd})
+	
+	if valid_units.size() == 0:
+		var empty_msg := Label.new()
+		empty_msg.text = "No squad units with passives found"
+		empty_msg.add_theme_font_size_override("font_size", 14)
+		empty_msg.add_theme_color_override("font_color", Color(0.6, 0.65, 0.72, 0.8))
+		empty_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		content.add_child(empty_msg)
+		return
+	
+	# Build UI for each unit
+	for data in valid_units:
+		var cd: CharacterData = data["cd"]
+		
+		# Unit card container with styled background
+		var card := PanelContainer.new()
+		var card_sb := StyleBoxFlat.new()
+		card_sb.bg_color = Color(0.08, 0.10, 0.14, 0.85)
+		card_sb.border_width_left = 3
+		card_sb.border_color = UnitFactory.rarity_color(cd.rarity_id)
+		card_sb.corner_radius_top_left = 6
+		card_sb.corner_radius_bottom_left = 6
+		card_sb.corner_radius_top_right = 6
+		card_sb.corner_radius_bottom_right = 6
+		card_sb.content_margin_left = 12
+		card_sb.content_margin_right = 12
+		card_sb.content_margin_top = 10
+		card_sb.content_margin_bottom = 10
+		card.add_theme_stylebox_override("panel", card_sb)
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(card)
+		
+		var unit_section := VBoxContainer.new()
+		unit_section.add_theme_constant_override("separation", 8)
+		unit_section.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(unit_section)
+		
+		# Unit header
+		var header := HBoxContainer.new()
+		header.add_theme_constant_override("separation", 10)
+		unit_section.add_child(header)
+		
+		var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
+		var name_lbl := Label.new()
+		var stars := " ★".repeat(cd.tier) if cd.tier > 1 else ""
+		name_lbl.text = "%s %s%s" % [UnitFactory.rarity_name(cd.rarity_id).to_upper(), cd.archetype_id.capitalize(), stars]
+		name_lbl.add_theme_font_size_override("font_size", 16)
+		name_lbl.add_theme_color_override("font_color", rarity_col)
+		header.add_child(name_lbl)
+		
+		header.add_spacer(true)
+		
+		var style_lbl := Label.new()
+		var overlay_weapon := WeaponSystem.weapon_name(cd.weapon_id) if cd.weapon_id != "" else ("Melee" if cd.attack_style == CharacterData.AttackStyle.MELEE else "Ranged")
+		var style_icon := "⚔" if cd.attack_style == CharacterData.AttackStyle.MELEE else "🏹"
+		style_lbl.text = "%s %s" % [style_icon, overlay_weapon]
+		style_lbl.add_theme_font_size_override("font_size", 12)
+		style_lbl.add_theme_color_override("font_color", Color(0.70, 0.85, 1.0, 0.85))
+		header.add_child(style_lbl)
+		
+		# Divider
+		var divider := HSeparator.new()
+		divider.add_theme_stylebox_override("separator", StyleBoxLine.new())
+		divider.add_theme_constant_override("separation", 4)
+		unit_section.add_child(divider)
+		
+		# Passives
+		if cd.passive_ids.size() > 0:
+			for pid in cd.passive_ids:
+				var pass_row := VBoxContainer.new()
+				pass_row.add_theme_constant_override("separation", 2)
+				unit_section.add_child(pass_row)
+				
+				var pc := PassiveSystem.passive_color(pid)
+				
+				# Passive name row with icon
+				var name_row := HBoxContainer.new()
+				name_row.add_theme_constant_override("separation", 8)
+				pass_row.add_child(name_row)
+				
+				var icon_lbl := Label.new()
+				icon_lbl.text = PassiveSystem.passive_icon(pid)
+				icon_lbl.add_theme_font_size_override("font_size", 14)
+				icon_lbl.add_theme_color_override("font_color", pc)
+				name_row.add_child(icon_lbl)
+				
+				var name_l := Label.new()
+				name_l.text = PassiveSystem.passive_name(pid)
+				name_l.add_theme_font_size_override("font_size", 14)
+				name_l.add_theme_color_override("font_color", Color(pc.r * 1.1, pc.g * 1.1, pc.b * 1.1, 1.0))
+				name_row.add_child(name_l)
+				
+				# Description on its own line
+				var desc_l := Label.new()
+				desc_l.text = "    " + PassiveSystem.passive_description(pid)
+				desc_l.add_theme_font_size_override("font_size", 12)
+				desc_l.add_theme_color_override("font_color", Color(0.72, 0.78, 0.86, 0.9))
+				desc_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				desc_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				pass_row.add_child(desc_l)
+		else:
+			var no_pass := Label.new()
+			no_pass.text = "— No passives —"
+			no_pass.add_theme_font_size_override("font_size", 12)
+			no_pass.add_theme_color_override("font_color", Color(0.50, 0.55, 0.62, 0.7))
+			no_pass.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			unit_section.add_child(no_pass)
+		
+		# Show weapon info
+		if cd.weapon_id != "" and cd.weapon_id != "standard_bolt":
+			var weapon_row := HBoxContainer.new()
+			weapon_row.add_theme_constant_override("separation", 8)
+			unit_section.add_child(weapon_row)
+			
+			var weapon_icon := Label.new()
+			weapon_icon.text = WeaponSystem.weapon_icon(cd.weapon_id)
+			weapon_icon.add_theme_font_size_override("font_size", 14)
+			weapon_icon.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5, 1.0))
+			weapon_row.add_child(weapon_icon)
+			
+			var weapon_name := Label.new()
+			weapon_name.text = WeaponSystem.weapon_name(cd.weapon_id)
+			weapon_name.add_theme_font_size_override("font_size", 13)
+			weapon_name.add_theme_color_override("font_color", Color(1.0, 0.9, 0.6, 0.95))
+			weapon_row.add_child(weapon_name)
+			
+			var weapon_desc := Label.new()
+			weapon_desc.text = " - " + WeaponSystem.weapon_description(cd.weapon_id)
+			weapon_desc.add_theme_font_size_override("font_size", 11)
+			weapon_desc.add_theme_color_override("font_color", Color(0.7, 0.75, 0.8, 0.8))
+			weapon_row.add_child(weapon_desc)
+	
+	# === SYNERGIES SECTION ===
+	_add_synergies_to_overlay(content)
+
+func _add_synergies_to_overlay(content: VBoxContainer) -> void:
+	# Get active synergies from SynergySystem
+	var active := SynergySystem.get_active_synergies()
+	if active.is_empty():
+		return
+	
+	# Synergy header
+	var syn_header := Label.new()
+	syn_header.text = "══════ ACTIVE SYNERGIES ══════"
+	syn_header.add_theme_font_size_override("font_size", 18)
+	syn_header.add_theme_color_override("font_color", Color(1.0, 0.85, 0.45, 1.0))
+	syn_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(syn_header)
+	
+	var syn_spacer := Control.new()
+	syn_spacer.custom_minimum_size = Vector2(0, 8)
+	content.add_child(syn_spacer)
+	
+	# Display each active synergy
+	for syn_data in active:
+		var syn_id: String = String(syn_data.get("id", ""))
+		var tier: int = int(syn_data.get("tier", 0))
+		var count: int = int(syn_data.get("count", 0))
+		var required: int = int(syn_data.get("required", 0))
+		
+		if syn_id == "" or tier <= 0:
+			continue
+		
+		# Synergy card
+		var syn_card := PanelContainer.new()
+		var syn_sb := StyleBoxFlat.new()
+		syn_sb.bg_color = Color(0.12, 0.10, 0.06, 0.9)
+		syn_sb.border_width_left = 3
+		syn_sb.border_color = _synergy_tier_color(tier)
+		syn_sb.corner_radius_top_left = 6
+		syn_sb.corner_radius_bottom_left = 6
+		syn_sb.corner_radius_top_right = 6
+		syn_sb.corner_radius_bottom_right = 6
+		syn_sb.content_margin_left = 12
+		syn_sb.content_margin_right = 12
+		syn_sb.content_margin_top = 8
+		syn_sb.content_margin_bottom = 8
+		syn_card.add_theme_stylebox_override("panel", syn_sb)
+		syn_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(syn_card)
+		
+		var syn_vbox := VBoxContainer.new()
+		syn_vbox.add_theme_constant_override("separation", 4)
+		syn_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		syn_card.add_child(syn_vbox)
+		
+		# Synergy name and tier
+		var syn_name_row := HBoxContainer.new()
+		syn_name_row.add_theme_constant_override("separation", 10)
+		syn_vbox.add_child(syn_name_row)
+		
+		var syn_name := Label.new()
+		syn_name.text = SynergySystem.synergy_name(syn_id)
+		syn_name.add_theme_font_size_override("font_size", 15)
+		syn_name.add_theme_color_override("font_color", _synergy_tier_color(tier))
+		syn_name_row.add_child(syn_name)
+		
+		var tier_lbl := Label.new()
+		tier_lbl.text = "★".repeat(tier)
+		tier_lbl.add_theme_font_size_override("font_size", 13)
+		tier_lbl.add_theme_color_override("font_color", _synergy_tier_color(tier))
+		syn_name_row.add_child(tier_lbl)
+		
+		syn_name_row.add_spacer(true)
+		
+		var count_lbl := Label.new()
+		count_lbl.text = "(%d/%d)" % [count, required]
+		count_lbl.add_theme_font_size_override("font_size", 12)
+		count_lbl.add_theme_color_override("font_color", Color(0.7, 0.75, 0.8, 0.8))
+		syn_name_row.add_child(count_lbl)
+		
+		# Synergy effects description - use RichTextLabel for BBCode support
+		var effects := SynergySystem.synergy_tooltip_text_by_id(syn_id, tier)
+		if effects != "":
+			var effect_lbl := RichTextLabel.new()
+			effect_lbl.bbcode_enabled = true
+			effect_lbl.fit_content = true
+			effect_lbl.scroll_active = false
+			effect_lbl.text = effects
+			effect_lbl.add_theme_font_size_override("normal_font_size", 12)
+			effect_lbl.add_theme_color_override("default_color", Color(0.75, 0.80, 0.85, 0.9))
+			effect_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			effect_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			syn_vbox.add_child(effect_lbl)
+
+func _synergy_tier_color(tier: int) -> Color:
+	match tier:
+		1: return Color(0.75, 0.85, 0.65, 1.0)  # Bronze/green
+		2: return Color(0.65, 0.80, 1.0, 1.0)   # Silver/blue
+		3: return Color(1.0, 0.85, 0.45, 1.0)   # Gold
+		4: return Color(1.0, 0.55, 0.85, 1.0)   # Diamond/pink
+		_: return Color(0.8, 0.8, 0.8, 1.0)
 
 func _update_hud_labels() -> void:
 	var hud := get_node_or_null("HUD/HUDVBox") as VBoxContainer
@@ -1883,9 +2290,16 @@ func _try_apply_run_resume() -> void:
 		toast_layer.show_toast("Resumed run.", Color(0.65, 0.85, 1.0, 1.0))
 
 func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> void:
+	# CRITICAL: Allow UI to work while paused
+	ui.process_mode = Node.PROCESS_MODE_ALWAYS
+	
+	var accent := Color(0.4, 0.85, 1.0, 1.0) if victory else Color(1.0, 0.35, 0.35, 1.0)
+	var accent_dim := Color(0.3, 0.65, 0.85, 0.7) if victory else Color(0.85, 0.3, 0.3, 0.6)
+	
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.82)
+	bg.color = Color(0, 0, 0, 0.88)
+	bg.process_mode = Node.PROCESS_MODE_ALWAYS
 	ui.add_child(bg)
 	var bgmat := ShaderMaterial.new()
 	bgmat.shader = preload("res://shaders/ui_arcane_scifi_backdrop.gdshader")
@@ -1893,103 +2307,210 @@ func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> vo
 
 	var card := PanelContainer.new()
 	card.set_anchors_preset(Control.PRESET_CENTER)
-	card.offset_left = -360
-	card.offset_right = 360
-	card.offset_top = -230
-	card.offset_bottom = 230
+	card.offset_left = -400
+	card.offset_right = 400
+	card.offset_top = -300
+	card.offset_bottom = 300
+	card.process_mode = Node.PROCESS_MODE_ALWAYS
 	ui.add_child(card)
 
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.07, 0.08, 0.10, 0.96)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(0.4, 0.8, 1.0, 0.18) if victory else Color(1.0, 0.35, 0.35, 0.18)
-	sb.corner_radius_top_left = 16
-	sb.corner_radius_top_right = 16
-	sb.corner_radius_bottom_left = 16
-	sb.corner_radius_bottom_right = 16
-	sb.shadow_color = Color(0, 0, 0, 0.55)
-	sb.shadow_size = 18
+	sb.bg_color = Color(0.05, 0.06, 0.09, 0.98)
+	sb.border_width_left = 3
+	sb.border_width_right = 3
+	sb.border_width_top = 3
+	sb.border_width_bottom = 3
+	sb.border_color = accent_dim
+	sb.corner_radius_top_left = 20
+	sb.corner_radius_top_right = 20
+	sb.corner_radius_bottom_left = 20
+	sb.corner_radius_bottom_right = 20
+	sb.shadow_color = Color(0, 0, 0, 0.7)
+	sb.shadow_size = 25
 	card.add_theme_stylebox_override("panel", sb)
 
 	var neon := ShaderMaterial.new()
 	neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
 	neon.set_shader_parameter("base_color", sb.bg_color)
-	neon.set_shader_parameter("glow_color", Color(0.4, 0.8, 1.0, 0.55) if victory else Color(1.0, 0.35, 0.35, 0.50))
-	neon.set_shader_parameter("glow_width", 0.02)
-	neon.set_shader_parameter("pulse_speed", 1.1)
+	neon.set_shader_parameter("glow_color", accent * 0.65)
+	neon.set_shader_parameter("glow_width", 0.025)
+	neon.set_shader_parameter("pulse_speed", 0.8 if victory else 1.5)
 	card.material = neon
 
 	var pad := MarginContainer.new()
-	pad.add_theme_constant_override("margin_left", 18)
-	pad.add_theme_constant_override("margin_right", 18)
-	pad.add_theme_constant_override("margin_top", 16)
-	pad.add_theme_constant_override("margin_bottom", 16)
+	pad.add_theme_constant_override("margin_left", 32)
+	pad.add_theme_constant_override("margin_right", 32)
+	pad.add_theme_constant_override("margin_top", 28)
+	pad.add_theme_constant_override("margin_bottom", 28)
 	card.add_child(pad)
 
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 16)
 	pad.add_child(v)
 
+	# Header icon
+	var icon_lbl := Label.new()
+	icon_lbl.text = "⚔" if victory else "☠"
+	icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon_lbl.add_theme_font_size_override("font_size", 52)
+	icon_lbl.add_theme_color_override("font_color", accent)
+	v.add_child(icon_lbl)
+
+	# Title
 	var title := Label.new()
 	title.text = title_text
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 40 if victory else 36)
+	title.add_theme_font_size_override("font_size", 46 if victory else 42)
+	title.add_theme_color_override("font_color", accent)
 	v.add_child(title)
+
+	# Divider
+	var div1 := HSeparator.new()
+	div1.add_theme_constant_override("separation", 12)
+	div1.add_theme_stylebox_override("separator", _make_divider_style(accent_dim))
+	v.add_child(div1)
 
 	var mp := get_node_or_null("/root/MetaProgression")
 	var lr: Dictionary = {}
 	if mp and is_instance_valid(mp) and "last_run" in mp:
 		lr = mp.last_run as Dictionary
 
-	var summary := RichTextLabel.new()
-	summary.bbcode_enabled = true
-	summary.scroll_active = false
-	summary.fit_content = true
-	summary.add_theme_font_size_override("normal_font_size", 14)
-	summary.add_theme_color_override("default_color", Color(0.85, 0.90, 0.96, 0.95))
-	if lr.is_empty():
-		summary.text = "Run stats unavailable."
-	else:
-		summary.text = "[b]Map:[/b] %s\n[b]Time:[/b] %dm   [b]Kills:[/b] %d (elites %d)   [b]Drafts:[/b] %d\n[b]Sigils earned:[/b] %d   [b]Total Sigils:[/b] %d" % [
-			String(lr.get("map_name", "")),
-			int(lr.get("minutes", 0)),
-			int(lr.get("kills", 0)),
-			int(lr.get("elite_kills", 0)),
-			int(lr.get("drafts", 0)),
-			int(lr.get("sigils_earned", 0)),
-			int(mp.sigils) if mp != null and "sigils" in mp else 0
-		]
-	v.add_child(summary)
+	# Stats grid
+	var stats_grid := GridContainer.new()
+	stats_grid.columns = 2
+	stats_grid.add_theme_constant_override("h_separation", 40)
+	stats_grid.add_theme_constant_override("v_separation", 8)
+	v.add_child(stats_grid)
+	
+	var map_name := String(lr.get("map_name", "Unknown"))
+	var minutes := int(lr.get("minutes", 0))
+	var kills := int(lr.get("kills", 0))
+	var elite_kills := int(lr.get("elite_kills", 0))
+	var drafts := int(lr.get("drafts", 0))
+	var sigils_earned := int(lr.get("sigils_earned", 0))
+	var total_sigils := int(mp.sigils) if mp != null and "sigils" in mp else 0
+	
+	_add_stat_row(stats_grid, "⚑ Map", map_name, Color(0.85, 0.90, 0.96))
+	_add_stat_row(stats_grid, "⏱ Time", "%dm %ds" % [minutes, int(lr.get("seconds", 0)) % 60], Color(0.85, 0.90, 0.96))
+	_add_stat_row(stats_grid, "💀 Kills", "%d" % kills, Color(0.95, 0.75, 0.6))
+	_add_stat_row(stats_grid, "⭐ Elites", "%d" % elite_kills, Color(1.0, 0.85, 0.4))
+	_add_stat_row(stats_grid, "📜 Drafts", "%d" % drafts, Color(0.7, 0.85, 1.0))
+	_add_stat_row(stats_grid, "✧ Sigils", "+%d" % sigils_earned, Color(0.6, 1.0, 0.7))
+
+	# Divider
+	var div2 := HSeparator.new()
+	div2.add_theme_constant_override("separation", 12)
+	div2.add_theme_stylebox_override("separator", _make_divider_style(accent_dim))
+	v.add_child(div2)
+
+	# Total sigils display
+	var sigil_row := HBoxContainer.new()
+	sigil_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(sigil_row)
+	var sigil_icon := Label.new()
+	sigil_icon.text = "✧"
+	sigil_icon.add_theme_font_size_override("font_size", 28)
+	sigil_icon.add_theme_color_override("font_color", Color(0.6, 1.0, 0.75))
+	sigil_row.add_child(sigil_icon)
+	var sigil_total := Label.new()
+	sigil_total.text = "  Total Sigils: %d" % total_sigils
+	sigil_total.add_theme_font_size_override("font_size", 20)
+	sigil_total.add_theme_color_override("font_color", Color(0.75, 0.92, 0.8))
+	sigil_row.add_child(sigil_total)
 
 	# Progress to next slot
 	if mp and is_instance_valid(mp) and mp.has_method("get_next_slot_cost") and mp.has_method("get_squad_slots"):
 		var cost := int(mp.get_next_slot_cost())
 		if cost > 0:
+			var prog_box := VBoxContainer.new()
+			prog_box.add_theme_constant_override("separation", 6)
+			v.add_child(prog_box)
+			
+			var prog_lbl := Label.new()
+			prog_lbl.text = "Squad Slot Progress: %d → %d" % [int(mp.get_squad_slots()), int(mp.get_squad_slots()) + 1]
+			prog_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			prog_lbl.add_theme_font_size_override("font_size", 14)
+			prog_lbl.add_theme_color_override("font_color", Color(0.7, 0.75, 0.82))
+			prog_box.add_child(prog_lbl)
+			
 			var bar := ProgressBar.new()
 			bar.min_value = 0
 			bar.max_value = cost
-			bar.value = clampi(int(mp.sigils), 0, cost)
-			bar.custom_minimum_size = Vector2(0, 18)
-			v.add_child(bar)
-			var t := Label.new()
-			t.add_theme_font_size_override("font_size", 13)
-			t.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
-			t.text = "Next Squad Slot: %d → %d   (%d/%d sigils)" % [int(mp.get_squad_slots()), int(mp.get_squad_slots()) + 1, int(mp.sigils), cost]
-			v.add_child(t)
+			bar.value = clampi(total_sigils, 0, cost)
+			bar.custom_minimum_size = Vector2(0, 22)
+			bar.show_percentage = false
+			prog_box.add_child(bar)
+			
+			var bar_pct := Label.new()
+			bar_pct.text = "%d / %d sigils" % [total_sigils, cost]
+			bar_pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			bar_pct.add_theme_font_size_override("font_size", 13)
+			bar_pct.add_theme_color_override("font_color", Color(0.65, 0.7, 0.78))
+			prog_box.add_child(bar_pct)
 
+	# Spacer
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 12)
+	v.add_child(spacer)
+
+	# Buttons
 	var btn_row := HBoxContainer.new()
-	btn_row.add_theme_constant_override("separation", 10)
+	btn_row.add_theme_constant_override("separation", 20)
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(btn_row)
-	btn_row.add_spacer(true)
+	
 	var btn := Button.new()
-	btn.text = "Return to Menu"
-	btn.custom_minimum_size = Vector2(220, 46)
-	btn.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/Menu.tscn"))
+	btn.text = "  Return to Menu  "
+	btn.custom_minimum_size = Vector2(260, 52)
+	btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	btn.add_theme_font_size_override("font_size", 18)
+	var btn_sb := StyleBoxFlat.new()
+	btn_sb.bg_color = accent_dim * 0.5
+	btn_sb.border_width_left = 2
+	btn_sb.border_width_right = 2
+	btn_sb.border_width_top = 2
+	btn_sb.border_width_bottom = 2
+	btn_sb.border_color = accent * 0.7
+	btn_sb.corner_radius_top_left = 10
+	btn_sb.corner_radius_top_right = 10
+	btn_sb.corner_radius_bottom_left = 10
+	btn_sb.corner_radius_bottom_right = 10
+	btn.add_theme_stylebox_override("normal", btn_sb)
+	var btn_hover := btn_sb.duplicate()
+	btn_hover.bg_color = accent_dim * 0.7
+	btn_hover.border_color = accent
+	btn.add_theme_stylebox_override("hover", btn_hover)
+	var btn_pressed := btn_sb.duplicate()
+	btn_pressed.bg_color = accent_dim * 0.9
+	btn.add_theme_stylebox_override("pressed", btn_pressed)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_color_override("font_hover_color", Color.WHITE)
+	btn.pressed.connect(_return_to_menu_from_end_screen)
 	btn_row.add_child(btn)
-	btn_row.add_spacer(true)
+
+func _return_to_menu_from_end_screen() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/Menu.tscn")
+
+func _add_stat_row(grid: GridContainer, label_text: String, value_text: String, value_color: Color) -> void:
+	var lbl := Label.new()
+	lbl.text = label_text
+	lbl.add_theme_font_size_override("font_size", 16)
+	lbl.add_theme_color_override("font_color", Color(0.6, 0.65, 0.72))
+	grid.add_child(lbl)
+	var val := Label.new()
+	val.text = value_text
+	val.add_theme_font_size_override("font_size", 16)
+	val.add_theme_color_override("font_color", value_color)
+	grid.add_child(val)
+
+func _make_divider_style(color: Color) -> StyleBoxLine:
+	var line := StyleBoxLine.new()
+	line.color = color * 0.5
+	line.thickness = 1
+	line.grow_begin = 20
+	line.grow_end = 20
+	return line
 
 func _award_meta(victory: bool) -> void:
 	if _meta_awarded:

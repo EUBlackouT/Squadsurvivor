@@ -19,10 +19,10 @@ extends Control
 @onready var subtitle_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/Subtitle") as Label
 
 @onready var map_overlay: Control = get_node_or_null("MapOverlay") as Control
-@onready var map_list: ItemList = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapList") as ItemList
-@onready var map_preview_vp: SubViewport = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapPreviewFrame/Pad/Preview/VP") as SubViewport
-@onready var map_tagline: Label = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapTagline") as Label
-@onready var map_details: RichTextLabel = get_node_or_null("MapOverlay/Panel/Pad/VBox/MapDetails") as RichTextLabel
+@onready var map_list: ItemList = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/LeftPanel/MapList") as ItemList
+@onready var map_preview_vp: SubViewport = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame/Pad/Preview/VP") as SubViewport
+@onready var map_tagline: Label = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapTagline") as Label
+@onready var map_details: RichTextLabel = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapDetails") as RichTextLabel
 @onready var map_back_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Back") as Button
 @onready var map_start_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Start") as Button
 
@@ -106,6 +106,9 @@ func _setup_map_select_overlay() -> void:
 	if rc.has_method("ensure_loaded"):
 		rc.ensure_loaded()
 
+	# Style the map list
+	_style_map_list()
+
 	map_list.clear()
 	_map_ids.clear()
 	if rc.has_method("get_map_ids"):
@@ -113,13 +116,10 @@ func _setup_map_select_overlay() -> void:
 	for i in range(_map_ids.size()):
 		var m: Dictionary = rc.get_map(_map_ids[i]) if rc.has_method("get_map") else {}
 		var name := String(m.get("name", _map_ids[i]))
-		var tagline := String(m.get("tagline", ""))
 		var mult := float(m.get("meta_sigils_mult", 1.0))
-		var desc := tagline
-		if desc != "":
-			desc += "  "
-		desc += "(x%.2f Sigils)" % mult
-		map_list.add_item("%s\n%s" % [name, desc])
+		# Simpler list entry - details shown in right panel
+		var tier := "★" if mult < 1.2 else ("★★" if mult < 1.5 else "★★★")
+		map_list.add_item("%s  %s" % [name, tier])
 
 	# Select current
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
@@ -205,10 +205,46 @@ func _update_map_details(m: Dictionary) -> void:
 	var boss := bool(m.get("boss_enabled", true))
 	var boss_m := float(m.get("boss_spawn_minutes", 18.0))
 
-	var title := "[b][color=%s]Difficulty[/color][/b]  [color=%s]%s[/color]  (%.1f/10)" % [col, col, _bar(score), score]
-	var rewards := "[b]Rewards[/b]  Sigils x%.2f   Essence x%.2f" % [sig, ess]
-	var b := "[b]Boss[/b]  %s" % ("Yes @ %.0fm" % boss_m if boss else "No")
-	map_details.text = "%s\n%s\n%s" % [title, rewards, b]
+	# More visually appealing details
+	var diff_bar := "[color=%s]%s[/color]" % [col, _bar(score)]
+	var diff_line := "[color=#8090a0]Danger:[/color] %s [color=%s]%.1f[/color]" % [diff_bar, col, score]
+	var reward_line := "[color=#8090a0]Rewards:[/color] [color=#ffd070]★ x%.2f[/color]  [color=#70d0ff]◆ x%.2f[/color]" % [sig, ess]
+	var boss_text := "[color=#ff7070]Yes @ %.0fm[/color]" % boss_m if boss else "[color=#70ff70]No[/color]"
+	var boss_line := "[color=#8090a0]Boss:[/color] %s" % boss_text
+	map_details.text = "%s\n%s\n%s" % [diff_line, reward_line, boss_line]
+
+func _style_map_list() -> void:
+	if map_list == null:
+		return
+	# Style the ItemList for better visibility
+	map_list.add_theme_font_size_override("font_size", 15)
+	map_list.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95, 1.0))
+	map_list.add_theme_color_override("font_selected_color", Color(1.0, 1.0, 1.0, 1.0))
+	map_list.add_theme_color_override("font_hovered_color", Color(0.9, 0.95, 1.0, 1.0))
+	
+	# Selection style
+	var selected_sb := StyleBoxFlat.new()
+	selected_sb.bg_color = Color(0.3, 0.5, 0.8, 0.4)
+	selected_sb.corner_radius_top_left = 6
+	selected_sb.corner_radius_top_right = 6
+	selected_sb.corner_radius_bottom_left = 6
+	selected_sb.corner_radius_bottom_right = 6
+	selected_sb.border_width_left = 2
+	selected_sb.border_width_right = 2
+	selected_sb.border_width_top = 2
+	selected_sb.border_width_bottom = 2
+	selected_sb.border_color = Color(0.4, 0.7, 1.0, 0.8)
+	map_list.add_theme_stylebox_override("selected", selected_sb)
+	map_list.add_theme_stylebox_override("selected_focus", selected_sb)
+	
+	# Hover style
+	var hover_sb := StyleBoxFlat.new()
+	hover_sb.bg_color = Color(0.25, 0.4, 0.6, 0.25)
+	hover_sb.corner_radius_top_left = 6
+	hover_sb.corner_radius_top_right = 6
+	hover_sb.corner_radius_bottom_left = 6
+	hover_sb.corner_radius_bottom_right = 6
+	map_list.add_theme_stylebox_override("hovered", hover_sb)
 
 func _hash32(s: String) -> int:
 	# Simple stable hash for deterministic previews.
@@ -235,48 +271,47 @@ func _update_map_preview(rc: Node) -> void:
 	for c in map_preview_vp.get_children():
 		(c as Node).queue_free()
 
+	# Ensure the SubViewport renders correctly.
+	map_preview_vp.transparent_bg = false
+	map_preview_vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	map_preview_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Force a good size for the preview (matches new layout)
+	map_preview_vp.size = Vector2i(560, 280)
+
 	var root := Node2D.new()
 	root.name = "PreviewRoot"
 	root.process_mode = Node.PROCESS_MODE_ALWAYS
 	map_preview_vp.add_child(root)
 	_preview_root = root
 
-	# Ensure the SubViewport has a predictable clear color (helps spot rendering issues)
-	# and avoid default gray.
-	map_preview_vp.transparent_bg = false
-	map_preview_vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-	map_preview_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Add a Camera2D so the MapRenderer has something to follow
+	var cam := Camera2D.new()
+	cam.name = "PreviewCam"
+	cam.position = Vector2.ZERO
+	cam.zoom = Vector2(0.45, 0.45)  # Zoomed out to show more of the map
+	cam.process_mode = Node.PROCESS_MODE_ALWAYS
+	cam.enabled = true
+	root.add_child(cam)
+	cam.make_current()
 
-	var mr := preload("res://scenes/MapRenderer.tscn").instantiate()
-	mr.process_mode = Node.PROCESS_MODE_ALWAYS
-
-	# Configure for preview readability.
-	# Small world so props show up, plus gentle motion.
-	for pd in mr.get_property_list():
-		var nm := StringName(String((pd as Dictionary).get("name", "")))
-		match nm:
-			&"map_size":
-				mr.set(nm, Vector2(1400, 900))
-			&"seed":
-				mr.set(nm, _hash32(cur))
-			&"map_visuals":
-				mr.set(nm, vis)
-			&"prop_min_dist_from_center":
-				mr.set(nm, 80.0)
-			&"follow_margin_px":
-				mr.set(nm, 0.0)
-			&"preview_pan_px":
-				mr.set(nm, 120.0)
-			&"preview_pan_speed":
-				mr.set(nm, 0.22)
-			&"spawn_props":
-				mr.set(nm, true)
-			&"prop_count":
-				# Override to be denser than gameplay (but still tasteful).
-				mr.set(nm, 26)
+	# Determine biome from map config
+	var biome := cur
+	if vis.has("theme_id"):
+		biome = String(vis.get("theme_id"))
+	
+	# Use TileMapWorld for real tile-based maps
+	var tmw := Node2D.new()
+	tmw.set_script(preload("res://scripts/TileMapWorld.gd"))
+	tmw.name = "TileMapWorld"
+	tmw.process_mode = Node.PROCESS_MODE_ALWAYS
+	tmw.set("map_size", Vector2(2400, 1800))
+	tmw.set("biome", biome)
+	tmw.set("seed_value", _hash32(cur))
+	tmw.set("prop_count", 32)
+	tmw.set("prop_min_dist_from_center", 60.0)
 
 	# Add AFTER configuration so _ready() sees the right params on first run.
-	root.add_child(mr)
+	root.add_child(tmw)
 
 func _open_map_overlay() -> void:
 	if map_overlay == null:

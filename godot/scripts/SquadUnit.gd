@@ -1,9 +1,9 @@
 extends CharacterBody2D
 
 @export var character_data: CharacterData
-@export var melee_cleave_radius: float = 46.0
-@export var melee_cleave_mult: float = 0.35
-@export var retarget_interval: float = 0.22
+@export var melee_cleave_radius: float = 65.0  # Bigger cleave radius - more satisfying
+@export var melee_cleave_mult: float = 0.50    # Cleave hits harder
+@export var retarget_interval: float = 0.18    # Faster retargeting
 
 @onready var anim: AnimatedSprite2D = get_node_or_null("AnimatedSprite2D")
 @onready var sprite_fallback: Sprite2D = get_node_or_null("Sprite2D")
@@ -318,57 +318,21 @@ func _attack(target: Node2D) -> void:
 		is_crit = true
 		final_damage = int(round(float(final_damage) * character_data.crit_mult))
 
-	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
-
-	if is_melee:
-		var dir := (target.global_position - global_position).normalized()
-		if target.has_method("take_damage"):
-			target.take_damage(final_damage, is_crit, "melee")
-		_spawn_melee_hit_vfx(target, dir, is_crit)
-		# tiny cleave
-		if melee_cleave_radius > 0.0 and melee_cleave_mult > 0.0:
-			var enemies: Array = []
-			if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
-				enemies = _main.get_cached_enemies()
-			var r2 := melee_cleave_radius * melee_cleave_radius
-			for e in enemies:
-				if not is_instance_valid(e) or e == target:
-					continue
-				var n2 := e as Node2D
-				if n2 == null:
-					continue
-				if n2.global_position.distance_squared_to(target.global_position) <= r2:
-					if n2.has_method("take_damage"):
-						n2.take_damage(int(round(float(final_damage) * melee_cleave_mult)), false, "melee_cleave")
-		PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, true)
-		SynergySystem.on_unit_attack(character_data, self, target, final_damage, is_crit, true)
-		return
-
-	# Ranged projectile
+	# Use weapon system for attack
 	if _main == null or not is_instance_valid(_main):
 		_main = get_tree().get_first_node_in_group("main") as Node2D
 	if _main == null:
 		return
-	var proj := PROJ_SCENE.instantiate()
-	_main.add_child(proj)
-	proj.global_position = global_position
-	if proj.has_method("set_vfx_color"):
-		proj.set_vfx_color(_projectile_color_for_unit())
-	if proj.has_method("setup_target"):
-		# Synergy may add extra pierce (in addition to passives).
-		if proj.has_method("add_pierce"):
-			proj.add_pierce(SynergySystem.extra_pierce_for_cd(character_data))
-		proj.setup_target(target, final_damage, is_crit, character_data.passive_ids, character_data, self)
-	else:
-		proj.setup(target.global_position, final_damage)
-	var s := _main.get_node_or_null("/root/SfxSystem")
-	if s and s.has_method("play_event"):
-		s.play_event("player.shot", global_position, self)
-	var v := _main.get_node_or_null("/root/VfxSystem")
-	if v and is_instance_valid(v) and v.has_method("play_event"):
-		v.play_event("player.shot", global_position, _main)
-	PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, false)
-	SynergySystem.on_unit_attack(character_data, self, target, final_damage, is_crit, false)
+	
+	var weapon_id := character_data.weapon_id if character_data != null else "standard_bolt"
+	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
+	
+	# Execute weapon attack
+	WeaponSystem.execute_attack(weapon_id, self, target, final_damage, is_crit, _main, character_data)
+	
+	# Trigger passive/synergy callbacks
+	PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, is_melee)
+	SynergySystem.on_unit_attack(character_data, self, target, final_damage, is_crit, is_melee)
 
 func _spawn_melee_hit_vfx(target: Node2D, dir: Vector2, is_crit: bool) -> void:
 	if _main == null or not is_instance_valid(_main):

@@ -232,33 +232,44 @@ func _get_or_make_bg(style: String, seed_value: int, base: Color, alt: Color, ac
 	return tex
 
 func _make_bg_texture(style: String, seed_value: int, base: Color, alt: Color, acc: Color, size: int) -> Texture2D:
-	# Fully procedural “wow” backdrops: distinct per biome.
+	# Fully procedural "wow" backdrops: dramatically distinct per biome.
 	# This runs once per map selection (cached), so 512×512 is safe.
 	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	var noise := FastNoiseLite.new()
 	noise.seed = seed_value if seed_value != 0 else int(Time.get_unix_time_from_system())
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
-	noise.fractal_octaves = 4
-	noise.fractal_lacunarity = 2.05
-	noise.fractal_gain = 0.52
-	noise.frequency = 0.010
+	noise.fractal_octaves = 5
+	noise.fractal_lacunarity = 2.0
+	noise.fractal_gain = 0.5
+	noise.frequency = 0.008
 
 	var n2 := FastNoiseLite.new()
 	n2.seed = noise.seed ^ 0x51a3c9
 	n2.noise_type = FastNoiseLite.TYPE_CELLULAR
-	n2.frequency = 0.030
+	n2.cellular_distance_function = FastNoiseLite.DISTANCE_EUCLIDEAN
+	n2.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	n2.frequency = 0.025
 
-	# Style knobs
+	var n3 := FastNoiseLite.new()
+	n3.seed = noise.seed ^ 0xdeadbeef
+	n3.noise_type = FastNoiseLite.TYPE_PERLIN
+	n3.frequency = 0.04
+
+	# Style detection
 	var is_foundry := (style == "foundry" or style == "iron_foundry")
 	var is_library := (style == "arcane_ruins" or style == "library" or style == "arcane_library")
+	var is_graveyard := not is_foundry and not is_library
 
-	# Precompute some big “room” centers for arcs / stains.
-	var centers: Array[Vector2] = []
+	# Precompute feature centers
 	var rr := RandomNumberGenerator.new()
 	rr.seed = noise.seed ^ 0x9e3779b9
-	for i in range(6):
-		centers.append(Vector2(rr.randf_range(0.15, 0.85), rr.randf_range(0.15, 0.85)) * float(size))
+	var centers: Array[Vector2] = []
+	var large_features: Array[Vector2] = []
+	for i in range(8):
+		centers.append(Vector2(rr.randf_range(0.1, 0.9), rr.randf_range(0.1, 0.9)) * float(size))
+	for i in range(4):
+		large_features.append(Vector2(rr.randf_range(0.2, 0.8), rr.randf_range(0.2, 0.8)) * float(size))
 
 	for y in range(size):
 		var fy := float(y) / float(size)
@@ -268,54 +279,147 @@ func _make_bg_texture(style: String, seed_value: int, base: Color, alt: Color, a
 
 			# Base terrain noise
 			var a := noise.get_noise_2d(wp.x, wp.y) * 0.5 + 0.5
-			var b := noise.get_noise_2d(wp.x * 1.9 + 200.0, wp.y * 1.9 + 80.0) * 0.5 + 0.5
+			var b := noise.get_noise_2d(wp.x * 2.0 + 200.0, wp.y * 2.0 + 80.0) * 0.5 + 0.5
 			var c := n2.get_noise_2d(wp.x, wp.y) * 0.5 + 0.5
+			var d := n3.get_noise_2d(wp.x, wp.y) * 0.5 + 0.5
 
-			var col := base.lerp(alt, clampf(a * 0.85 + b * 0.15, 0.0, 1.0))
+			var col := base.lerp(alt, clampf(a * 0.7 + b * 0.3, 0.0, 1.0))
 
-			# Macro shapes for instant differentiation
 			if is_library:
-				# Arcane tiled feel + ring glyphs
-				var grid := absf(_fracf(fx * 18.0) - 0.5) + absf(_fracf(fy * 10.0) - 0.5)
-				var seams := _smoothstepf(0.96, 1.00, grid * 1.8)
-				col = col.lerp(alt, seams * 0.65)
-
+				# === ARCANE LIBRARY: Mystical purple/blue with glowing runes ===
+				# Large stone tiles with mystical glow between them
+				var tile_size := 12.0
+				var gx := _fracf(fx * tile_size)
+				var gy := _fracf(fy * tile_size)
+				var tile_edge := minf(minf(gx, 1.0 - gx), minf(gy, 1.0 - gy))
+				var tile_seam := 1.0 - _smoothstepf(0.02, 0.08, tile_edge)
+				
+				# Glow in tile seams
+				var seam_glow := Color(0.5, 0.3, 0.9, 1.0)  # Purple glow
+				col = col.lerp(seam_glow, tile_seam * 0.6)
+				
+				# Magical circles at centers
+				for cc in large_features:
+					var dist := wp.distance_to(cc) / float(size)
+					# Concentric rings
+					var ring1 := 1.0 - _smoothstepf(0.002, 0.012, absf(dist - 0.15))
+					var ring2 := 1.0 - _smoothstepf(0.002, 0.008, absf(dist - 0.22))
+					var ring3 := 1.0 - _smoothstepf(0.002, 0.006, absf(dist - 0.28))
+					var rings := maxf(maxf(ring1, ring2), ring3)
+					# Pulsing arcane glow
+					var glow_col := Color(0.7, 0.4, 1.0, 1.0).lerp(Color(0.4, 0.8, 1.0, 1.0), b)
+					col = col.lerp(glow_col, rings * 0.7)
+					# Inner fill with subtle pattern
+					var inner := _smoothstepf(0.12, 0.08, dist)
+					col = col.lerp(alt.lightened(0.1), inner * 0.3)
+				
+				# Floating book/scroll symbols (abstract shapes)
 				for cc in centers:
-					var d := wp.distance_to(cc) / float(size)
-					var ring := 1.0 - _smoothstepf(0.002, 0.010, absf(d - 0.22))
-					var ring2 := 1.0 - _smoothstepf(0.002, 0.010, absf(d - 0.35))
-					var r := maxf(ring, ring2) * (0.25 + 0.40 * b)
-					col = col.lerp(acc, clampf(r, 0.0, 0.55))
+					var dist := wp.distance_to(cc) / float(size)
+					var symbol := _smoothstepf(0.025, 0.015, dist) * (0.3 + 0.4 * d)
+					var symbol_col := Color(0.9, 0.85, 0.6, 1.0)  # Parchment gold
+					col = col.lerp(symbol_col, symbol * 0.5)
+				
+				# Add sparkle dust
+				var sparkle := _smoothstepf(0.97, 1.0, d) * _smoothstepf(0.85, 1.0, a)
+				col = col.lerp(Color(1.0, 0.95, 0.8, 1.0), sparkle * 0.8)
 
 			elif is_foundry:
-				# Metal plates + lava cracks
-				var plate := absf(_fracf(fx * 8.0) - 0.5) + absf(_fracf(fy * 6.0) - 0.5)
-				var plate_seam := _smoothstepf(0.92, 1.00, plate * 1.9)
-				col = col.lerp(alt, plate_seam * 0.75)
-
-				var crack := _smoothstepf(0.78, 0.90, 1.0 - absf(a - 0.50)) * (0.25 + 0.75 * c)
-				var hot := acc.lerp(Color(1.0, 0.55, 0.20, 1.0), 0.55)
-				col = col.lerp(hot, clampf(crack * 0.60, 0.0, 0.65))
-
-				# Hazard stripe hint
-				var stripe: float = _stepf(0.5, _fracf((fx * 10.0 + fy * 3.0) * 0.85))
-				var stripe_mask := _smoothstepf(0.45, 0.90, b) * 0.08
-				col = col.lerp(Color(1.0, 0.75, 0.20, 1.0), stripe * stripe_mask)
+				# === IRON FOUNDRY: Industrial orange/red with molten metal ===
+				# Metal plate grid
+				var plate_w := 8.0
+				var plate_h := 6.0
+				var px := _fracf(fx * plate_w)
+				var py := _fracf(fy * plate_h)
+				var plate_edge := minf(minf(px, 1.0 - px), minf(py, 1.0 - py))
+				var plate_seam := 1.0 - _smoothstepf(0.03, 0.08, plate_edge)
+				
+				# Dark seams between plates
+				col = col.lerp(Color(0.02, 0.02, 0.03, 1.0), plate_seam * 0.7)
+				
+				# Rivets at plate corners
+				var rivet_dist := minf(
+					minf(Vector2(px, py).length(), Vector2(px - 1.0, py).length()),
+					minf(Vector2(px, py - 1.0).length(), Vector2(px - 1.0, py - 1.0).length())
+				)
+				var rivet := 1.0 - _smoothstepf(0.08, 0.12, rivet_dist)
+				col = col.lerp(Color(0.4, 0.35, 0.3, 1.0), rivet * 0.6)
+				
+				# Molten lava cracks
+				var crack := c
+				var crack_glow := _smoothstepf(0.3, 0.5, crack) * _smoothstepf(0.7, 0.5, crack)
+				var lava_col := Color(1.0, 0.4, 0.1, 1.0).lerp(Color(1.0, 0.7, 0.2, 1.0), a)
+				col = col.lerp(lava_col, crack_glow * 0.9)
+				
+				# Lava pools at feature centers
+				for cc in large_features:
+					var dist := wp.distance_to(cc) / float(size)
+					var pool := _smoothstepf(0.12, 0.06, dist)
+					var pool_edge := (1.0 - _smoothstepf(0.04, 0.08, dist)) * (1.0 - pool)
+					var hot := Color(1.0, 0.5, 0.1, 1.0).lerp(Color(1.0, 0.8, 0.3, 1.0), b)
+					col = col.lerp(hot, pool * 0.85)
+					col = col.lerp(Color(0.3, 0.1, 0.05, 1.0), pool_edge * 0.5)
+				
+				# Embers / sparks
+				var ember := _smoothstepf(0.95, 1.0, a) * _smoothstepf(0.92, 1.0, d)
+				col = col.lerp(Color(1.0, 0.6, 0.2, 1.0), ember * 0.9)
+				
+				# Heat distortion (subtle color shift)
+				var heat := _smoothstepf(0.4, 0.7, b) * 0.15
+				col = col.lerp(Color(col.r * 1.1, col.g * 0.9, col.b * 0.8, 1.0), heat)
 
 			else:
-				# Graveyard: damp stains + mossy veins
+				# === GRAVEYARD: Dark green/grey with tombstones and mist ===
+				# Cobblestone ground pattern
+				var stone_scale := 15.0
+				var sx := fx * stone_scale + a * 0.3
+				var sy := fy * stone_scale + b * 0.3
+				var stone_x := _fracf(sx)
+				var stone_y := _fracf(sy)
+				var stone_edge := minf(minf(stone_x, 1.0 - stone_x), minf(stone_y, 1.0 - stone_y))
+				var stone_seam := 1.0 - _smoothstepf(0.04, 0.12, stone_edge)
+				
+				# Mossy stone variation
+				var moss := _smoothstepf(0.5, 0.8, b) * _smoothstepf(0.3, 0.6, c)
+				col = col.lerp(acc, moss * 0.5)
+				col = col.lerp(Color(0.05, 0.06, 0.04, 1.0), stone_seam * 0.4)
+				
+				# Tombstone silhouettes (tall rectangles)
+				for i in range(large_features.size()):
+					var cc := large_features[i]
+					var dx := absf(wp.x - cc.x) / float(size)
+					var dy := (wp.y - cc.y) / float(size)
+					# Tombstone shape: narrow and tall
+					var tomb_w := 0.015 + rr.randf_range(0.0, 0.01)
+					var tomb_h := 0.06 + rr.randf_range(0.0, 0.03)
+					var in_tomb := _stepf(tomb_w, 1.0 - dx) * _stepf(0.0, dy) * _stepf(dy, tomb_h)
+					# Round top
+					var top_dist := Vector2(dx, dy - tomb_h + tomb_w).length()
+					var round_top := _stepf(top_dist, tomb_w)
+					var tomb := maxf(in_tomb, round_top) * 0.8
+					col = col.lerp(Color(0.12, 0.13, 0.11, 1.0), tomb)
+				
+				# Skull/bone scatter (small bright spots)
 				for cc in centers:
-					var d := wp.distance_to(cc) / float(size)
-					var stain := _smoothstepf(0.32, 0.02, d) * (0.15 + 0.35 * a)
-					col = col.lerp(alt, stain * 0.35)
+					var dist := wp.distance_to(cc) / float(size)
+					var bone := _smoothstepf(0.012, 0.006, dist) * (0.4 + 0.4 * d)
+					col = col.lerp(Color(0.85, 0.82, 0.75, 1.0), bone * 0.6)
+				
+				# Wispy fog patches
+				var fog_noise := noise.get_noise_2d(wp.x * 0.5, wp.y * 0.5) * 0.5 + 0.5
+				var fog := _smoothstepf(0.55, 0.75, fog_noise) * 0.25
+				col = col.lerp(Color(0.6, 0.7, 0.65, 1.0), fog)
+				
+				# Eerie glow spots
+				for cc in centers:
+					var dist := wp.distance_to(cc) / float(size)
+					var glow := _smoothstepf(0.08, 0.02, dist) * 0.3
+					col = col.lerp(Color(0.4, 0.9, 0.6, 1.0), glow)
 
-				var moss := _smoothstepf(0.62, 0.78, b) * (0.15 + 0.35 * c)
-				col = col.lerp(acc, clampf(moss * 0.55, 0.0, 0.55))
-
-			# Vignette (helps depth)
+			# Global vignette (helps depth and focus)
 			var uv := Vector2(fx * 2.0 - 1.0, fy * 2.0 - 1.0)
-			var v := clampf(1.0 - _smoothstepf(0.55, 1.15, uv.length()), 0.0, 1.0)
-			col = col.lerp(Color(0, 0, 0, 1), (1.0 - v) * 0.35)
+			var vig := 1.0 - _smoothstepf(0.5, 1.2, uv.length())
+			col = col.lerp(Color(0, 0, 0, 1), (1.0 - vig) * 0.45)
 
 			img.set_pixel(x, y, col)
 
@@ -418,9 +522,17 @@ func _process(delta: float) -> void:
 	_update_fog_follow(delta)
 
 func _find_camera() -> Camera2D:
+	# First try the player's camera
 	var player := get_tree().get_first_node_in_group("player") as Node
 	if player != null and is_instance_valid(player) and player.has_node("Camera2D"):
 		return player.get_node("Camera2D") as Camera2D
+	# Fallback: find any Camera2D in our parent hierarchy (works for SubViewport previews)
+	var p: Node = get_parent()
+	while p != null:
+		for child in p.get_children():
+			if child is Camera2D:
+				return child as Camera2D
+		p = p.get_parent()
 	return null
 
 func _effective_margin_px() -> float:
@@ -548,9 +660,14 @@ func _spawn_world_props() -> void:
 	var structure_scene := preload("res://scenes/StructureSprite.tscn")
 	var half := map_size * 0.5
 
+	# === LANDMARK STRUCTURES (large, placed strategically) ===
+	_spawn_landmarks(half, structure_scene, sheets)
+	
+	# === SCATTER PROPS (smaller, random) ===
 	var tries: int = 0
 	var placed: int = 0
-	while placed < prop_count and tries < prop_count * 20:
+	var scatter_count := int(prop_count * 0.7)  # Most props are scatter
+	while placed < scatter_count and tries < scatter_count * 20:
 		tries += 1
 
 		var p := Vector2(
@@ -568,16 +685,203 @@ func _spawn_world_props() -> void:
 		_try_set(n, &"sheet_path", sheet)
 		_try_set(n, &"animate", false)
 		_try_set(n, &"enable_pulse", true)
-		_try_set(n, &"pulse_amplitude", 0.08)
+		_try_set(n, &"pulse_amplitude", 0.06)
 		_try_set(n, &"pulse_speed", _rng.randf_range(0.65, 1.1))
-		_try_set(n, &"target_height_px", _rng.randi_range(48, 92))
+		_try_set(n, &"target_height_px", _rng.randi_range(42, 78))
 		_try_set(n, &"pad_px", 1)
 
-		# Small variation for richness
 		if n is Node2D:
-			var s := _rng.randf_range(0.88, 1.12)
+			var s := _rng.randf_range(0.85, 1.10)
 			(n as Node2D).scale = Vector2(s, s)
-			(n as Node2D).rotation = _rng.randf_range(-0.10, 0.10)
+			(n as Node2D).rotation = _rng.randf_range(-0.08, 0.08)
 
 		n.z_index = int(round(n.global_position.y / 10.0))
 		placed += 1
+	
+	# === COLLECTOR ELEMENTS (essence orbs, shrines) ===
+	_spawn_collector_elements(half)
+
+func _spawn_landmarks(half: Vector2, structure_scene: PackedScene, sheets: Array[String]) -> void:
+	# Place 4-8 large landmark structures at strategic positions
+	var landmark_count := _rng.randi_range(4, 8)
+	var landmark_positions: Array[Vector2] = []
+	
+	# Generate well-distributed positions using a simple grid + jitter
+	var grid_size := 3
+	for gx in range(-1, 2):
+		for gy in range(-1, 2):
+			if gx == 0 and gy == 0:
+				continue  # Skip center
+			var base_pos := Vector2(
+				gx * half.x * 0.6,
+				gy * half.y * 0.6
+			)
+			var jitter := Vector2(
+				_rng.randf_range(-half.x * 0.15, half.x * 0.15),
+				_rng.randf_range(-half.y * 0.15, half.y * 0.15)
+			)
+			landmark_positions.append(base_pos + jitter)
+	
+	# Shuffle and take landmark_count
+	landmark_positions.shuffle()
+	
+	for i in range(mini(landmark_count, landmark_positions.size())):
+		var pos := landmark_positions[i]
+		var n := structure_scene.instantiate()
+		props.add_child(n)
+		n.global_position = pos
+		
+		var sheet := sheets[_rng.randi_range(0, sheets.size() - 1)]
+		_try_set(n, &"sheet_path", sheet)
+		_try_set(n, &"animate", false)
+		_try_set(n, &"enable_pulse", true)
+		_try_set(n, &"pulse_amplitude", 0.10)
+		_try_set(n, &"pulse_speed", _rng.randf_range(0.5, 0.8))
+		_try_set(n, &"target_height_px", _rng.randi_range(90, 140))  # Larger!
+		_try_set(n, &"pad_px", 1)
+		_try_set(n, &"enable_sparks", _rng.randf() > 0.6)  # Some landmarks have sparks
+		
+		if n is Node2D:
+			var s := _rng.randf_range(1.0, 1.3)
+			(n as Node2D).scale = Vector2(s, s)
+		
+		n.z_index = int(round(n.global_position.y / 10.0))
+
+func _spawn_collector_elements(half: Vector2) -> void:
+	# Spawn glowing orbs and shrine-like elements that make the map feel collectible
+	var orb_count := _rng.randi_range(12, 20)
+	
+	# Determine colors based on theme
+	var orb_color: Color
+	var glow_color: Color
+	match theme_id:
+		"arcane_ruins":
+			orb_color = Color(0.6, 0.4, 1.0, 0.9)
+			glow_color = Color(0.8, 0.6, 1.0, 0.5)
+		"foundry":
+			orb_color = Color(1.0, 0.5, 0.2, 0.9)
+			glow_color = Color(1.0, 0.7, 0.3, 0.5)
+		_:  # graveyard
+			orb_color = Color(0.3, 1.0, 0.6, 0.9)
+			glow_color = Color(0.5, 1.0, 0.7, 0.5)
+	
+	for i in range(orb_count):
+		var pos := Vector2(
+			_rng.randf_range(-half.x * 0.85, half.x * 0.85),
+			_rng.randf_range(-half.y * 0.85, half.y * 0.85)
+		)
+		if pos.length() < prop_min_dist_from_center * 0.5:
+			continue
+		
+		_spawn_essence_orb(pos, orb_color, glow_color)
+	
+	# Spawn 2-4 "shrine" clusters
+	var shrine_count := _rng.randi_range(2, 4)
+	for i in range(shrine_count):
+		var pos := Vector2(
+			_rng.randf_range(-half.x * 0.7, half.x * 0.7),
+			_rng.randf_range(-half.y * 0.7, half.y * 0.7)
+		)
+		if pos.length() < prop_min_dist_from_center:
+			continue
+		_spawn_shrine_marker(pos, glow_color)
+
+func _spawn_essence_orb(pos: Vector2, orb_color: Color, glow_color: Color) -> void:
+	# Create a glowing orb using a simple sprite
+	var orb := Node2D.new()
+	orb.name = "EssenceOrb"
+	orb.global_position = pos
+	orb.z_index = 5  # Above ground, below characters
+	
+	# Core orb (small bright circle)
+	var core := Sprite2D.new()
+	var core_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	for y in range(16):
+		for x in range(16):
+			var d := Vector2(x - 8, y - 8).length() / 8.0
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			a = a * a * a  # Soft falloff
+			core_img.set_pixel(x, y, Color(orb_color.r, orb_color.g, orb_color.b, a))
+	core.texture = ImageTexture.create_from_image(core_img)
+	core.scale = Vector2(0.5, 0.5)
+	orb.add_child(core)
+	
+	# Glow (larger, softer)
+	var glow := Sprite2D.new()
+	var glow_img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	for y in range(32):
+		for x in range(32):
+			var d := Vector2(x - 16, y - 16).length() / 16.0
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			a = a * a  # Softer falloff
+			glow_img.set_pixel(x, y, Color(glow_color.r, glow_color.g, glow_color.b, a * 0.4))
+	glow.texture = ImageTexture.create_from_image(glow_img)
+	glow.scale = Vector2(1.5, 1.5)
+	glow.z_index = -1
+	orb.add_child(glow)
+	
+	# Add pulsing animation script
+	var script := GDScript.new()
+	script.source_code = """
+extends Node2D
+var t: float = 0.0
+var speed: float = 2.0
+var bob_amp: float = 3.0
+var base_y: float = 0.0
+func _ready():
+	speed = randf_range(1.5, 2.5)
+	base_y = position.y
+func _process(delta):
+	t += delta
+	position.y = base_y + sin(t * speed) * bob_amp
+	var core = get_node_or_null("Sprite2D")
+	if core:
+		var pulse = 0.4 + 0.2 * sin(t * speed * 1.5)
+		core.scale = Vector2(pulse, pulse)
+"""
+	orb.set_script(script)
+	
+	props.add_child(orb)
+
+func _spawn_shrine_marker(pos: Vector2, glow_color: Color) -> void:
+	# Create a simple ground marker / shrine indicator
+	var shrine := Node2D.new()
+	shrine.name = "ShrineMarker"
+	shrine.global_position = pos
+	shrine.z_index = -10  # On ground
+	
+	# Ground rune circle
+	var rune := Sprite2D.new()
+	var size := 64
+	var rune_img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center := float(size) / 2.0
+	for y in range(size):
+		for x in range(size):
+			var d := Vector2(float(x) - center, float(y) - center).length() / center
+			# Outer ring
+			var ring1 := 1.0 - _smoothstepf(0.85, 0.95, d) - _smoothstepf(0.75, 0.85, 1.0 - d)
+			# Inner ring
+			var ring2 := 1.0 - _smoothstepf(0.55, 0.65, d) - _smoothstepf(0.45, 0.55, 1.0 - d)
+			# Center glow
+			var center_glow := _smoothstepf(0.3, 0.0, d)
+			var a := maxf(maxf(ring1, ring2 * 0.6), center_glow * 0.4)
+			a = clampf(a, 0.0, 0.8)
+			rune_img.set_pixel(x, y, Color(glow_color.r, glow_color.g, glow_color.b, a))
+	rune.texture = ImageTexture.create_from_image(rune_img)
+	shrine.add_child(rune)
+	
+	# Add rotation animation
+	var script := GDScript.new()
+	script.source_code = """
+extends Node2D
+var t: float = 0.0
+var rot_speed: float = 0.15
+func _ready():
+	rot_speed = randf_range(0.1, 0.2) * (1.0 if randf() > 0.5 else -1.0)
+func _process(delta):
+	t += delta
+	rotation = t * rot_speed
+"""
+	shrine.set_script(script)
+	
+	props.add_child(shrine)

@@ -1,0 +1,164 @@
+{
+  "standard_bolt": {
+    "name": "Energy Bolt",
+    "description": "A focused projectile that homes toward enemies",
+    "type": "projectile",
+    "tags": ["ranged", "single_target", "homing"],
+    "base_speed": 620,
+    "base_hit_radius": 16,
+    "icon": "⚡"
+  },
+  "reaper_slash": {
+    "name": "Reaper Slash",
+    "description": "A massive scythe swing that cleaves all nearby foes",
+    "type": "melee_arc",
+    "tags": ["melee", "aoe", "cleave"],
+    "arc_angle": 120,
+    "arc_radius": 85,
+    "damage_falloff": 0.7,
+    "icon": "🌀"
+  },
+  "bomb_toss": {
+    "name": "Bomb Toss",
+    "description": "Lobs an explosive that detonates on impact",
+    "type": "bomb",
+    "tags": ["ranged", "aoe", "explosive"],
+    "explosion_radius": 70,
+    "fuse_time": 0.0,
+    "projectile_speed": 380,
+    "icon": "💣"
+  },
+  "chain_lightning": {
+    "name": "Chain Lightning",
+    "description": "Lightning that arcs between multiple enemies",
+    "type": "chain",
+    "tags": ["ranged", "multi_target", "lightning"],
+    "chain_count": 3,
+    "chain_damage_decay": 0.75,
+    "chain_range": 120,
+    "icon": "⚡"
+  },
+  "piercing_shot": {
+    "name": "Piercing Arrow",
+    "description": "A powerful shot that penetrates through enemies",
+    "type": "pierce",
+    "tags": ["ranged", "pierce", "line"],
+    "pierce_count": 4,
+    "damage_decay": 0.85,
+    "projectile_speed": 750,
+    "icon": "➤"
+  },
+  "scatter_shot": {
+    "name": "Scatter Shot",
+    "description": "Fires multiple projectiles in a spread pattern",
+    "type": "scatter",
+    "tags": ["ranged", "multi_projectile", "spread"],
+    "projectile_count": 5,
+    "spread_angle": 45,
+    "damage_per_proj": 0.4,
+    "icon": "⁂"
+  },
+  "boomerang": {
+    "name": "Chakram",
+    "description": "A spinning blade that returns after hitting, striking twice",
+    "type": "boomerang",
+    "tags": ["ranged", "returning", "multi_hit"],
+    "return_damage_mult": 0.6,
+    "travel_distance": 200,
+    "projectile_speed": 450,
+    "icon": "◎"
+  },
+  "beam": {
+    "name": "Death Ray",
+    "description": "A continuous beam that damages all enemies in its path",
+    "type": "beam",
+    "tags": ["ranged", "continuous", "line"],
+    "beam_length": 350,
+    "beam_width": 16,
+    "tick_rate": 0.1,
+    "duration": 0.5,
+    "icon": "═"
+  },
+  "ground_slam": {
+    "name": "Ground Slam",
+    "description": "Slams the ground, creating a shockwave around the user",
+    "type": "slam",
+    "tags": ["melee", "aoe", "shockwave"],
+    "inner_radius": 40,
+    "outer_radius": 100,
+    "inner_damage_mult": 1.2,
+    "outer_damage_mult": 0.5,
+    "icon": "◉"
+  },
+  "poison_dart": {
+    "name": "Venom Dart",
+    "description": "A fast dart that applies stacking poison",
+    "type": "dot_projectile",
+    "tags": ["ranged", "dot", "poison"],
+    "dot_damage_percent": 0.30,
+    "dot_duration": 4.0,
+    "dot_tick": 0.5,
+    "projectile_speed": 700,
+    "icon": "▲"
+  },
+  "frost_bolt": {
+    "name": "Frost Bolt",
+    "description": "Chilling projectile that slows enemies on hit",
+    "type": "slow_projectile",
+    "tags": ["ranged", "control", "slow"],
+    "slow_percent": 0.40,
+    "slow_duration": 2.5,
+    "projectile_speed": 500,
+    "icon": "❄"
+  },
+  "fire_wave": {
+    "name": "Flame Cone",
+    "description": "Breathes fire in a cone, igniting enemies",
+    "type": "cone",
+    "tags": ["ranged", "aoe", "burn"],
+    "cone_angle": 60,
+    "cone_range": 150,
+    "burn_damage_percent": 0.25,
+    "burn_duration": 3.0,
+    "icon": "🔥"
+  },
+  "spirit_lance": {
+    "name": "Spirit Lance",
+    "description": "Summons spectral spears that strike from above",
+    "type": "delayed_strike",
+    "tags": ["ranged", "delayed", "magic"],
+    "delay": 0.4,
+    "strike_radius": 35,
+    "strike_count": 3,
+    "icon": "✧"
+  },
+  "vampiric_bite": {
+    "name": "Vampiric Strike",
+    "description": "Melee attack that heals the user for damage dealt",
+    "type": "lifesteal_melee",
+    "tags": ["melee", "sustain", "lifesteal"],
+    "lifesteal_percent": 0.25,
+    "icon": "♠"
+  },
+  "ricochet": {
+    "name": "Ricochet Bullet",
+    "description": "Bounces off enemies, hitting multiple targets",
+    "type": "ricochet",
+    "tags": ["ranged", "bouncing", "multi_target"],
+    "bounce_count": 4,
+    "bounce_range": 150,
+    "damage_per_bounce": 0.9,
+    "icon": "●"
+  },
+  "orbital_strike": {
+    "name": "Orbital Strike",
+    "description": "Calls down a devastating strike after a delay",
+    "type": "orbital",
+    "tags": ["ranged", "delayed", "aoe", "heavy"],
+    "delay": 1.2,
+    "explosion_radius": 90,
+    "damage_mult": 1.8,
+    "icon": "☄"
+  }
+}
+

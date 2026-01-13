@@ -1,0 +1,725 @@
+extends Node
+# Collection of specialized weapon projectile types
+
+# === BOMB PROJECTILE ===
+class BombProjectile extends Node2D:
+	var _start_pos: Vector2
+	var _target_pos: Vector2
+	var _damage: int
+	var _is_crit: bool
+	var _radius: float
+	var _speed: float
+	var _main: Node2D
+	var _cd: CharacterData
+	var _attacker: Node2D
+	var _t: float = 0.0
+	var _duration: float = 0.0
+	var _sprite: Sprite2D
+	
+	func setup(start: Vector2, target: Vector2, dmg: int, crit: bool, radius: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+		_start_pos = start
+		_target_pos = target
+		_damage = dmg
+		_is_crit = crit
+		_radius = radius
+		_speed = speed
+		_main = main
+		_cd = cd
+		_attacker = attacker
+		_duration = start.distance_to(target) / maxf(speed, 1.0)
+		global_position = start
+		
+		_sprite = Sprite2D.new()
+		_sprite.texture = _make_bomb_tex()
+		add_child(_sprite)
+	
+	func _make_bomb_tex() -> ImageTexture:
+		var img := Image.create(12, 12, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0.2, 0.2, 0.2, 1))
+		for x in range(3, 9):
+			for y in range(3, 9):
+				img.set_pixel(x, y, Color(0.3, 0.3, 0.3, 1))
+		img.set_pixel(6, 1, Color(1.0, 0.5, 0.1, 1))
+		img.set_pixel(6, 2, Color(1.0, 0.3, 0.1, 1))
+		return ImageTexture.create_from_image(img)
+	
+	func _process(delta: float) -> void:
+		_t += delta
+		var progress := clampf(_t / _duration, 0.0, 1.0)
+		
+		# Arc trajectory
+		var lerped := _start_pos.lerp(_target_pos, progress)
+		var arc_height := 60.0 * sin(progress * PI)
+		global_position = lerped + Vector2(0, -arc_height)
+		_sprite.rotation += delta * 8.0
+		
+		if progress >= 1.0:
+			_explode()
+	
+	func _explode() -> void:
+		var enemies: Array = []
+		if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
+			enemies = _main.get_cached_enemies()
+		else:
+			enemies = get_tree().get_nodes_in_group("enemies")
+		
+		var r2 := _radius * _radius
+		for e in enemies:
+			if not is_instance_valid(e):
+				continue
+			var n2 := e as Node2D
+			if n2 == null:
+				continue
+			if n2.global_position.distance_squared_to(global_position) <= r2:
+				if n2.has_method("take_damage"):
+					n2.take_damage(_damage, _is_crit, "bomb")
+		
+		# VFX - use weapon.bomb_explode event
+		var v := _main.get_node_or_null("/root/VfxSystem") if _main else null
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("weapon.bomb_explode", global_position, _main, Color(1.0, 0.5, 0.1, 1.0), _radius / 60.0)
+		else:
+			# Fallback
+			var sw := VfxShockwave.new()
+			sw.setup(global_position, Color(1.0, 0.5, 0.1, 1.0), 15.0, _radius, 5.0, 0.2)
+			_main.add_child(sw)
+		
+		# SFX
+		var s := _main.get_node_or_null("/root/SfxSystem") if _main else null
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("weapon.bomb_explode", global_position, self)
+		
+		# Screen shake
+		var shake := _main.get_node_or_null("/root/ScreenShake") if _main else null
+		if shake and is_instance_valid(shake) and shake.has_method("shake"):
+			shake.shake(5.0, 0.12)
+		
+		queue_free()
+
+
+# === BOOMERANG PROJECTILE ===
+class BoomerangProjectile extends Node2D:
+	var _owner_ref: WeakRef
+	var _target_pos: Vector2
+	var _damage: int
+	var _is_crit: bool
+	var _return_mult: float
+	var _max_dist: float
+	var _speed: float
+	var _main: Node2D
+	var _cd: CharacterData
+	var _returning: bool = false
+	var _hit_targets: Array[Node2D] = []
+	var _sprite: Sprite2D
+	
+	func setup(owner: Node2D, target: Vector2, dmg: int, crit: bool, ret_mult: float, dist: float, speed: float, main: Node2D, cd: CharacterData) -> void:
+		_owner_ref = weakref(owner)
+		_target_pos = target
+		_damage = dmg
+		_is_crit = crit
+		_return_mult = ret_mult
+		_max_dist = dist
+		_speed = speed
+		_main = main
+		_cd = cd
+		global_position = owner.global_position
+		
+		_sprite = Sprite2D.new()
+		_sprite.texture = _make_chakram_tex()
+		add_child(_sprite)
+	
+	func _make_chakram_tex() -> ImageTexture:
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		var center := Vector2(8, 8)
+		for x in range(16):
+			for y in range(16):
+				var d := Vector2(x, y).distance_to(center)
+				if d >= 5 and d <= 7:
+					img.set_pixel(x, y, Color(0.8, 0.9, 1.0, 1.0))
+				elif d >= 3 and d < 5:
+					img.set_pixel(x, y, Color(0.5, 0.6, 0.8, 0.8))
+		return ImageTexture.create_from_image(img)
+	
+	func _process(delta: float) -> void:
+		_sprite.rotation += delta * 15.0
+		
+		var owner_node := _owner_ref.get_ref() as Node2D
+		var move_target := _target_pos if not _returning else (owner_node.global_position if owner_node and is_instance_valid(owner_node) else _target_pos)
+		
+		var dir := (move_target - global_position).normalized()
+		global_position += dir * _speed * delta
+		
+		# Check if reached target
+		if not _returning and global_position.distance_to(_target_pos) < 20:
+			_returning = true
+			_hit_targets.clear()
+		elif _returning and owner_node and is_instance_valid(owner_node) and global_position.distance_to(owner_node.global_position) < 30:
+			queue_free()
+			return
+		
+		# Hit enemies
+		_check_hits()
+		
+		# Timeout
+		if not _returning and global_position.distance_to(_owner_ref.get_ref().global_position if _owner_ref.get_ref() else global_position) > _max_dist * 1.5:
+			_returning = true
+	
+	func _check_hits() -> void:
+		var enemies: Array = []
+		if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
+			enemies = _main.get_cached_enemies()
+		
+		var hit_radius := 20.0
+		for e in enemies:
+			if not is_instance_valid(e) or _hit_targets.has(e):
+				continue
+			var n2 := e as Node2D
+			if n2 == null:
+				continue
+			if n2.global_position.distance_to(global_position) <= hit_radius:
+				var dmg := _damage if not _returning else int(float(_damage) * _return_mult)
+				if n2.has_method("take_damage"):
+					n2.take_damage(dmg, _is_crit, "boomerang")
+				_hit_targets.append(n2)
+
+
+# === BEAM ATTACK ===
+class BeamAttack extends Node2D:
+	var _owner_ref: WeakRef
+	var _direction: Vector2
+	var _damage: int
+	var _is_crit: bool
+	var _length: float
+	var _width: float
+	var _duration: float
+	var _tick_rate: float
+	var _main: Node2D
+	var _cd: CharacterData
+	var _elapsed: float = 0.0
+	var _tick_t: float = 0.0
+	var _line: Line2D
+	
+	func setup(owner: Node2D, dir: Vector2, dmg: int, crit: bool, length: float, width: float, duration: float, tick: float, main: Node2D, cd: CharacterData) -> void:
+		_owner_ref = weakref(owner)
+		_direction = dir.normalized()
+		_damage = dmg
+		_is_crit = crit
+		_length = length
+		_width = width
+		_duration = duration
+		_tick_rate = tick
+		_main = main
+		_cd = cd
+		
+		_line = Line2D.new()
+		_line.width = width
+		_line.default_color = Color(1.0, 0.3, 0.3, 0.9)
+		_line.add_point(Vector2.ZERO)
+		_line.add_point(_direction * _length)
+		add_child(_line)
+	
+	func _process(delta: float) -> void:
+		_elapsed += delta
+		_tick_t += delta
+		
+		var owner_node := _owner_ref.get_ref() as Node2D
+		if owner_node and is_instance_valid(owner_node):
+			global_position = owner_node.global_position
+		
+		# Pulse effect
+		_line.default_color.a = 0.6 + 0.4 * sin(_elapsed * 20.0)
+		
+		if _tick_t >= _tick_rate:
+			_tick_t = 0.0
+			_damage_enemies()
+		
+		if _elapsed >= _duration:
+			queue_free()
+	
+	func _damage_enemies() -> void:
+		var enemies: Array = []
+		if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
+			enemies = _main.get_cached_enemies()
+		
+		var tick_dmg := int(float(_damage) * _tick_rate / _duration)
+		for e in enemies:
+			if not is_instance_valid(e):
+				continue
+			var n2 := e as Node2D
+			if n2 == null:
+				continue
+			# Check if enemy is in beam path
+			var to_enemy := n2.global_position - global_position
+			var proj := to_enemy.dot(_direction)
+			if proj < 0 or proj > _length:
+				continue
+			var closest := global_position + _direction * proj
+			if n2.global_position.distance_to(closest) <= _width:
+				if n2.has_method("take_damage"):
+					n2.take_damage(tick_dmg, _is_crit, "beam")
+
+
+# === DOT PROJECTILE (Poison) ===
+class DotProjectile extends Node2D:
+	var _target_ref: WeakRef
+	var _damage: int
+	var _is_crit: bool
+	var _dot_pct: float
+	var _dot_dur: float
+	var _dot_tick: float
+	var _speed: float
+	var _main: Node2D
+	var _cd: CharacterData
+	var _attacker: Node2D
+	var _sprite: Sprite2D
+	
+	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, dot_pct: float, dot_dur: float, dot_tick: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+		global_position = start
+		_target_ref = weakref(target)
+		_damage = dmg
+		_is_crit = crit
+		_dot_pct = dot_pct
+		_dot_dur = dot_dur
+		_dot_tick = dot_tick
+		_speed = speed
+		_main = main
+		_cd = cd
+		_attacker = attacker
+		
+		_sprite = Sprite2D.new()
+		_sprite.texture = _make_dart_tex()
+		add_child(_sprite)
+	
+	func _make_dart_tex() -> ImageTexture:
+		var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+		img.set_pixel(4, 0, Color(0.3, 0.9, 0.3, 1))
+		img.set_pixel(3, 1, Color(0.3, 0.9, 0.3, 1))
+		img.set_pixel(4, 1, Color(0.3, 0.9, 0.3, 1))
+		img.set_pixel(5, 1, Color(0.3, 0.9, 0.3, 1))
+		for y in range(2, 7):
+			img.set_pixel(4, y, Color(0.2, 0.6, 0.2, 1))
+		return ImageTexture.create_from_image(img)
+	
+	func _process(delta: float) -> void:
+		var target := _target_ref.get_ref() as Node2D
+		if target == null or not is_instance_valid(target):
+			queue_free()
+			return
+		
+		var dir := (target.global_position - global_position).normalized()
+		global_position += dir * _speed * delta
+		_sprite.rotation = dir.angle() + PI/2
+		
+		if global_position.distance_to(target.global_position) < 16:
+			_hit(target)
+	
+	func _hit(target: Node2D) -> void:
+		if target.has_method("take_damage"):
+			target.take_damage(_damage, _is_crit, "poison_dart")
+		
+		# Apply DOT
+		if target.has_method("apply_burn"):
+			var dps := float(_damage) * _dot_pct / _dot_dur
+			target.apply_burn(dps, _dot_dur, _dot_tick)
+		
+		# Green poison visual
+		if target.has_method("pulse_vfx"):
+			target.pulse_vfx(Color(0.3, 0.9, 0.3, 1.0))
+		
+		queue_free()
+
+
+# === SLOW PROJECTILE (Frost) ===
+class SlowProjectile extends Node2D:
+	var _target_ref: WeakRef
+	var _damage: int
+	var _is_crit: bool
+	var _slow_pct: float
+	var _slow_dur: float
+	var _speed: float
+	var _main: Node2D
+	var _cd: CharacterData
+	var _attacker: Node2D
+	var _sprite: Sprite2D
+	
+	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, slow_pct: float, slow_dur: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+		global_position = start
+		_target_ref = weakref(target)
+		_damage = dmg
+		_is_crit = crit
+		_slow_pct = slow_pct
+		_slow_dur = slow_dur
+		_speed = speed
+		_main = main
+		_cd = cd
+		_attacker = attacker
+		
+		_sprite = Sprite2D.new()
+		_sprite.texture = _make_frost_tex()
+		add_child(_sprite)
+	
+	func _make_frost_tex() -> ImageTexture:
+		var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
+		var center := Vector2(5, 5)
+		for x in range(10):
+			for y in range(10):
+				var d := Vector2(x, y).distance_to(center)
+				if d <= 4:
+					var alpha := 1.0 - d / 4.0
+					img.set_pixel(x, y, Color(0.6, 0.85, 1.0, alpha))
+		return ImageTexture.create_from_image(img)
+	
+	func _process(delta: float) -> void:
+		var target := _target_ref.get_ref() as Node2D
+		if target == null or not is_instance_valid(target):
+			queue_free()
+			return
+		
+		var dir := (target.global_position - global_position).normalized()
+		global_position += dir * _speed * delta
+		
+		if global_position.distance_to(target.global_position) < 16:
+			_hit(target)
+	
+	func _hit(target: Node2D) -> void:
+		if target.has_method("take_damage"):
+			target.take_damage(_damage, _is_crit, "frost_bolt")
+		
+		# Apply slow
+		if target.has_method("apply_slow"):
+			target.apply_slow(_slow_pct, _slow_dur)
+		
+		# Frost visual
+		if target.has_method("pulse_vfx"):
+			target.pulse_vfx(Color(0.6, 0.85, 1.0, 1.0))
+		
+		queue_free()
+
+
+# === RICOCHET PROJECTILE ===
+class RicochetProjectile extends Node2D:
+	var _target_ref: WeakRef
+	var _damage: int
+	var _is_crit: bool
+	var _bounces_left: int
+	var _bounce_range: float
+	var _dmg_decay: float
+	var _main: Node2D
+	var _cd: CharacterData
+	var _attacker: Node2D
+	var _hit_targets: Array[Node2D] = []
+	var _speed: float = 600.0
+	var _sprite: Sprite2D
+	
+	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, bounces: int, bounce_range: float, decay: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+		global_position = start
+		_target_ref = weakref(target)
+		_damage = dmg
+		_is_crit = crit
+		_bounces_left = bounces
+		_bounce_range = bounce_range
+		_dmg_decay = decay
+		_main = main
+		_cd = cd
+		_attacker = attacker
+		
+		_sprite = Sprite2D.new()
+		_sprite.texture = _make_bullet_tex()
+		add_child(_sprite)
+	
+	func _make_bullet_tex() -> ImageTexture:
+		var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+		var center := Vector2(4, 4)
+		for x in range(8):
+			for y in range(8):
+				var d := Vector2(x, y).distance_to(center)
+				if d <= 3:
+					img.set_pixel(x, y, Color(1.0, 0.9, 0.5, 1.0))
+		return ImageTexture.create_from_image(img)
+	
+	func _process(delta: float) -> void:
+		var target := _target_ref.get_ref() as Node2D
+		if target == null or not is_instance_valid(target):
+			_find_new_target()
+			target = _target_ref.get_ref() as Node2D
+			if target == null:
+				queue_free()
+				return
+		
+		var dir := (target.global_position - global_position).normalized()
+		global_position += dir * _speed * delta
+		_sprite.rotation = dir.angle()
+		
+		if global_position.distance_to(target.global_position) < 16:
+			_hit(target)
+	
+	func _hit(target: Node2D) -> void:
+		if target.has_method("take_damage"):
+			target.take_damage(_damage, _is_crit and _bounces_left == int(_bounces_left), "ricochet")
+		_hit_targets.append(target)
+		
+		_bounces_left -= 1
+		_damage = int(float(_damage) * _dmg_decay)
+		
+		if _bounces_left <= 0 or _damage <= 0:
+			queue_free()
+			return
+		
+		_find_new_target()
+		if _target_ref.get_ref() == null:
+			queue_free()
+	
+	func _find_new_target() -> void:
+		var enemies: Array = []
+		if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
+			enemies = _main.get_cached_enemies()
+		
+		var best: Node2D = null
+		var best_dist := _bounce_range * _bounce_range
+		for e in enemies:
+			if not is_instance_valid(e) or _hit_targets.has(e):
+				continue
+			var n2 := e as Node2D
+			if n2 == null:
+				continue
+			var d2 := n2.global_position.distance_squared_to(global_position)
+			if d2 < best_dist:
+				best_dist = d2
+				best = n2
+		_target_ref = weakref(best) if best else weakref(null)
+
+
+# === DELAYED STRIKE ===
+class DelayedStrike extends Node2D:
+	var _target_pos: Vector2
+	var _damage: int
+	var _is_crit: bool
+	var _radius: float
+	var _delay: float
+	var _main: Node2D
+	var _cd: CharacterData
+	var _attacker: Node2D
+	var _elapsed: float = 0.0
+	var _indicator: Sprite2D
+	
+	func setup(pos: Vector2, dmg: int, crit: bool, radius: float, delay: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+		_target_pos = pos
+		_damage = dmg
+		_is_crit = crit
+		_radius = radius
+		_delay = delay
+		_main = main
+		_cd = cd
+		_attacker = attacker
+		global_position = pos
+		
+		_indicator = Sprite2D.new()
+		_indicator.texture = _make_indicator_tex()
+		_indicator.modulate = Color(0.8, 0.6, 1.0, 0.5)
+		add_child(_indicator)
+	
+	func _make_indicator_tex() -> ImageTexture:
+		var size := int(_radius * 2)
+		var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+		var center := Vector2(size / 2, size / 2)
+		for x in range(size):
+			for y in range(size):
+				var d := Vector2(x, y).distance_to(center)
+				if d <= _radius and d >= _radius - 3:
+					img.set_pixel(x, y, Color(1, 1, 1, 0.8))
+		return ImageTexture.create_from_image(img)
+	
+	func _process(delta: float) -> void:
+		_elapsed += delta
+		_indicator.modulate.a = 0.3 + 0.4 * sin(_elapsed * 10.0)
+		
+		if _elapsed >= _delay:
+			_strike()
+	
+	func _strike() -> void:
+		var enemies: Array = []
+		if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
+			enemies = _main.get_cached_enemies()
+		
+		var r2 := _radius * _radius
+		for e in enemies:
+			if not is_instance_valid(e):
+				continue
+			var n2 := e as Node2D
+			if n2 == null:
+				continue
+			if n2.global_position.distance_squared_to(global_position) <= r2:
+				if n2.has_method("take_damage"):
+					n2.take_damage(_damage, _is_crit, "spirit_lance")
+		
+		# VFX
+		var flash := VfxImpactFlash.new()
+		flash.setup(global_position, Color(0.8, 0.6, 1.0, 1.0), _radius * 0.8, 0.15)
+		_main.add_child(flash)
+		
+		queue_free()
+
+
+# === ORBITAL STRIKE ===
+class OrbitalStrike extends Node2D:
+	var _target_pos: Vector2
+	var _damage: int
+	var _is_crit: bool
+	var _radius: float
+	var _delay: float
+	var _main: Node2D
+	var _cd: CharacterData
+	var _attacker: Node2D
+	var _elapsed: float = 0.0
+	var _indicator: Sprite2D
+	var _warning_line: Line2D
+	var _played_charge_sfx: bool = false
+	
+	func setup(pos: Vector2, dmg: int, crit: bool, radius: float, delay: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+		_target_pos = pos
+		_damage = dmg
+		_is_crit = crit
+		_radius = radius
+		_delay = delay
+		_main = main
+		_cd = cd
+		_attacker = attacker
+		global_position = pos
+		
+		# Warning indicator
+		_indicator = Sprite2D.new()
+		_indicator.texture = _make_target_tex()
+		_indicator.modulate = Color(1.0, 0.3, 0.1, 0.6)
+		add_child(_indicator)
+		
+		# Beam line from sky
+		_warning_line = Line2D.new()
+		_warning_line.add_point(Vector2(0, -400))
+		_warning_line.add_point(Vector2.ZERO)
+		_warning_line.width = 4
+		_warning_line.default_color = Color(1.0, 0.5, 0.2, 0.3)
+		add_child(_warning_line)
+		
+		# Play warning VFX
+		var v := _main.get_node_or_null("/root/VfxSystem") if _main else null
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("weapon.orbital_warning", pos, _main, Color(1.0, 0.3, 0.1, 0.8), _radius / 80.0)
+	
+	func _make_target_tex() -> ImageTexture:
+		var size := int(_radius * 2)
+		var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+		var center := Vector2(size / 2, size / 2)
+		for x in range(size):
+			for y in range(size):
+				var d := Vector2(x, y).distance_to(center)
+				if d <= _radius and d >= _radius - 4:
+					img.set_pixel(x, y, Color(1, 1, 1, 0.9))
+				elif absf(x - size/2) < 2 or absf(y - size/2) < 2:
+					if d < _radius:
+						img.set_pixel(x, y, Color(1, 1, 1, 0.5))
+		return ImageTexture.create_from_image(img)
+	
+	func _process(delta: float) -> void:
+		_elapsed += delta
+		var progress := _elapsed / _delay
+		
+		# Intensify warning
+		_indicator.modulate.a = 0.3 + 0.5 * progress
+		_warning_line.default_color.a = 0.2 + 0.6 * progress
+		_warning_line.width = 4 + 12 * progress
+		
+		# Play charge SFX midway
+		if not _played_charge_sfx and progress > 0.3:
+			_played_charge_sfx = true
+			var s := _main.get_node_or_null("/root/SfxSystem") if _main else null
+			if s and is_instance_valid(s) and s.has_method("play_event"):
+				s.play_event("weapon.orbital_charge", global_position, self)
+		
+		if _elapsed >= _delay:
+			_strike()
+	
+	func _strike() -> void:
+		var enemies: Array = []
+		if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
+			enemies = _main.get_cached_enemies()
+		
+		var r2 := _radius * _radius
+		for e in enemies:
+			if not is_instance_valid(e):
+				continue
+			var n2 := e as Node2D
+			if n2 == null:
+				continue
+			if n2.global_position.distance_squared_to(global_position) <= r2:
+				if n2.has_method("take_damage"):
+					n2.take_damage(_damage, _is_crit, "orbital_strike")
+		
+		# Big explosion VFX
+		var v := _main.get_node_or_null("/root/VfxSystem") if _main else null
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("weapon.orbital_strike", global_position, _main, Color(1.0, 0.5, 0.1, 1.0), _radius / 60.0)
+			v.play_event("weapon.orbital_beam", global_position + Vector2(0, -200), _main, Color(1.0, 0.7, 0.3, 1.0), 1.5)
+		else:
+			# Fallback
+			var sw := VfxShockwave.new()
+			sw.setup(global_position, Color(1.0, 0.5, 0.1, 1.0), 20.0, _radius * 1.5, 6.0, 0.3)
+			_main.add_child(sw)
+		
+		# Screen shake - BIG
+		var shake := _main.get_node_or_null("/root/ScreenShake")
+		if shake and is_instance_valid(shake) and shake.has_method("shake"):
+			shake.shake(12.0, 0.25)
+		
+		# SFX
+		var s := _main.get_node_or_null("/root/SfxSystem")
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("weapon.orbital_strike", global_position, self)
+		
+		queue_free()
+
+
+# === LIGHTNING VFX ===
+class LightningVfx extends Node2D:
+	var _from: Vector2
+	var _to: Vector2
+	var _color: Color
+	var _duration: float
+	var _elapsed: float = 0.0
+	var _line: Line2D
+	
+	func setup(from: Vector2, to: Vector2, color: Color, duration: float) -> void:
+		_from = from
+		_to = to
+		_color = color
+		_duration = duration
+		
+		_line = Line2D.new()
+		_line.width = 3
+		_line.default_color = color
+		_generate_lightning_points()
+		add_child(_line)
+	
+	func _generate_lightning_points() -> void:
+		_line.clear_points()
+		_line.add_point(_from)
+		
+		var dist := _from.distance_to(_to)
+		var segments := int(dist / 20.0)
+		var dir := (_to - _from).normalized()
+		var perp := Vector2(-dir.y, dir.x)
+		
+		for i in range(1, segments):
+			var t := float(i) / float(segments)
+			var base := _from.lerp(_to, t)
+			var offset := perp * randf_range(-15, 15)
+			_line.add_point(base + offset)
+		
+		_line.add_point(_to)
+	
+	func _process(delta: float) -> void:
+		_elapsed += delta
+		_line.default_color.a = 1.0 - (_elapsed / _duration)
+		
+		if _elapsed >= _duration:
+			queue_free()
+

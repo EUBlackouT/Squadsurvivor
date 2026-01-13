@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "export_root": "res://assets/vfx/effectblocks",
   "default_fps": 12,
   "events": {
@@ -63,7 +63,31 @@
     },
     "syn.shock": { "effect_key": "shockwave", "fps": 14, "scale": 1.15, "offset": [0, 0], "z": 1900 },
     "syn.execute": { "effect_key": "impact_7", "fps": 16 },
-    "syn.focus_tick": { "effect_key": "electric_sparks_2", "fps": 18 }
+    "syn.focus_tick": { "effect_key": "electric_sparks_2", "fps": 18 },
+
+    "weapon.reaper_slash": { "effect_key": "decal_claw_mark_1", "fps": 14, "scale": 1.40, "offset": [0, 0], "z": 2100, "tint": "#ff4455" },
+    "weapon.bomb_explode": { "effect_key": "explosion_heavy", "fps": 14, "scale": 1.20, "offset": [0, 0], "z": 2200, "tint": "#ffaa44" },
+    "weapon.chain_lightning": { "effect_key": "lightning", "fps": 18, "scale": 0.90, "offset": [0, -10], "z": 2150, "tint": "#88ccff" },
+    "weapon.chain_hit": { "effect_key": "electric_sparks_3", "fps": 18, "scale": 0.80, "offset": [0, -12], "z": 2160, "tint": "#aaddff" },
+    "weapon.pierce_trail": { "effect_key": "laser", "fps": 18, "scale": 0.70, "offset": [0, 0], "z": 2050, "tint": "#ffdd66", "rot_deg": 90 },
+    "weapon.scatter_shot": { "effect_key": "muzzle_flash_1", "fps": 20, "scale": 1.10, "offset": [0, -8], "z": 2100, "tint": "#ffee88" },
+    "weapon.boomerang_spin": { "effect_key": "sparkles", "fps": 16, "scale": 0.60, "offset": [0, 0], "z": 2080, "tint": "#88ffee" },
+    "weapon.beam": { "effect_key": "laser", "fps": 20, "scale": 1.30, "offset": [0, 0], "z": 2100, "tint": "#ff5566", "rot_deg": 0 },
+    "weapon.ground_slam": { "effect_key": "shockwave", "fps": 16, "scale": 1.50, "offset": [0, 0], "z": 2000, "tint": "#cc8844" },
+    "weapon.ground_slam_inner": { "effect_key": "dust_ring", "fps": 16, "scale": 0.80, "offset": [0, 0], "z": 2010, "tint": "#ddaa66" },
+    "weapon.poison_hit": { "effect_key": "smoke_toxic", "fps": 14, "scale": 0.65, "offset": [0, -10], "z": 2100, "tint": "#66ff44" },
+    "weapon.frost_hit": { "effect_key": "attack_crystal", "fps": 14, "scale": 0.85, "offset": [0, -12], "z": 2100, "tint": "#88ddff" },
+    "weapon.frost_trail": { "effect_key": "sparkles", "fps": 14, "scale": 0.50, "offset": [0, 0], "z": 2050, "tint": "#aaeeff" },
+    "weapon.fire_cone": { "effect_key": "fire_heavy", "fps": 16, "scale": 1.20, "offset": [0, -6], "z": 2100, "tint": "#ff6622" },
+    "weapon.fire_burn": { "effect_key": "fire_light", "fps": 14, "scale": 0.55, "offset": [0, -18], "z": 2050, "tint": "#ff8833" },
+    "weapon.spirit_lance": { "effect_key": "sparkles", "fps": 16, "scale": 0.90, "offset": [0, -20], "z": 2200, "tint": "#bb88ff" },
+    "weapon.spirit_strike": { "effect_key": "impact_4", "fps": 18, "scale": 1.00, "offset": [0, -12], "z": 2250, "tint": "#cc99ff" },
+    "weapon.vampiric_drain": { "effect_key": "sparkles", "fps": 14, "scale": 0.70, "offset": [0, -14], "z": 2100, "tint": "#ff4488" },
+    "weapon.vampiric_heal": { "effect_key": "healing", "fps": 14, "scale": 0.60, "offset": [0, -20], "z": 2150, "tint": "#88ff88" },
+    "weapon.ricochet_bounce": { "effect_key": "impact_1", "fps": 18, "scale": 0.70, "offset": [0, -10], "z": 2100, "tint": "#ffcc44" },
+    "weapon.orbital_warning": { "effect_key": "ground_effect_2", "fps": 10, "scale": 1.40, "offset": [0, 0], "z": 1900, "tint": "#ff4444", "loop": true },
+    "weapon.orbital_strike": { "effect_key": "explosion_heavy", "fps": 12, "scale": 1.80, "offset": [0, 0], "z": 2300, "tint": "#ff6644" },
+    "weapon.orbital_beam": { "effect_key": "laser", "fps": 20, "scale": 2.00, "offset": [0, -200], "z": 2250, "tint": "#ffaa44", "rot_deg": 0 }
   }
 }
 

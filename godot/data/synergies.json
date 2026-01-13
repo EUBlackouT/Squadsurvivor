@@ -1,79 +1,84 @@
 {
-  "version": 1,
+  "version": 2,
   "synergies": [
     {
       "id": "warband",
       "name": "Warband",
+      "description": "Warriors fight harder together. More warriors = more damage.",
       "count_tag": "class:warrior",
       "applies_to_tags": [],
       "tiers": [
-        { "count": 2, "mods": { "attack_damage_mult": 1.10 } },
-        { "count": 4, "mods": { "attack_damage_mult": 1.22 } }
+        { "count": 2, "mods": { "attack_damage_mult": 1.15, "max_hp_mult": 1.08 } },
+        { "count": 3, "mods": { "attack_damage_mult": 1.28, "max_hp_mult": 1.15 } }
       ]
     },
     {
       "id": "cabal",
-      "name": "Cabal",
+      "name": "Arcane Cabal",
+      "description": "Mages channel arcane energy. Their attacks chain lightning between enemies.",
       "count_tag": "class:mage",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": { "attack_damage_mult": 1.08, "attack_cooldown_mult": 0.92 },
+          "mods": { "attack_damage_mult": 1.12, "attack_cooldown_mult": 0.88 },
           "effects": [
-            { "type": "arc_focus", "interval_hits": 6, "radius": 240, "chains": 2, "damage_mult": 0.30 }
+            { "type": "arc_focus", "interval_hits": 5, "radius": 260, "chains": 2, "damage_mult": 0.40 }
           ]
         },
         {
-          "count": 4,
-          "mods": { "attack_damage_mult": 1.16, "attack_cooldown_mult": 0.85 },
+          "count": 3,
+          "mods": { "attack_damage_mult": 1.22, "attack_cooldown_mult": 0.80 },
           "effects": [
-            { "type": "arc_focus", "interval_hits": 5, "radius": 260, "chains": 3, "damage_mult": 0.32 }
+            { "type": "arc_focus", "interval_hits": 4, "radius": 300, "chains": 3, "damage_mult": 0.50 }
           ]
         }
       ]
     },
     {
       "id": "vanguard",
-      "name": "Vanguard",
+      "name": "Iron Vanguard",
+      "description": "Guardians create a protective aura that slows enemies and heals allies.",
       "count_tag": "class:guardian",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": { "max_hp_mult": 1.18 },
+          "mods": { "max_hp_mult": 1.25 },
           "effects": [
-            { "type": "bulwark_aura", "cooldown": 0.70, "radius": 95, "slow_mult": 0.86, "duration": 0.55 }
+            { "type": "bulwark_aura", "cooldown": 0.6, "radius": 110, "slow_mult": 0.80, "duration": 0.7 },
+            { "type": "aura_heal", "cooldown": 1.5, "heal_frac": 0.025 }
           ]
         },
         {
-          "count": 4,
-          "mods": { "max_hp_mult": 1.35, "attack_damage_mult": 1.06 },
+          "count": 3,
+          "mods": { "max_hp_mult": 1.45, "attack_damage_mult": 1.10 },
           "effects": [
-            { "type": "bulwark_aura", "cooldown": 0.65, "radius": 110, "slow_mult": 0.82, "duration": 0.60 },
-            { "type": "aura_heal", "cooldown": 1.80, "heal_frac": 0.020 }
+            { "type": "bulwark_aura", "cooldown": 0.5, "radius": 140, "slow_mult": 0.70, "duration": 0.9 },
+            { "type": "aura_heal", "cooldown": 1.2, "heal_frac": 0.04 }
           ]
         }
       ]
     },
     {
       "id": "marksmen",
-      "name": "Marksmen",
+      "name": "Sharpshooters",
+      "description": "Ranged units fire coordinated volleys. Projectiles pierce and bonus shots fly.",
       "count_tag": "style:ranged",
       "applies_to_tags": [],
       "tiers": [
         {
-          "count": 3,
-          "mods": { "attack_cooldown_mult": 0.92 },
+          "count": 2,
+          "mods": { "attack_cooldown_mult": 0.88 },
           "effects": [
-            { "type": "volley_shot", "interval_attacks": 4, "radius": 420, "damage_mult": 0.50 }
+            { "type": "volley_shot", "interval_attacks": 3, "radius": 450, "damage_mult": 0.60 }
           ]
         },
         {
-          "count": 5,
-          "mods": { "attack_cooldown_mult": 0.84 },
+          "count": 3,
+          "mods": { "attack_cooldown_mult": 0.78, "attack_damage_mult": 1.08 },
           "effects": [
-            { "type": "volley_shot", "interval_attacks": 3, "radius": 460, "damage_mult": 0.55 },
+            { "type": "volley_shot", "interval_attacks": 2, "radius": 500, "damage_mult": 0.70 },
             { "type": "pierce_bonus", "extra_pierce": 1 }
           ]
         }
@@ -81,155 +86,163 @@
     },
     {
       "id": "blades",
-      "name": "Blades",
+      "name": "Blade Dance",
+      "description": "Melee fighters move faster and unleash shockwaves on hit.",
       "count_tag": "style:melee",
       "applies_to_tags": [],
       "tiers": [
         {
-          "count": 3,
-          "mods": { "move_speed_mult": 1.10, "attack_damage_mult": 1.06 },
+          "count": 2,
+          "mods": { "move_speed_mult": 1.15, "attack_damage_mult": 1.10 },
           "effects": [
-            { "type": "shockstep", "interval_hits": 3, "radius": 130, "damage_mult": 0.22, "slow_mult": 0.88, "duration": 0.40 }
+            { "type": "shockstep", "interval_hits": 3, "radius": 140, "damage_mult": 0.30, "slow_mult": 0.85, "duration": 0.5 }
           ]
         },
         {
-          "count": 5,
-          "mods": { "move_speed_mult": 1.18, "attack_damage_mult": 1.12 },
+          "count": 3,
+          "mods": { "move_speed_mult": 1.25, "attack_damage_mult": 1.18 },
           "effects": [
-            { "type": "shockstep", "interval_hits": 2, "radius": 145, "damage_mult": 0.24, "slow_mult": 0.85, "duration": 0.45 }
+            { "type": "shockstep", "interval_hits": 2, "radius": 165, "damage_mult": 0.38, "slow_mult": 0.75, "duration": 0.6 }
           ]
         }
       ]
     },
     {
       "id": "undying",
-      "name": "Undying",
+      "name": "Undying Legion",
+      "description": "Undead units feast on death, healing when enemies die and chilling nearby foes.",
       "count_tag": "origin:undead",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": { "max_hp_mult": 1.10 },
+          "mods": { "max_hp_mult": 1.15 },
           "effects": [
-            { "type": "soul_feast", "heal_frac": 0.050, "elite_bonus": 0.020 }
+            { "type": "soul_feast", "heal_frac": 0.08, "elite_bonus": 0.04 },
+            { "type": "death_chill", "radius": 140, "slow_mult": 0.80, "duration": 0.8, "cooldown": 0.3 }
           ]
         },
         {
-          "count": 4,
-          "mods": { "max_hp_mult": 1.22, "attack_cooldown_mult": 0.92 },
+          "count": 3,
+          "mods": { "max_hp_mult": 1.30, "attack_cooldown_mult": 0.90 },
           "effects": [
-            { "type": "soul_feast", "heal_frac": 0.080, "elite_bonus": 0.030 },
-            { "type": "death_chill", "radius": 160, "slow_mult": 0.86, "duration": 0.70, "cooldown": 0.35 }
+            { "type": "soul_feast", "heal_frac": 0.12, "elite_bonus": 0.06 },
+            { "type": "death_chill", "radius": 180, "slow_mult": 0.70, "duration": 1.0, "cooldown": 0.25 }
           ]
         }
       ]
     },
     {
       "id": "assassins",
-      "name": "Assassins",
+      "name": "Shadow Guild",
+      "description": "Rogues execute wounded targets with brutal efficiency.",
       "count_tag": "class:rogue",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": { "move_speed_mult": 1.05 },
+          "mods": { "move_speed_mult": 1.10, "attack_cooldown_mult": 0.92 },
           "effects": [
-            { "type": "execute_protocol", "threshold": 0.35, "bonus_mult": 0.18, "cooldown": 0.08 }
+            { "type": "execute_protocol", "threshold": 0.40, "bonus_mult": 0.30, "cooldown": 0.06 }
           ]
         },
         {
-          "count": 4,
-          "mods": { "move_speed_mult": 1.10 },
+          "count": 3,
+          "mods": { "move_speed_mult": 1.18, "attack_cooldown_mult": 0.85 },
           "effects": [
-            { "type": "execute_protocol", "threshold": 0.42, "bonus_mult": 0.22, "cooldown": 0.08 }
+            { "type": "execute_protocol", "threshold": 0.50, "bonus_mult": 0.45, "cooldown": 0.05 }
           ]
         }
       ]
     },
     {
       "id": "clockwork",
-      "name": "Clockwork",
+      "name": "Clockwork Army",
+      "description": "Machine units calculate optimal ricochet angles for maximum carnage.",
       "count_tag": "origin:machine",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": {},
+          "mods": { "attack_cooldown_mult": 0.92 },
           "effects": [
-            { "type": "ricochet_matrix", "chance": 0.28, "radius": 290, "damage_mult": 0.55, "cooldown": 0.20 }
+            { "type": "ricochet_matrix", "chance": 0.40, "radius": 320, "damage_mult": 0.65, "cooldown": 0.15 }
           ]
         },
         {
-          "count": 4,
-          "mods": {},
+          "count": 3,
+          "mods": { "attack_cooldown_mult": 0.85 },
           "effects": [
-            { "type": "ricochet_matrix", "chance": 0.38, "radius": 320, "damage_mult": 0.60, "cooldown": 0.18 }
+            { "type": "ricochet_matrix", "chance": 0.55, "radius": 360, "damage_mult": 0.80, "cooldown": 0.12 }
           ]
         }
       ]
     },
     {
       "id": "covenant",
-      "name": "Covenant",
+      "name": "Dark Covenant",
+      "description": "Summoners channel spirits that periodically fire wisp bolts at enemies.",
       "count_tag": "class:summoner",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": {},
+          "mods": { "attack_damage_mult": 1.10 },
           "effects": [
-            { "type": "wisp_bolt", "cooldown": 1.60, "radius": 520, "damage_mult": 0.35 }
+            { "type": "wisp_bolt", "cooldown": 1.4, "radius": 550, "damage_mult": 0.45 }
           ]
         },
         {
-          "count": 4,
-          "mods": {},
+          "count": 3,
+          "mods": { "attack_damage_mult": 1.20 },
           "effects": [
-            { "type": "wisp_bolt", "cooldown": 1.25, "radius": 560, "damage_mult": 0.38, "extra": 1 }
+            { "type": "wisp_bolt", "cooldown": 1.0, "radius": 600, "damage_mult": 0.55, "extra": 1 }
           ]
         }
       ]
     },
     {
       "id": "sanctum",
-      "name": "Sanctum",
+      "name": "Divine Sanctum",
+      "description": "Healers radiate holy light, periodically healing the most wounded ally.",
       "count_tag": "class:healer",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": { "attack_cooldown_mult": 0.97 },
+          "mods": { "attack_cooldown_mult": 0.92, "max_hp_mult": 1.10 },
           "effects": [
-            { "type": "sanctuary_heal", "cooldown": 2.20, "heal_frac": 0.040 }
+            { "type": "sanctuary_heal", "cooldown": 1.8, "heal_frac": 0.06 }
           ]
         },
         {
-          "count": 4,
-          "mods": { "attack_cooldown_mult": 0.95 },
+          "count": 3,
+          "mods": { "attack_cooldown_mult": 0.85, "max_hp_mult": 1.18 },
           "effects": [
-            { "type": "sanctuary_heal", "cooldown": 1.80, "heal_frac": 0.055 }
+            { "type": "sanctuary_heal", "cooldown": 1.3, "heal_frac": 0.09 }
           ]
         }
       ]
     },
     {
       "id": "striker_core",
-      "name": "Striker Core",
+      "name": "Striker Protocol",
+      "description": "Strikers land critical hits that arc lightning to nearby enemies.",
       "count_tag": "arch:striker",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": { "attack_damage_mult": 1.08 },
+          "mods": { "attack_damage_mult": 1.12 },
           "effects": [
-            { "type": "crit_arc", "chance": 0.35, "radius": 240, "damage_mult": 0.28, "cooldown": 0.20 }
+            { "type": "crit_arc", "chance": 0.45, "radius": 260, "damage_mult": 0.40, "cooldown": 0.15 }
           ]
         },
         {
           "count": 3,
-          "mods": { "attack_damage_mult": 1.14 },
+          "mods": { "attack_damage_mult": 1.22 },
           "effects": [
-            { "type": "crit_arc", "chance": 0.45, "radius": 260, "damage_mult": 0.30, "cooldown": 0.18 }
+            { "type": "crit_arc", "chance": 0.60, "radius": 300, "damage_mult": 0.55, "cooldown": 0.12 }
           ]
         }
       ]
@@ -237,105 +250,107 @@
     {
       "id": "bruiser_wall",
       "name": "Bruiser Wall",
+      "description": "Bruisers form an unbreakable front line with massive HP.",
       "count_tag": "arch:bruiser",
       "applies_to_tags": [],
       "tiers": [
-        { "count": 2, "mods": { "max_hp_mult": 1.15 } },
-        { "count": 3, "mods": { "max_hp_mult": 1.26 } }
+        { "count": 2, "mods": { "max_hp_mult": 1.25, "attack_damage_mult": 1.05 } },
+        { "count": 3, "mods": { "max_hp_mult": 1.45, "attack_damage_mult": 1.12 } }
       ]
-    }
-    ,
+    },
     {
       "id": "bannerlords",
       "name": "Bannerlords",
+      "description": "Humans rally together, focusing fire on single targets for massive bonus damage.",
       "count_tag": "origin:human",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": {},
+          "mods": { "attack_damage_mult": 1.08 },
           "effects": [
-            { "type": "focus_fire", "stacks": 6, "window": 1.2, "bonus_mult": 0.35, "cooldown": 0.10 }
+            { "type": "focus_fire", "stacks": 5, "window": 1.5, "bonus_mult": 0.45, "cooldown": 0.08 }
           ]
         },
         {
-          "count": 4,
-          "mods": {},
+          "count": 3,
+          "mods": { "attack_damage_mult": 1.15 },
           "effects": [
-            { "type": "focus_fire", "stacks": 5, "window": 1.35, "bonus_mult": 0.42, "cooldown": 0.10 },
-            { "type": "bounty", "chance": 0.14, "essence": 1, "elite_bonus": 1 }
+            { "type": "focus_fire", "stacks": 4, "window": 1.8, "bonus_mult": 0.60, "cooldown": 0.08 },
+            { "type": "bounty", "chance": 0.20, "essence": 2, "elite_bonus": 2 }
           ]
         }
       ]
     },
     {
       "id": "infernal",
-      "name": "Infernal",
+      "name": "Infernal Pact",
+      "description": "Demons set the world ablaze. Attacks ignite enemies and periodically explode.",
       "count_tag": "origin:demon",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": { "attack_damage_mult": 1.04 },
+          "mods": { "attack_damage_mult": 1.10 },
           "effects": [
-            { "type": "hellfire_burn", "chance": 0.32, "dps_mult": 0.12, "duration": 2.5, "tick": 0.5, "cooldown": 0.10 }
+            { "type": "hellfire_burn", "chance": 0.45, "dps_mult": 0.18, "duration": 3.0, "tick": 0.5, "cooldown": 0.08 }
           ]
         },
         {
-          "count": 4,
-          "mods": { "attack_damage_mult": 1.08 },
+          "count": 3,
+          "mods": { "attack_damage_mult": 1.18 },
           "effects": [
-            { "type": "hellfire_burn", "chance": 0.42, "dps_mult": 0.15, "duration": 3.0, "tick": 0.5, "cooldown": 0.10 },
-            { "type": "inferno_blast", "interval_hits": 7, "radius": 140, "damage_mult": 0.22 }
+            { "type": "hellfire_burn", "chance": 0.60, "dps_mult": 0.25, "duration": 4.0, "tick": 0.5, "cooldown": 0.06 },
+            { "type": "inferno_blast", "interval_hits": 5, "radius": 160, "damage_mult": 0.35 }
           ]
         }
       ]
     },
     {
       "id": "prismatic",
-      "name": "Prismatic",
+      "name": "Elemental Storm",
+      "description": "Elementals unleash chaotic surges of lightning, frost, and fire.",
       "count_tag": "origin:elemental",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": {},
+          "mods": { "attack_damage_mult": 1.08 },
           "effects": [
-            { "type": "prismatic_surge", "interval_hits": 6, "radius": 220, "damage_mult": 0.20, "slow_mult": 0.82, "slow_dur": 0.7, "burn_dps_mult": 0.10, "burn_dur": 2.2 }
+            { "type": "prismatic_surge", "interval_hits": 5, "radius": 250, "damage_mult": 0.30, "slow_mult": 0.75, "slow_dur": 0.9, "burn_dps_mult": 0.15, "burn_dur": 2.8 }
           ]
         },
         {
-          "count": 4,
-          "mods": {},
+          "count": 3,
+          "mods": { "attack_damage_mult": 1.15 },
           "effects": [
-            { "type": "prismatic_surge", "interval_hits": 5, "radius": 250, "damage_mult": 0.22, "slow_mult": 0.80, "slow_dur": 0.8, "burn_dps_mult": 0.12, "burn_dur": 2.6 }
+            { "type": "prismatic_surge", "interval_hits": 4, "radius": 300, "damage_mult": 0.40, "slow_mult": 0.65, "slow_dur": 1.1, "burn_dps_mult": 0.20, "burn_dur": 3.5 }
           ]
         }
       ]
     },
     {
       "id": "pack",
-      "name": "Pack",
+      "name": "Pack Hunters",
+      "description": "Beasts hunt together, mauling enemies and slowing them with coordinated strikes.",
       "count_tag": "origin:beast",
       "applies_to_tags": [],
       "tiers": [
         {
           "count": 2,
-          "mods": { "move_speed_mult": 1.04 },
+          "mods": { "move_speed_mult": 1.10, "attack_cooldown_mult": 0.92 },
           "effects": [
-            { "type": "pack_maul", "interval_hits": 4, "radius": 120, "damage_mult": 0.18, "slow_mult": 0.90, "slow_dur": 0.45 }
+            { "type": "pack_maul", "interval_hits": 3, "radius": 135, "damage_mult": 0.28, "slow_mult": 0.85, "slow_dur": 0.6 }
           ]
         },
         {
-          "count": 4,
-          "mods": { "move_speed_mult": 1.08 },
+          "count": 3,
+          "mods": { "move_speed_mult": 1.18, "attack_cooldown_mult": 0.85 },
           "effects": [
-            { "type": "pack_maul", "interval_hits": 3, "radius": 135, "damage_mult": 0.20, "slow_mult": 0.88, "slow_dur": 0.55 }
+            { "type": "pack_maul", "interval_hits": 2, "radius": 160, "damage_mult": 0.38, "slow_mult": 0.75, "slow_dur": 0.8 }
           ]
         }
       ]
     }
   ]
 }
-
-

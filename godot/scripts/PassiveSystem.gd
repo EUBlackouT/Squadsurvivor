@@ -37,7 +37,71 @@ static func passive_name(id: String) -> String:
 
 static func passive_description(id: String) -> String:
 	ensure_loaded()
-	return String((_passives.get(id, {}) as Dictionary).get("description", ""))
+	var desc := String((_passives.get(id, {}) as Dictionary).get("description", ""))
+	if desc == "":
+		return "(No description available for '%s')" % id
+	return desc
+
+static func passive_icon(id: String) -> String:
+	# Returns a stylized text icon for the passive based on its tags
+	ensure_loaded()
+	var p: Dictionary = _passives.get(id, {}) as Dictionary
+	var tags: Array = p.get("tags", []) as Array
+	
+	# Map tags to icons
+	if tags.has("lightning"):
+		return "[ZAP]"
+	elif tags.has("burn") or tags.has("dot"):
+		return "[DOT]"
+	elif tags.has("control") or tags.has("slow"):
+		return "[CC]"
+	elif tags.has("aoe"):
+		return "[AOE]"
+	elif tags.has("pierce") or tags.has("ranged"):
+		return "[RNG]"
+	elif tags.has("melee"):
+		return "[MEL]"
+	elif tags.has("sustain"):
+		return "[HP+]"
+	elif tags.has("burst") or tags.has("execute"):
+		return "[DMG]"
+	elif tags.has("proc"):
+		return "[%]"
+	elif tags.has("mobility"):
+		return "[MOV]"
+	elif tags.has("setup"):
+		return "[SET]"
+	elif tags.has("risk"):
+		return "[!]"
+	else:
+		return "[*]"
+
+static func passive_tooltip_bbcode(id: String) -> String:
+	ensure_loaded()
+	var p: Dictionary = _passives.get(id, {}) as Dictionary
+	if p.is_empty():
+		return "[color=#888899]Unknown passive[/color]"
+	
+	var name := String(p.get("name", id))
+	var desc := String(p.get("description", ""))
+	var tags: Array = p.get("tags", []) as Array
+	var color := passive_color(id)
+	var hex := "#%02x%02x%02x" % [int(color.r * 255), int(color.g * 255), int(color.b * 255)]
+	
+	var lines: Array[String] = []
+	lines.append("[b][color=%s]< %s >[/color][/b]" % [hex, name])
+	
+	# Tag pills
+	if not tags.is_empty():
+		var tag_str := ""
+		for t in tags:
+			tag_str += "[color=#556666]|%s|[/color] " % String(t).to_upper()
+		lines.append(tag_str.strip_edges())
+	
+	lines.append("")
+	lines.append("[color=#ccccdd]%s[/color]" % desc)
+	
+	return "\n".join(lines)
 
 static func passive_tags(id: String) -> PackedStringArray:
 	ensure_loaded()
@@ -164,12 +228,20 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 			"cinder_brand":
 				if is_melee:
 					_cinder_brand(target, damage)
+			"toxic":
+				_toxic_venom(target, damage)
 			"doomstack":
 				_doomstack(unit, target, damage)
 			"hailburst":
 				_hailburst(unit, target, damage)
 			"predator_instinct":
 				_predator_instinct(target, damage)
+			"chain_reaction":
+				_chain_reaction_check(target, damage)
+			"phantom_strike":
+				_phantom_strike(unit, target, damage, is_crit)
+			"venomous":
+				_venomous(target, damage)
 			_:
 				pass
 	# Mage callout: Arc Surge (global, short duration). Adds a small arc proc even if the unit doesn't own arc_chain.
@@ -207,6 +279,8 @@ static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, ene
 				_vortex_tag(_proj, enemy, damage)
 			"cinder_brand":
 				_cinder_brand(enemy, damage)
+			"toxic":
+				_toxic_venom(enemy, damage)
 			"vampiric_bullets":
 				_vampiric_bullets(_proj, damage)
 			"doomstack":
@@ -601,16 +675,32 @@ static func _cinder_brand(target: Node2D, damage: int) -> void:
 		return
 	target.apply_burn(dps, dur, tick)
 	# Tag for potential combos
-	var until_ms: int = int(Time.get_ticks_msec() + int(round(dur * 1000.0)))
-	target.set_meta("_burn_until_ms", until_ms)
+
+static func _toxic_venom(target: Node2D, damage: int) -> void:
+	# Applies stacking poison (uses burn system internally with green visual).
+	if target == null or not is_instance_valid(target):
+		return
+	if not target.has_method("apply_burn"):
+		return
+	var mult := _param_f("toxic", "damage_mult", 0.15)
+	var dur := _param_f("toxic", "duration", 5.0)
+	var tick := _param_f("toxic", "tick_interval", 0.5)
+	# Stacking: each application adds more DPS (up to max_stacks)
+	var max_stacks := int(_param_f("toxic", "max_stacks", 3.0))
+	var current_stacks: int = int(target.get_meta("_toxic_stacks", 0))
+	if current_stacks < max_stacks:
+		current_stacks += 1
+		target.set_meta("_toxic_stacks", current_stacks)
+	var dps := float(damage) * mult * float(current_stacks)
+	if dps <= 0.0:
+		return
+	target.apply_burn(dps, dur, tick)
+	# Green poison visual
 	if target.has_method("pulse_vfx"):
-		target.pulse_vfx(Color(1.0, 0.55, 0.20, 1.0))
-	# VFX: ember burst on application (EffectBlocks if exported, else fallback)
+		target.pulse_vfx(Color(0.35, 0.95, 0.25, 1.0))
 	var world := _main_world(target)
-	if world == null or (not _vfx_event(world, "syn.flame", (target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.55, 0.18, 1.0), 0.95)):
-		var fb := VfxFlameBurst.new()
-		fb.setup((target as Node2D).global_position + Vector2(0, -22), Color(1.0, 0.55, 0.18, 1.0), 24.0, 10, 0.20, Vector2(0, -1))
-		_spawn_vfx(target as Node2D, fb)
+	if world:
+		_vfx_event(world, "syn.wisp", (target as Node2D).global_position + Vector2(0, -18), Color(0.35, 0.95, 0.25, 1.0), 0.6)
 
 static func _vampiric_bullets(proj: Node2D, damage: int) -> void:
 	# Heal shooter on projectile hit. Requires Projectile to carry source_unit.
@@ -763,5 +853,102 @@ static func _spawn_arc(world: Node2D, a: Vector2, b: Vector2, color: Color) -> v
 	world.add_child(v)
 	if v.has_method("setup"):
 		v.setup(a, b, color)
+
+static func _chain_reaction_check(target: Node2D, damage: int) -> void:
+	# Chain Reaction triggers when target dies - we mark them for explosion.
+	if target == null or not is_instance_valid(target):
+		return
+	var rad := _param_f("chain_reaction", "radius", 120.0)
+	var mult := _param_f("chain_reaction", "damage_mult", 0.60)
+	var boom_dmg := int(round(float(damage) * mult))
+	target.set_meta("_chain_reaction_dmg", boom_dmg)
+	target.set_meta("_chain_reaction_radius", rad)
+
+static func trigger_chain_reaction(target: Node2D) -> void:
+	# Called when target dies if they have the chain_reaction meta.
+	if target == null or not is_instance_valid(target):
+		return
+	var boom_dmg: int = int(target.get_meta("_chain_reaction_dmg", 0))
+	var rad: float = float(target.get_meta("_chain_reaction_radius", 0.0))
+	if boom_dmg <= 0 or rad <= 0.0:
+		return
+	var origin := (target as Node2D).global_position
+	var world := _main_world(target)
+	if world == null:
+		return
+	# VFX explosion
+	_vfx_event(world, "syn.shock", origin, Color(1.0, 0.55, 0.25, 1.0), 1.2)
+	# Damage nearby enemies
+	var victims := _nearby_enemies(target, origin, rad, target)
+	for v in victims:
+		if v.has_method("take_damage"):
+			v.take_damage(boom_dmg, false, "blast")
+		if v.has_method("pulse_vfx"):
+			v.pulse_vfx(Color(1.0, 0.55, 0.25, 1.0))
+
+static func _phantom_strike(unit: Node2D, target: Node2D, damage: int, is_crit: bool) -> void:
+	if unit == null or target == null or not is_instance_valid(target):
+		return
+	var chance := _param_f("phantom_strike", "chance", 0.20)
+	if randf() > chance:
+		return
+	var mult := _param_f("phantom_strike", "damage_mult", 1.0)
+	var bonus_dmg := int(round(float(damage) * mult))
+	if bonus_dmg <= 0:
+		return
+	if target.has_method("take_damage"):
+		target.take_damage(bonus_dmg, is_crit, "phantom")
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.75, 0.85, 1.0, 1.0))
+	var world := _main_world(unit)
+	if world != null:
+		_vfx_event(world, "syn.arc", (target as Node2D).global_position + Vector2(0, -18), Color(0.75, 0.85, 1.0, 1.0), 0.8)
+
+static func _venomous(target: Node2D, damage: int) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	var mult := _param_f("venomous", "damage_mult", 0.15)
+	var dur := _param_f("venomous", "duration", 5.0)
+	var tick := _param_f("venomous", "tick_interval", 0.5)
+	var max_stacks := _param_i("venomous", "max_stacks", 3)
+	var dps := float(damage) * mult
+	if dps <= 0.0:
+		return
+	# Check current stacks
+	var cur_stacks: int = int(target.get_meta("_venom_stacks", 0))
+	if cur_stacks < max_stacks:
+		cur_stacks += 1
+		target.set_meta("_venom_stacks", cur_stacks)
+	# Apply or refresh venom
+	if target.has_method("apply_bleed"):
+		target.apply_bleed(dps * cur_stacks, dur, tick)
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.45, 0.95, 0.35, 1.0))
+	var world := _main_world(target)
+	if world != null:
+		_vfx_event(world, "syn.frost", (target as Node2D).global_position + Vector2(0, -18), Color(0.45, 0.95, 0.35, 1.0), 0.7)
+
+static func get_berserker_mods(unit: Node2D) -> Dictionary:
+	# Returns stat modifiers for berserker if active (low HP = power boost).
+	# Called from SquadUnit when applying stats.
+	var out := {"attack_speed_mult": 1.0, "damage_mult": 1.0}
+	if unit == null or not is_instance_valid(unit):
+		return out
+	if not unit.has_method("get_hp_ratio"):
+		return out
+	var hp_ratio := float(unit.get_hp_ratio())
+	var threshold := _param_f("berserker", "hp_threshold", 0.50)
+	if hp_ratio > threshold:
+		return out
+	out["attack_speed_mult"] = _param_f("berserker", "attack_speed_mult", 1.40)
+	out["damage_mult"] = _param_f("berserker", "damage_mult", 1.20)
+	return out
+
+static func get_glass_cannon_mods(_unit: Node2D) -> Dictionary:
+	# Glass cannon: deal +50% damage but take +25% damage.
+	return {
+		"damage_mult": _param_f("glass_cannon", "damage_mult", 1.50),
+		"damage_taken_mult": _param_f("glass_cannon", "damage_taken_mult", 1.25)
+	}
 
 ## Note: we intentionally do not spawn decal-like VFX (rings/crescents) for status effects.

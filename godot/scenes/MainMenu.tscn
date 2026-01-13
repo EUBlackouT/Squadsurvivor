@@ -175,86 +175,109 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -360.0
-offset_top = -260.0
-offset_right = 360.0
-offset_bottom = 260.0
+offset_left = -440.0
+offset_top = -310.0
+offset_right = 440.0
+offset_bottom = 310.0
 material = SubResource("2")
 
 [node name="Pad" type="MarginContainer" parent="MapOverlay/Panel"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_bottom = 16
 
 [node name="VBox" type="VBoxContainer" parent="MapOverlay/Panel/Pad"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="MapOverlay/Panel/Pad/VBox"]
-text = "Select Map"
+text = "SELECT MAP"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 32
+theme_override_colors/font_color = Color(0.85, 0.92, 1, 1)
 
-[node name="MapList" type="ItemList" parent="MapOverlay/Panel/Pad/VBox"]
-custom_minimum_size = Vector2(0, 190)
+[node name="HBox" type="HBoxContainer" parent="MapOverlay/Panel/Pad/VBox"]
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="LeftPanel" type="VBoxContainer" parent="MapOverlay/Panel/Pad/VBox/HBox"]
+custom_minimum_size = Vector2(200, 0)
+size_flags_horizontal = 0
+theme_override_constants/separation = 8
+
+[node name="MapListLabel" type="Label" parent="MapOverlay/Panel/Pad/VBox/HBox/LeftPanel"]
+text = "Zones"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.6, 0.7, 0.8, 1)
+
+[node name="MapList" type="ItemList" parent="MapOverlay/Panel/Pad/VBox/HBox/LeftPanel"]
+size_flags_vertical = 3
 allow_reselect = true
 select_mode = 0
 item_count = 0
 
-[node name="MapPreviewFrame" type="PanelContainer" parent="MapOverlay/Panel/Pad/VBox"]
-custom_minimum_size = Vector2(0, 150)
+[node name="RightPanel" type="VBoxContainer" parent="MapOverlay/Panel/Pad/VBox/HBox"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
 
-[node name="Pad" type="MarginContainer" parent="MapOverlay/Panel/Pad/VBox/MapPreviewFrame"]
+[node name="MapPreviewFrame" type="PanelContainer" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel"]
+custom_minimum_size = Vector2(0, 220)
+size_flags_vertical = 3
+
+[node name="Pad" type="MarginContainer" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_bottom = 4
 
-[node name="Preview" type="SubViewportContainer" parent="MapOverlay/Panel/Pad/VBox/MapPreviewFrame/Pad"]
+[node name="Preview" type="SubViewportContainer" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame/Pad"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 stretch = true
 
-[node name="VP" type="SubViewport" parent="MapOverlay/Panel/Pad/VBox/MapPreviewFrame/Pad/Preview"]
-size = Vector2i(640, 320)
+[node name="VP" type="SubViewport" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame/Pad/Preview"]
+size = Vector2i(560, 280)
 transparent_bg = false
 render_target_update_mode = 3
 
-[node name="MapTagline" type="Label" parent="MapOverlay/Panel/Pad/VBox"]
+[node name="MapTagline" type="Label" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel"]
 text = ""
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 0.9)
 
-[node name="MapDetails" type="RichTextLabel" parent="MapOverlay/Panel/Pad/VBox"]
-custom_minimum_size = Vector2(0, 54)
+[node name="MapDetails" type="RichTextLabel" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel"]
+custom_minimum_size = Vector2(0, 60)
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
 text = ""
-theme_override_font_sizes/normal_font_size = 12
+theme_override_font_sizes/normal_font_size = 13
 
 [node name="Buttons" type="HBoxContainer" parent="MapOverlay/Panel/Pad/VBox"]
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="Back" type="Button" parent="MapOverlay/Panel/Pad/VBox/Buttons"]
 text = "Back"
-custom_minimum_size = Vector2(160, 44)
-theme_override_font_sizes/font_size = 16
+custom_minimum_size = Vector2(180, 48)
+theme_override_font_sizes/font_size = 18
 
 [node name="Start" type="Button" parent="MapOverlay/Panel/Pad/VBox/Buttons"]
 text = "Start Run"
-custom_minimum_size = Vector2(160, 44)
-theme_override_font_sizes/font_size = 16
+custom_minimum_size = Vector2(180, 48)
+theme_override_font_sizes/font_size = 18
 
 

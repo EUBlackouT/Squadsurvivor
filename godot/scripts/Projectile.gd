@@ -1,9 +1,9 @@
 extends Area2D
 
-@export var speed: float = 520.0
+@export var speed: float = 620.0  # Faster projectiles feel more responsive
 @export var damage: int = 10
 @export var pierce_count: int = 0
-@export var hit_radius: float = 14.0
+@export var hit_radius: float = 16.0  # Slightly easier to hit
 
 var target: Node2D = null
 var target_pos: Vector2 = Vector2.ZERO

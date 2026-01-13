@@ -4,10 +4,18 @@ extends Node
 # If you later add real files under res://assets/audio/*.mp3, they will override the synth.
 
 const TRACKS := {
-	"menu": "res://assets/audio/menu.mp3",
+	"menu": "res://assets/audio/Squad Survivors.mp3",
 	"combat": "res://assets/audio/combat.mp3",
 	"victory": "res://assets/audio/victory.mp3",
-	"defeat": "res://assets/audio/defeat.mp3"
+	"defeat": "res://assets/audio/defeat.mp3",
+	# Map-specific combat tracks
+	"combat_graveyard": "res://assets/audio/Graveyard High Score.mp3",
+}
+
+# Map theme_id -> track_id mapping for combat music
+const MAP_MUSIC := {
+	"graveyard": "combat_graveyard",
+	"crypts": "combat_graveyard",  # Same vibe
 }
 
 const SAMPLE_RATE: int = 22050
@@ -70,6 +78,11 @@ func stop(fade_duration: float = 0.5) -> void:
 		from.stop()
 	)
 	_current_track_id = ""
+
+func play_combat_for_map(theme_id: String, crossfade_duration: float = 1.5) -> void:
+	# Play map-specific combat music if available, otherwise generic combat
+	var track_id := MAP_MUSIC.get(theme_id, "combat") as String
+	play(track_id, crossfade_duration)
 
 #
 # Stream resolution: MP3 if present, otherwise procedural WAV.

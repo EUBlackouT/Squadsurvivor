@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-@export var move_speed: float = 240.0
+@export var move_speed: float = 265.0  # Snappier base movement
 @export var squad_size: int = 3
 
 @onready var cam: Camera2D = get_node_or_null("Camera2D")
@@ -146,9 +146,9 @@ func _physics_process(_delta: float) -> void:
 	dir.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
 	if dir.length() > 1.0:
 		dir = dir.normalized()
-	# Dash movement
+	# Dash movement - feels punchy and fast
 	if _dash_t > 0.0:
-		velocity = _dash_dir * (move_speed * 4.2 * _dash_speed_mult)
+		velocity = _dash_dir * (move_speed * 5.5 * _dash_speed_mult)
 		move_and_slide()
 	else:
 		var spd := move_speed
@@ -171,52 +171,7 @@ func _physics_process(_delta: float) -> void:
 	if Input.is_action_just_pressed("ui_t"):
 		_set_target_mode((_target_mode + 1) % TARGET_MODE_COUNT)
 
-func _unhandled_input(event: InputEvent) -> void:
-	# Active ability: Dash (Shift). Keep it snappy; uses input direction, or mouse direction if standing still.
-	if get_tree().paused:
-		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		var k := event as InputEventKey
-		if k.keycode == KEY_SHIFT and _dash_cd <= 0.0 and _dash_t <= 0.0:
-			var dir := Vector2.ZERO
-			dir.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
-			dir.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
-			if dir.length() <= 0.05:
-				dir = (get_global_mouse_position() - global_position)
-			if dir.length() <= 0.05:
-				return
-			_dash_dir = dir.normalized()
-			_dash_t = 0.14
-			var mp := get_node_or_null("/root/MetaProgression")
-			var cd_mult := 1.0
-			var dist_mult := 1.0
-			if mp and is_instance_valid(mp):
-				if mp.has_method("get_mod"):
-					cd_mult = float(mp.get_mod("dash_cooldown_mult", 1.0))
-					dist_mult = float(mp.get_mod("dash_distance_mult", 1.0))
-			_dash_speed_mult = dist_mult
-			_dash_cd = 1.25 * cd_mult
-			# Pull squad with you: issue a short rally toward the dash endpoint.
-			var main2 := get_tree().get_first_node_in_group("main") as Node2D
-			if main2 and is_instance_valid(main2) and main2.has_method("_set_rally"):
-				var dash_dist := move_speed * 4.2 * _dash_t * dist_mult
-				main2._set_rally(global_position + _dash_dir * dash_dist, 0.35)
-			# Feedback
-			var main := get_tree().get_first_node_in_group("main") as Node2D
-			if main:
-				# Prefer EffectBlocks VFX if available.
-				var v := main.get_node_or_null("/root/VfxSystem")
-				var ok := false
-				if v and is_instance_valid(v) and v.has_method("play_event"):
-					ok = bool(v.play_event("player.dash", global_position, main, Color(1, 1, 1, 1), 1.0))
-				if not ok:
-					var sw := VfxShockwave.new()
-					sw.setup(global_position, Color(0.45, 0.90, 1.0, 1.0), 10.0, 70.0, 3.0, 0.18)
-					main.add_child(sw)
-			# SFX: dash whoosh (throttled in SfxSystem).
-			var s := get_node_or_null("/root/SfxSystem")
-			if s and is_instance_valid(s) and s.has_method("play_event"):
-				s.play_event("player.dash", global_position, self)
+# Dash ability removed - was causing issues
 
 func _set_formation_mode(mode: int) -> void:
 	_formation_mode = mode
