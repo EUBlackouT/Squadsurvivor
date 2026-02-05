@@ -126,6 +126,8 @@ static func load_rotation_texture(path: String) -> Texture2D:
 
 static func walk_frames_from_south_path(south_path: String) -> SpriteFrames:
 	ensure_loaded()
+	if _is_custom_character_path(south_path):
+		return _custom_walk_frames_from_south_path(south_path)
 	var pid := pixellab_id_from_south_path(south_path)
 	if pid == "":
 		return null
@@ -220,5 +222,92 @@ static func _walk_dir_has_frames(base: String, dir_name: String) -> bool:
 	# Check just frame_000 for speed.
 	var p := "%s/%s/frame_000.png" % [base, dir_name]
 	return ResourceLoader.exists(p)
+
+static func _is_custom_character_path(south_path: String) -> bool:
+	return south_path.find("/assets/characters/") >= 0
+
+static func _custom_walk_frames_from_south_path(south_path: String) -> SpriteFrames:
+	var root := _custom_root_from_south_path(south_path)
+	if root == "":
+		return null
+	var cache_key := "custom:%s" % root
+	if _walk_frames_cache.has(cache_key):
+		return _walk_frames_cache[cache_key] as SpriteFrames
+	var frames := _build_custom_walk_frames(root)
+	_walk_frames_cache[cache_key] = frames
+	return frames
+
+static func _custom_root_from_south_path(south_path: String) -> String:
+	var marker := "/assets/characters/"
+	var idx := south_path.find(marker)
+	if idx < 0:
+		return ""
+	var rest := south_path.substr(idx + marker.length())
+	var parts := rest.split("/frames/")
+	if parts.is_empty():
+		return ""
+	var rel := String(parts[0])
+	if rel == "":
+		return ""
+	return "res://assets/characters/%s" % rel
+
+static func _build_custom_walk_frames(root: String) -> SpriteFrames:
+	var base := "%s/frames" % root
+	var has_side := _custom_dir_has_frames(base, "walk_side")
+	var has_side_right := _custom_dir_has_frames(base, "walk_side_right")
+	var east_dir := "walk_side_right" if has_side_right else "walk_side"
+	var west_dir := "walk_side" if has_side else (("walk_side_right" if has_side_right else "walk_side"))
+	var sf := SpriteFrames.new()
+	# If we only have one side direction, flip the opposite side.
+	sf.set_meta("flip_h_for_walk_east", has_side and (not has_side_right))
+	sf.set_meta("flip_h_for_walk_west", has_side_right and (not has_side))
+
+	var dirs := {
+		"walk_south": "walk_front",
+		"walk_north": "walk_back",
+		"walk_east": east_dir,
+		"walk_west": west_dir
+	}
+
+	for anim_name in dirs.keys():
+		var d := String(dirs[anim_name])
+		sf.add_animation(anim_name)
+		sf.set_animation_speed(anim_name, 12.0)
+		sf.set_animation_loop(anim_name, true)
+		var frames := _custom_load_frames("%s/%s" % [base, d])
+		for tex in frames:
+			sf.add_frame(anim_name, tex)
+	return sf
+
+static func _custom_dir_has_frames(base: String, dir_name: String) -> bool:
+	var p := "%s/%s/frame_000.png" % [base, dir_name]
+	return ResourceLoader.exists(p)
+
+static func _custom_load_frames(dir_path: String) -> Array[Texture2D]:
+	var out: Array[Texture2D] = []
+	var d := DirAccess.open(dir_path)
+	if d == null:
+		return out
+	var files: Array[String] = []
+	d.list_dir_begin()
+	while true:
+		var f := d.get_next()
+		if f == "":
+			break
+		if d.current_is_dir():
+			continue
+		if not f.to_lower().ends_with(".png"):
+			continue
+		if not f.begins_with("frame_"):
+			continue
+		files.append(f)
+	d.list_dir_end()
+	files.sort()
+	for f2 in files:
+		var p := "%s/%s" % [dir_path, f2]
+		var tex := load(p) as Texture2D
+		if tex != null:
+			out.append(tex)
+	return out
 
 

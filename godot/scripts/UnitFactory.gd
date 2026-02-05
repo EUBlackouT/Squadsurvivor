@@ -22,7 +22,7 @@ static func ensure_loaded() -> void:
 		return
 	_balance = parsed as Dictionary
 
-static func build_character_data(context: String, rng: RandomNumberGenerator, elapsed_minutes: float, south_path: String, map_mod: Dictionary = {}) -> CharacterData:
+static func build_character_data(context: String, rng: RandomNumberGenerator, elapsed_minutes: float, south_path: String, map_mod: Dictionary = {}, base_stats: Dictionary = {}, overrides: Dictionary = {}) -> CharacterData:
 	ensure_loaded()
 	var cd := CharacterData.new()
 	cd.sprite_path = south_path
@@ -32,11 +32,17 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 
 	var rarity_id := roll_rarity_id(context, rng, elapsed_minutes, map_mod)
 	var archetype_id := roll_archetype_id(context, rng)
+	if overrides.has("rarity_id"):
+		rarity_id = String(overrides.get("rarity_id", rarity_id))
+	if overrides.has("archetype_id"):
+		archetype_id = String(overrides.get("archetype_id", archetype_id))
 	cd.rarity_id = rarity_id
 	cd.archetype_id = archetype_id
 
 	var arch := _get_archetype(archetype_id)
 	var base := (arch.get("base", {}) as Dictionary)
+	if not base_stats.is_empty():
+		base = base_stats
 
 	var hp := float(base.get("max_hp", 100))
 	var dmg := float(base.get("attack_damage", 10))
@@ -92,8 +98,11 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	cd.crit_chance = clampf(crit_c, 0.0, 0.75)
 	cd.crit_mult = maxf(1.1, crit_m)
 
+	if overrides.has("weapon_id"):
+		cd.weapon_id = String(overrides.get("weapon_id", ""))
 	_apply_attack_style_random(cd, rng)
-	_roll_weapon(cd, arch, rng)
+	if cd.weapon_id == "" or cd.weapon_id == "standard_bolt":
+		_roll_weapon(cd, arch, rng)
 	_roll_passives(cd, rng, context, elapsed_minutes)
 
 	# Best-effort class hint mapping
@@ -106,6 +115,32 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 		cd.origin = o_hint
 	else:
 		cd.origin = rng.randi() % 6
+	if overrides.has("origin"):
+		cd.origin = int(overrides.get("origin", cd.origin))
+	if overrides.has("class_type"):
+		cd.class_type = int(overrides.get("class_type", cd.class_type))
+	if overrides.has("attack_style"):
+		cd.attack_style = int(overrides.get("attack_style", cd.attack_style))
+	if overrides.has("passive_ids"):
+		var arr: Array = overrides.get("passive_ids", []) as Array
+		var out := PackedStringArray()
+		for it in arr:
+			out.append(String(it))
+		cd.passive_ids = out
+	if overrides.has("max_hp"):
+		cd.max_hp = int(overrides.get("max_hp", cd.max_hp))
+	if overrides.has("attack_damage"):
+		cd.attack_damage = int(overrides.get("attack_damage", cd.attack_damage))
+	if overrides.has("attack_range"):
+		cd.attack_range = float(overrides.get("attack_range", cd.attack_range))
+	if overrides.has("attack_cooldown"):
+		cd.attack_cooldown = float(overrides.get("attack_cooldown", cd.attack_cooldown))
+	if overrides.has("move_speed"):
+		cd.move_speed = float(overrides.get("move_speed", cd.move_speed))
+	if overrides.has("crit_chance"):
+		cd.crit_chance = float(overrides.get("crit_chance", cd.crit_chance))
+	if overrides.has("crit_mult"):
+		cd.crit_mult = float(overrides.get("crit_mult", cd.crit_mult))
 	return cd
 
 static func rarity_name(rarity_id: String) -> String:

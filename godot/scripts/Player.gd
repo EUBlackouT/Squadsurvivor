@@ -73,8 +73,10 @@ func _spawn_initial_squad() -> void:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = int(Time.get_ticks_usec())
 		for i in range(3):
-			var south := PixellabUtil.pick_random_south_path(rng)
-			var cd := UnitFactory.build_character_data("recruit", rng, 0.0, south)
+			var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0)
+			if cd == null:
+				var south := PixellabUtil.pick_random_south_path(rng)
+				cd = UnitFactory.build_character_data("recruit", rng, 0.0, south)
 			roster.append(cd)
 			# Also unlock and add to roster
 			var cm2 := get_node_or_null("/root/CollectionManager")

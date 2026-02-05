@@ -205,6 +205,7 @@ func load_save() -> void:
 		active_roster = []
 		# Deterministic starter pack so new installs feel consistent.
 		PixellabUtil.ensure_loaded()
+		CharacterRegistryUtil.ensure_loaded()
 		UnitFactory.ensure_loaded()
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 1337
@@ -212,8 +213,10 @@ func load_save() -> void:
 		var tries: int = 0
 		while starters.size() < 3 and tries < 50:
 			tries += 1
-			var south := PixellabUtil.pick_random_south_path(rng)
-			var cd := UnitFactory.build_character_data("recruit", rng, 0.0, south)
+			var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0)
+			if cd == null:
+				var south := PixellabUtil.pick_random_south_path(rng)
+				cd = UnitFactory.build_character_data("recruit", rng, 0.0, south)
 			# Avoid duplicates by unlock_id
 			var uid := _make_unlock_id(cd)
 			var dup := false

@@ -1,0 +1,404 @@
+{
+  "version": 1,
+  "races": {
+    "ALIEN": {
+      "description": "Extraterrestrial beings with unique biology",
+      "passive_slots": ["racial_ability"]
+    },
+    "CELESTIAL": {
+      "description": "Radiant beings bound to astral light",
+      "passive_slots": ["racial_ability"]
+    },
+    "DEMON": {
+      "description": "Infernal creatures forged in flame",
+      "passive_slots": ["racial_ability"]
+    },
+    "DRACONIC": {
+      "description": "Scaled scions of ancient wyrms",
+      "passive_slots": ["racial_ability"]
+    },
+    "ELEMENTAL": {
+      "description": "Embodiments of primal forces",
+      "passive_slots": ["racial_ability"]
+    },
+    "HUMANOID": {
+      "description": "Armored humans and augmented soldiers",
+      "passive_slots": ["racial_ability"]
+    },
+    "MACHINE": {
+      "description": "Synthetic warriors and guardians",
+      "passive_slots": ["racial_ability"]
+    },
+    "MUTANT": {
+      "description": "Twisted beasts warped by spores and toxins",
+      "passive_slots": ["racial_ability"]
+    },
+    "UNDEAD": {
+      "description": "Necrotic beings and revenants",
+      "passive_slots": ["racial_ability"]
+    }
+  },
+  "characters": {
+    "titan_juggernaut": {
+      "display_name": "Titan Juggernaut",
+      "race": "HUMANOID",
+      "origin": "HUMAN",
+      "class_type": "GUARDIAN",
+      "rarity_id": "epic",
+      "archetype_id": "bruiser",
+      "folder": "humanoids/titan_juggernaut",
+      "weapon_id": "ground_slam",
+      "passive_ids": ["shockwave", "berserker"],
+      "base_stats": {
+        "max_hp": 260,
+        "attack_damage": 16,
+        "attack_cooldown": 0.85,
+        "move_speed": 95,
+        "armor": 28
+      }
+    },
+    "warlord": {
+      "display_name": "Power Armor Warlord",
+      "race": "HUMANOID",
+      "origin": "HUMAN",
+      "class_type": "WARRIOR",
+      "rarity_id": "rare",
+      "archetype_id": "striker",
+      "folder": "humanoids/warlord",
+      "weapon_id": "heavy_strike",
+      "passive_ids": ["pinpoint"],
+      "base_stats": {
+        "max_hp": 210,
+        "attack_damage": 18,
+        "attack_cooldown": 0.72,
+        "move_speed": 115,
+        "armor": 20
+      }
+    },
+    "vanguard_marshal": {
+      "display_name": "Vanguard Marshal",
+      "race": "HUMANOID",
+      "origin": "HUMAN",
+      "class_type": "GUARDIAN",
+      "rarity_id": "rare",
+      "archetype_id": "bruiser",
+      "folder": "humanoids/vanguard_marshal",
+      "weapon_id": "heavy_strike",
+      "passive_ids": ["stagger"],
+      "base_stats": {
+        "max_hp": 230,
+        "attack_damage": 15,
+        "attack_cooldown": 0.80,
+        "move_speed": 105,
+        "armor": 24
+      }
+    },
+    "iron_warden": {
+      "display_name": "Iron Warden",
+      "race": "MACHINE",
+      "origin": "MACHINE",
+      "class_type": "GUARDIAN",
+      "rarity_id": "epic",
+      "archetype_id": "bruiser",
+      "folder": "machines/iron_warden",
+      "weapon_id": "beam",
+      "passive_ids": ["overload"],
+      "base_stats": {
+        "max_hp": 240,
+        "attack_damage": 14,
+        "attack_cooldown": 0.80,
+        "move_speed": 100,
+        "armor": 30
+      }
+    },
+    "robot_elite": {
+      "display_name": "Robot Elite",
+      "race": "MACHINE",
+      "origin": "MACHINE",
+      "class_type": "GUARDIAN",
+      "rarity_id": "rare",
+      "archetype_id": "bruiser",
+      "folder": "robot_elite",
+      "weapon_id": "beam",
+      "passive_ids": ["overload"],
+      "base_stats": {
+        "max_hp": 220,
+        "attack_damage": 13,
+        "attack_cooldown": 0.82,
+        "move_speed": 105,
+        "armor": 24
+      }
+    },
+    "void_corsair": {
+      "display_name": "Void Corsair",
+      "race": "ALIEN",
+      "origin": "BEAST",
+      "class_type": "ROGUE",
+      "rarity_id": "rare",
+      "archetype_id": "striker",
+      "folder": "aliens/void_corsair",
+      "weapon_id": "boomerang",
+      "passive_ids": ["phase_step"],
+      "base_stats": {
+        "max_hp": 185,
+        "attack_damage": 17,
+        "attack_cooldown": 0.70,
+        "move_speed": 125,
+        "armor": 8
+      }
+    },
+    "insectoid": {
+      "display_name": "Insectoid Raider",
+      "race": "ALIEN",
+      "origin": "BEAST",
+      "class_type": "ROGUE",
+      "rarity_id": "common",
+      "archetype_id": "striker",
+      "folder": "aliens/insectoid",
+      "weapon_id": "poison_dart",
+      "passive_ids": ["toxic"],
+      "base_stats": {
+        "max_hp": 150,
+        "attack_damage": 14,
+        "attack_cooldown": 0.78,
+        "move_speed": 130,
+        "armor": 6
+      }
+    },
+    "aether_stalker": {
+      "display_name": "Aether Stalker",
+      "race": "ALIEN",
+      "origin": "BEAST",
+      "class_type": "ROGUE",
+      "rarity_id": "rare",
+      "archetype_id": "striker",
+      "folder": "aliens/aether_stalker",
+      "weapon_id": "boomerang",
+      "passive_ids": ["predator_instinct"],
+      "base_stats": {
+        "max_hp": 170,
+        "attack_damage": 16,
+        "attack_cooldown": 0.70,
+        "move_speed": 132,
+        "armor": 8
+      }
+    },
+    "blight_necromancer": {
+      "display_name": "Blight Necromancer",
+      "race": "UNDEAD",
+      "origin": "UNDEAD",
+      "class_type": "SUMMONER",
+      "rarity_id": "epic",
+      "archetype_id": "summoner",
+      "folder": "undead/blight_necromancer",
+      "weapon_id": "chain_lightning",
+      "passive_ids": ["doomstack"],
+      "base_stats": {
+        "max_hp": 175,
+        "attack_damage": 15,
+        "attack_cooldown": 0.76,
+        "move_speed": 112,
+        "armor": 10
+      }
+    },
+    "death_knight": {
+      "display_name": "Death Knight",
+      "race": "UNDEAD",
+      "origin": "UNDEAD",
+      "class_type": "WARRIOR",
+      "rarity_id": "rare",
+      "archetype_id": "bruiser",
+      "folder": "undead/death_knight",
+      "weapon_id": "reaper_slash",
+      "passive_ids": ["blood_siphon"],
+      "base_stats": {
+        "max_hp": 210,
+        "attack_damage": 16,
+        "attack_cooldown": 0.82,
+        "move_speed": 105,
+        "armor": 16
+      }
+    },
+    "hell_marauder": {
+      "display_name": "Hell Marauder",
+      "race": "DEMON",
+      "origin": "DEMON",
+      "class_type": "WARRIOR",
+      "rarity_id": "rare",
+      "archetype_id": "striker",
+      "folder": "demons/hell_marauder",
+      "weapon_id": "whirlwind",
+      "passive_ids": ["cinder_brand"],
+      "base_stats": {
+        "max_hp": 195,
+        "attack_damage": 17,
+        "attack_cooldown": 0.74,
+        "move_speed": 120,
+        "armor": 12
+      }
+    },
+    "hellfire": {
+      "display_name": "Hellfire Adept",
+      "race": "DEMON",
+      "origin": "DEMON",
+      "class_type": "MAGE",
+      "rarity_id": "common",
+      "archetype_id": "caster",
+      "folder": "demons/hellfire",
+      "weapon_id": "fire_wave",
+      "passive_ids": ["cinder_brand"],
+      "base_stats": {
+        "max_hp": 155,
+        "attack_damage": 14,
+        "attack_cooldown": 0.86,
+        "move_speed": 118,
+        "armor": 6
+      }
+    },
+    "ember_duelist": {
+      "display_name": "Ember Duelist",
+      "race": "DEMON",
+      "origin": "DEMON",
+      "class_type": "WARRIOR",
+      "rarity_id": "rare",
+      "archetype_id": "striker",
+      "folder": "demons/ember_duelist",
+      "weapon_id": "reaper_slash",
+      "passive_ids": ["cinder_brand"],
+      "base_stats": {
+        "max_hp": 185,
+        "attack_damage": 17,
+        "attack_cooldown": 0.72,
+        "move_speed": 120,
+        "armor": 12
+      }
+    },
+    "storm_oracle": {
+      "display_name": "Storm Oracle",
+      "race": "ELEMENTAL",
+      "origin": "ELEMENTAL",
+      "class_type": "MAGE",
+      "rarity_id": "epic",
+      "archetype_id": "caster",
+      "folder": "elementals/storm_oracle",
+      "weapon_id": "chain_lightning",
+      "passive_ids": ["arc_chain"],
+      "base_stats": {
+        "max_hp": 165,
+        "attack_damage": 15,
+        "attack_cooldown": 0.80,
+        "move_speed": 118,
+        "armor": 8
+      }
+    }
+    ,
+    "frost_mystic": {
+      "display_name": "Frost Mystic",
+      "race": "ELEMENTAL",
+      "origin": "ELEMENTAL",
+      "class_type": "MAGE",
+      "rarity_id": "rare",
+      "archetype_id": "caster",
+      "folder": "elementals/frost_mystic",
+      "weapon_id": "frost_bolt",
+      "passive_ids": ["frost_tag"],
+      "base_stats": {
+        "max_hp": 155,
+        "attack_damage": 14,
+        "attack_cooldown": 0.82,
+        "move_speed": 118,
+        "armor": 7
+      }
+    },
+    "servo_dragoon": {
+      "display_name": "Servo Dragoon",
+      "race": "MACHINE",
+      "origin": "MACHINE",
+      "class_type": "WARRIOR",
+      "rarity_id": "rare",
+      "archetype_id": "striker",
+      "folder": "machines/servo_dragoon",
+      "weapon_id": "piercing_shot",
+      "passive_ids": ["pinpoint"],
+      "base_stats": {
+        "max_hp": 195,
+        "attack_damage": 16,
+        "attack_cooldown": 0.74,
+        "move_speed": 118,
+        "armor": 16
+      }
+    },
+    "grave_seer": {
+      "display_name": "Grave Seer",
+      "race": "UNDEAD",
+      "origin": "UNDEAD",
+      "class_type": "SUMMONER",
+      "rarity_id": "rare",
+      "archetype_id": "summoner",
+      "folder": "undead/grave_seer",
+      "weapon_id": "spirit_lance",
+      "passive_ids": ["doomstack"],
+      "base_stats": {
+        "max_hp": 170,
+        "attack_damage": 14,
+        "attack_cooldown": 0.80,
+        "move_speed": 112,
+        "armor": 9
+      }
+    },
+    "astral_seraph": {
+      "display_name": "Astral Seraph",
+      "race": "CELESTIAL",
+      "origin": "ELEMENTAL",
+      "class_type": "HEALER",
+      "rarity_id": "epic",
+      "archetype_id": "support",
+      "folder": "elementals/astral_seraph",
+      "weapon_id": "spirit_lance",
+      "passive_ids": ["time_dilation"],
+      "base_stats": {
+        "max_hp": 160,
+        "attack_damage": 13,
+        "attack_cooldown": 0.78,
+        "move_speed": 118,
+        "armor": 9
+      }
+    },
+    "spore_brute": {
+      "display_name": "Spore Brute",
+      "race": "MUTANT",
+      "origin": "BEAST",
+      "class_type": "GUARDIAN",
+      "rarity_id": "rare",
+      "archetype_id": "bruiser",
+      "folder": "beasts/spore_brute",
+      "weapon_id": "ground_slam",
+      "passive_ids": ["toxic"],
+      "base_stats": {
+        "max_hp": 220,
+        "attack_damage": 15,
+        "attack_cooldown": 0.86,
+        "move_speed": 98,
+        "armor": 20
+      }
+    },
+    "ember_wyrmling": {
+      "display_name": "Ember Wyrmling",
+      "race": "DRACONIC",
+      "origin": "DEMON",
+      "class_type": "MAGE",
+      "rarity_id": "rare",
+      "archetype_id": "caster",
+      "folder": "dragons/ember_wyrmling",
+      "weapon_id": "fire_wave",
+      "passive_ids": ["cinder_brand"],
+      "base_stats": {
+        "max_hp": 165,
+        "attack_damage": 15,
+        "attack_cooldown": 0.82,
+        "move_speed": 120,
+        "armor": 10
+      }
+    }
+  }
+}

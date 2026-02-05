@@ -135,6 +135,7 @@ func _ready() -> void:
 
 	# Ensure data systems are loaded early.
 	PixellabUtil.ensure_loaded()
+	CharacterRegistryUtil.ensure_loaded()
 	UnitFactory.ensure_loaded()
 	PassiveSystem.ensure_loaded()
 	EnemyFactory.ensure_loaded()
@@ -829,8 +830,13 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	var dist := rng.randf_range(spawn_radius_min, spawn_radius_max)
 
 	# Random character pool -> random enemy skin
-	var south := PixellabUtil.pick_random_south_path(rng)
-	var cd := UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south, _map_mod)
+	var cd := CharacterRegistryUtil.build_random_character_data("enemy", rng, _elapsed_minutes(), _map_mod)
+	var south := ""
+	if cd == null:
+		south = PixellabUtil.pick_random_south_path(rng)
+		if south == "":
+			return
+		cd = UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south, _map_mod)
 	if is_elite:
 		cd.max_hp = int(round(float(cd.max_hp) * 1.55))
 		cd.attack_damage = int(round(float(cd.attack_damage) * 1.25))
@@ -860,7 +866,7 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	e.set_meta("boss", is_boss)
 	e.character_data = cd
 	e.is_elite = is_elite
-	e.pixellab_south_path = south
+	e.pixellab_south_path = cd.sprite_path if cd != null else south
 	e.ai_id = ai_id
 	e.affix_ids = affixes
 	add_child(e)
@@ -1210,14 +1216,19 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 		options.append(_recent_trophy_pool[i])
 
 	# Option 3: random recruit roll (rift improves odds via elapsed minutes bias already)
-	var south := PixellabUtil.pick_random_south_path(rng)
-	var cd := UnitFactory.build_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), south, _map_mod)
+	var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), _map_mod)
+	if cd == null:
+		var south := PixellabUtil.pick_random_south_path(rng)
+		cd = UnitFactory.build_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), south, _map_mod)
 	options.append(cd)
 
 	# Ensure 3 cards
 	while options.size() < 3:
-		var s2 := PixellabUtil.pick_random_south_path(rng)
-		options.append(UnitFactory.build_character_data("recruit", rng, _elapsed_minutes(), s2, _map_mod))
+		var cd2 := CharacterRegistryUtil.build_random_character_data("recruit", rng, _elapsed_minutes(), _map_mod)
+		if cd2 == null:
+			var s2 := PixellabUtil.pick_random_south_path(rng)
+			cd2 = UnitFactory.build_character_data("recruit", rng, _elapsed_minutes(), s2, _map_mod)
+		options.append(cd2)
 
 	for c in options:
 		hbox.add_child(_create_character_card(c, ui))
