@@ -1,8 +1,16 @@
 {
   "version": 1,
   "context_stat_mult": {
-    "enemy": { "max_hp": 0.65, "attack_damage": 0.65, "move_speed": 0.92 },
-    "recruit": { "max_hp": 1.0, "attack_damage": 1.15, "move_speed": 1.05 }
+    "enemy": {
+      "max_hp": 0.65,
+      "attack_damage": 0.65,
+      "move_speed": 0.92
+    },
+    "recruit": {
+      "max_hp": 1.0,
+      "attack_damage": 1.15,
+      "move_speed": 1.05
+    }
   },
   "enemy_scaling": {
     "hp_per_minute_mult": 0.055,
@@ -12,26 +20,72 @@
     {
       "id": "common",
       "name": "Common",
-      "stat_mult": { "max_hp": 1.0, "attack_damage": 1.0, "move_speed": 1.0, "crit_chance_add": 0.02 },
-      "weight": { "enemy": 86, "recruit": 55 }
+      "stat_mult": {
+        "max_hp": 1.0,
+        "attack_damage": 1.0,
+        "move_speed": 1.0,
+        "crit_chance_add": 0.02
+      },
+      "weight": {
+        "enemy": 86,
+        "recruit": 55
+      }
     },
     {
       "id": "rare",
       "name": "Rare",
-      "stat_mult": { "max_hp": 1.15, "attack_damage": 1.18, "move_speed": 1.05, "crit_chance_add": 0.05 },
-      "weight": { "enemy": 11, "recruit": 30 }
+      "stat_mult": {
+        "max_hp": 1.15,
+        "attack_damage": 1.18,
+        "move_speed": 1.05,
+        "crit_chance_add": 0.05
+      },
+      "weight": {
+        "enemy": 11,
+        "recruit": 30
+      }
     },
     {
       "id": "epic",
       "name": "Epic",
-      "stat_mult": { "max_hp": 1.32, "attack_damage": 1.38, "move_speed": 1.08, "crit_chance_add": 0.08 },
-      "weight": { "enemy": 2, "recruit": 12 }
+      "stat_mult": {
+        "max_hp": 1.32,
+        "attack_damage": 1.38,
+        "move_speed": 1.08,
+        "crit_chance_add": 0.08
+      },
+      "weight": {
+        "enemy": 2,
+        "recruit": 12
+      }
     },
     {
       "id": "legendary",
       "name": "Legendary",
-      "stat_mult": { "max_hp": 1.55, "attack_damage": 1.65, "move_speed": 1.12, "crit_chance_add": 0.12 },
-      "weight": { "enemy": 1, "recruit": 3 }
+      "stat_mult": {
+        "max_hp": 1.55,
+        "attack_damage": 1.65,
+        "move_speed": 1.12,
+        "crit_chance_add": 0.12
+      },
+      "weight": {
+        "enemy": 1,
+        "recruit": 3
+      }
+    },
+    {
+      "id": "mythic",
+      "name": "Mythic",
+      "stat_mult": {
+        "max_hp": 1.9,
+        "attack_damage": 2.1,
+        "move_speed": 1.18,
+        "crit_chance_add": 0.18
+      },
+      "weight": {
+        "enemy": 0,
+        "recruit": 1
+      }
     }
   ],
   "archetypes": [
@@ -43,12 +97,17 @@
         "max_hp": 180,
         "attack_damage": 12,
         "attack_range": 260.0,
-        "attack_cooldown": 0.90,
+        "attack_cooldown": 0.9,
         "move_speed": 105.0,
         "crit_chance": 0.06,
-        "crit_mult": 1.70
+        "crit_mult": 1.7
       },
-      "weapons": ["reaper_slash", "ground_slam", "vampiric_bite", "standard_bolt"]
+      "weapons": [
+        "reaper_slash",
+        "ground_slam",
+        "vampiric_bite",
+        "standard_bolt"
+      ]
     },
     {
       "id": "striker",
@@ -60,10 +119,15 @@
         "attack_range": 290.0,
         "attack_cooldown": 0.68,
         "move_speed": 125.0,
-        "crit_chance": 0.10,
+        "crit_chance": 0.1,
         "crit_mult": 1.85
       },
-      "weapons": ["reaper_slash", "piercing_shot", "boomerang", "scatter_shot"]
+      "weapons": [
+        "reaper_slash",
+        "piercing_shot",
+        "boomerang",
+        "scatter_shot"
+      ]
     },
     {
       "id": "sniper",
@@ -76,9 +140,14 @@
         "attack_cooldown": 0.85,
         "move_speed": 125.0,
         "crit_chance": 0.18,
-        "crit_mult": 2.20
+        "crit_mult": 2.2
       },
-      "weapons": ["piercing_shot", "ricochet", "poison_dart", "orbital_strike"]
+      "weapons": [
+        "piercing_shot",
+        "ricochet",
+        "poison_dart",
+        "orbital_strike"
+      ]
     },
     {
       "id": "caster",
@@ -88,12 +157,18 @@
         "max_hp": 110,
         "attack_damage": 15,
         "attack_range": 480.0,
-        "attack_cooldown": 0.80,
+        "attack_cooldown": 0.8,
         "move_speed": 118.0,
         "crit_chance": 0.12,
-        "crit_mult": 1.90
+        "crit_mult": 1.9
       },
-      "weapons": ["chain_lightning", "fire_wave", "beam", "spirit_lance", "frost_bolt"]
+      "weapons": [
+        "chain_lightning",
+        "fire_wave",
+        "beam",
+        "spirit_lance",
+        "frost_bolt"
+      ]
     },
     {
       "id": "support",
@@ -108,7 +183,12 @@
         "crit_chance": 0.08,
         "crit_mult": 1.75
       },
-      "weapons": ["frost_bolt", "standard_bolt", "spirit_lance", "vampiric_bite"]
+      "weapons": [
+        "frost_bolt",
+        "standard_bolt",
+        "spirit_lance",
+        "vampiric_bite"
+      ]
     },
     {
       "id": "summoner",
@@ -121,9 +201,14 @@
         "attack_cooldown": 0.78,
         "move_speed": 118.0,
         "crit_chance": 0.09,
-        "crit_mult": 1.80
+        "crit_mult": 1.8
       },
-      "weapons": ["bomb_toss", "spirit_lance", "chain_lightning", "orbital_strike"]
+      "weapons": [
+        "bomb_toss",
+        "spirit_lance",
+        "chain_lightning",
+        "orbital_strike"
+      ]
     }
   ],
   "passive_pools": {
@@ -161,7 +246,10 @@
       "doomstack",
       "berserker",
       "chain_reaction",
-      "toxic"
+      "toxic",
+      "web_snare",
+      "spore_bloom",
+      "gel_mitosis"
     ],
     "epic": [
       "arc_chain",
@@ -191,7 +279,10 @@
       "chain_reaction",
       "glass_cannon",
       "phantom_strike",
-      "toxic"
+      "toxic",
+      "web_snare",
+      "spore_bloom",
+      "gel_mitosis"
     ],
     "legendary": [
       "arc_chain",
@@ -221,7 +312,43 @@
       "chain_reaction",
       "glass_cannon",
       "phantom_strike",
-      "toxic"
+      "toxic",
+      "web_snare",
+      "spore_bloom",
+      "gel_mitosis"
+    ],
+    "mythic": [
+      "arc_chain",
+      "overload",
+      "frost_tag",
+      "bleed_edge",
+      "cinder_brand",
+      "echo_strike",
+      "piercing_rounds",
+      "stagger",
+      "blood_siphon",
+      "shockwave",
+      "twin_shot",
+      "scattershot",
+      "ricochet",
+      "vampiric_bullets",
+      "execute_mark",
+      "predator_instinct",
+      "hex_bomb",
+      "time_dilation",
+      "phase_step",
+      "pinpoint",
+      "vortex_tag",
+      "doomstack",
+      "hailburst",
+      "berserker",
+      "chain_reaction",
+      "glass_cannon",
+      "phantom_strike",
+      "toxic",
+      "web_snare",
+      "spore_bloom",
+      "gel_mitosis"
     ]
   }
 }

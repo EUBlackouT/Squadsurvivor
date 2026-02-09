@@ -158,6 +158,13 @@ static func _vfx_event(world: Node2D, event_id: String, pos: Vector2, tint: Colo
 		return bool(v.play_event(event_id, pos, world, tint, scale_mult))
 	return false
 
+static func _sfx_event(world: Node2D, event_id: String, pos: Vector2, emitter: Object) -> void:
+	if world == null:
+		return
+	var s := world.get_node_or_null("/root/SfxSystem")
+	if s != null and is_instance_valid(s) and s.has_method("play_event"):
+		s.play_event(event_id, pos, emitter)
+
 static func extra_pierce_count(passive_ids: PackedStringArray) -> int:
 	# Only one passive currently affects pierce.
 	var extra: int = 0
@@ -242,6 +249,12 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 				_phantom_strike(unit, target, damage, is_crit)
 			"venomous":
 				_venomous(target, damage)
+			"web_snare":
+				_web_snare(unit, target)
+			"spore_bloom":
+				_spore_bloom(unit, target, damage)
+			"gel_mitosis":
+				_gel_mitosis(unit, target, damage)
 			_:
 				pass
 	# Mage callout: Arc Surge (global, short duration). Adds a small arc proc even if the unit doesn't own arc_chain.
@@ -289,6 +302,12 @@ static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, ene
 				_hailburst(_proj, enemy, damage)
 			"predator_instinct":
 				_predator_instinct(enemy, damage)
+			"web_snare":
+				_web_snare(_proj, enemy)
+			"spore_bloom":
+				_spore_bloom(_proj, enemy, damage)
+			"gel_mitosis":
+				_gel_mitosis(_proj, enemy, damage)
 			_:
 				pass
 	# Mage callout: Arc Surge also applies to projectile hits.
@@ -557,6 +576,24 @@ static func _stagger(from: Node2D, target: Node2D) -> void:
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.95, 0.95, 1.0, 1.0))
 
+static func _web_snare(from: Node2D, target: Node2D) -> void:
+	if from == null or target == null or not is_instance_valid(target):
+		return
+	var cd := _param_f("web_snare", "cooldown", 0.35)
+	if not _cooldown_gate(from, "_web_snare_ms", cd):
+		return
+	var mult := _param_f("web_snare", "slow_mult", 0.50)
+	var dur := _param_f("web_snare", "duration", 1.0)
+	if target.has_method("apply_slow"):
+		target.apply_slow(mult, dur)
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.88, 0.92, 1.0, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		var pos := (target as Node2D).global_position + Vector2(0, -18)
+		_vfx_event(world, "passive.web_snare", pos, Color(0.88, 0.92, 1.0, 1.0), 0.95)
+		_sfx_event(world, "passive.web_snare", pos, from)
+
 static func _overload_proc(from: Node2D, target: Node2D, damage: int) -> void:
 	if from == null or target == null or not is_instance_valid(target):
 		return
@@ -629,6 +666,59 @@ static func _vortex_tag(from: Node2D, target: Node2D, damage: int) -> void:
 			v.take_damage(dmg, false, "blast")
 		if v.has_method("pulse_vfx"):
 			v.pulse_vfx(Color(0.35, 0.80, 1.0, 1.0))
+
+static func _spore_bloom(from: Node2D, target: Node2D, damage: int) -> void:
+	if from == null or target == null or not is_instance_valid(target):
+		return
+	var cd := _param_f("spore_bloom", "cooldown", 0.6)
+	if not _cooldown_gate(from, "_spore_bloom_ms", cd):
+		return
+	var rad := _param_f("spore_bloom", "radius", 150.0)
+	var mult := _param_f("spore_bloom", "damage_mult", 0.20)
+	var dur := _param_f("spore_bloom", "duration", 3.0)
+	var tick := _param_f("spore_bloom", "tick_interval", 0.6)
+	var origin := (target as Node2D).global_position
+	var victims := _nearby_enemies(from, origin, rad, null)
+	var dps := float(damage) * mult
+	if dps <= 0.0:
+		return
+	for v in victims:
+		if v.has_method("apply_burn"):
+			v.apply_burn(dps, dur, tick)
+		if v.has_method("pulse_vfx"):
+			v.pulse_vfx(Color(0.65, 1.0, 0.55, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_vfx_event(world, "passive.spore_bloom", origin + Vector2(0, -12), Color(0.65, 1.0, 0.55, 1.0), 1.0)
+		_sfx_event(world, "passive.spore_bloom", origin, from)
+
+static func _gel_mitosis(from: Node2D, target: Node2D, damage: int) -> void:
+	if from == null or target == null or not is_instance_valid(target):
+		return
+	var interval := _param_i("gel_mitosis", "interval", 4)
+	var extra := _param_i("gel_mitosis", "extra_targets", 2)
+	var rad := _param_f("gel_mitosis", "radius", 220.0)
+	var mult := _param_f("gel_mitosis", "damage_mult", 0.45)
+	var c: int = int(from.get_meta("_gel_mitosis_ctr", 0)) + 1
+	from.set_meta("_gel_mitosis_ctr", c)
+	if interval <= 0 or (c % interval) != 0:
+		return
+	var origin := (target as Node2D).global_position
+	var victims := _nearby_enemies(from, origin, rad, target as Node2D)
+	if victims.is_empty():
+		return
+	var dmg := int(round(float(damage) * mult))
+	if dmg <= 0:
+		return
+	victims.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		return a.global_position.distance_squared_to(origin) < b.global_position.distance_squared_to(origin)
+	)
+	for i in range(min(extra, victims.size())):
+		_spawn_projectile(from, victims[i], dmg, Color(0.70, 0.95, 0.85, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_vfx_event(world, "passive.gel_mitosis", origin + Vector2(0, -12), Color(0.70, 0.95, 0.85, 1.0), 0.9)
+		_sfx_event(world, "passive.gel_mitosis", origin, from)
 
 static func _frost_tag(target: Node2D) -> void:
 	if target == null or not is_instance_valid(target):

@@ -124,6 +124,10 @@ func _build_streams() -> void:
 	_streams["holy_pulse"] = _make_chime(0.18, 520.0, 0.22)
 	# Focus mark tick
 	_streams["focus_tick"] = _make_tick(0.07, 980.0, 0.22)
+	# Passive procs (distinct accents)
+	_streams["web_snare"] = _make_glass(0.12, 1080.0, 0.20)
+	_streams["spore_bloom"] = _make_whoosh(0.18, 0.28)
+	_streams["gel_mitosis"] = _make_tick(0.06, 760.0, 0.14)
 	# Execute hit
 	_streams["execute"] = _make_thump(0.10, 140.0, 0.75)
 	# UI + meta
@@ -207,6 +211,10 @@ func _build_event_cfg() -> void:
 	_event_cfg["syn.holy"] = {"stream": "holy_pulse", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 200}
 	_event_cfg["syn.focus_tick"] = {"stream": "focus_tick", "gain_db": -3.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 40, "min_ms_emitter": 120}
 	_event_cfg["syn.execute"] = {"stream": "execute", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 240}
+	# Passive procs (rarer, punchier)
+	_event_cfg["passive.web_snare"] = {"stream": "web_snare", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 220}
+	_event_cfg["passive.spore_bloom"] = {"stream": "spore_bloom", "gain_db": 1.5 + loud, "pitch": 0.96, "jitter": 0.05, "min_ms_global": 140, "min_ms_emitter": 260}
+	_event_cfg["passive.gel_mitosis"] = {"stream": "gel_mitosis", "gain_db": 0.5 + loud, "pitch": 1.05, "jitter": 0.05, "min_ms_global": 110, "min_ms_emitter": 220}
 
 	# Enemy special actions
 	_event_cfg["enemy.dash"] = {"stream": "shockwave", "gain_db": 2.5 + loud, "pitch": 1.05, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 350}

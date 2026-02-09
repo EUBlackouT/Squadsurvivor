@@ -5,302 +5,638 @@
       "id": "arc_chain",
       "name": "Arc Chain",
       "description": "Attacks chain lightning to 2 nearby enemies, dealing 45% damage to each.",
-      "tags": ["lightning", "aoe"],
-      "params": { "radius": 240, "chain_count": 2, "damage_mult": 0.45 }
+      "tags": [
+        "lightning",
+        "aoe"
+      ],
+      "params": {
+        "radius": 240,
+        "chain_count": 2,
+        "damage_mult": 0.45
+      }
     },
     {
       "id": "frost_tag",
       "name": "Frostbite",
       "description": "Hits chill enemies, slowing them by 35% for 2 seconds. Chilled enemies take +10% damage.",
-      "tags": ["control", "slow"],
-      "params": { "slow_mult": 0.65, "duration": 2.0, "damage_amp": 0.10 }
+      "tags": [
+        "control",
+        "slow"
+      ],
+      "params": {
+        "slow_mult": 0.65,
+        "duration": 2.0,
+        "damage_amp": 0.1
+      }
     },
     {
       "id": "bleed_edge",
       "name": "Crimson Edge",
       "description": "Melee attacks inflict deep wounds that bleed for 25% of attack damage per second for 3.5s.",
-      "tags": ["melee", "dot"],
-      "params": { "damage_mult": 0.25, "duration": 3.5, "tick_interval": 0.5 }
+      "tags": [
+        "melee",
+        "dot"
+      ],
+      "params": {
+        "damage_mult": 0.25,
+        "duration": 3.5,
+        "tick_interval": 0.5
+      }
     },
     {
       "id": "piercing_rounds",
       "name": "Armor Piercing",
       "description": "Projectiles punch through 2 additional enemies. Pierced targets take full damage.",
-      "tags": ["ranged", "pierce"],
-      "params": { "pierce_count": 2 }
+      "tags": [
+        "ranged",
+        "pierce"
+      ],
+      "params": {
+        "pierce_count": 2
+      }
     },
     {
       "id": "echo_strike",
       "name": "Echo Strike",
       "description": "Every 3rd attack echoes instantly, dealing 65% bonus damage as a phantom strike.",
-      "tags": ["burst"],
-      "params": { "echo_interval": 3, "damage_mult": 0.65 }
+      "tags": [
+        "burst"
+      ],
+      "params": {
+        "echo_interval": 3,
+        "damage_mult": 0.65
+      }
     },
     {
       "id": "shockwave",
       "name": "Shockwave",
       "description": "Melee impacts release a crushing wave that hits all enemies within 150px for 35% damage.",
-      "tags": ["melee", "aoe"],
-      "params": { "radius": 150, "damage_mult": 0.35 }
+      "tags": [
+        "melee",
+        "aoe"
+      ],
+      "params": {
+        "radius": 150,
+        "damage_mult": 0.35
+      }
     },
     {
       "id": "blood_siphon",
       "name": "Soulrend",
       "description": "Melee attacks drain life force, healing you for 30% of damage dealt.",
-      "tags": ["melee", "sustain"],
-      "params": { "heal_mult": 0.30 }
+      "tags": [
+        "melee",
+        "sustain"
+      ],
+      "params": {
+        "heal_mult": 0.3
+      }
     },
     {
       "id": "twin_shot",
       "name": "Double Tap",
       "description": "Fire a second shot at the same target, dealing 70% damage. Both can crit.",
-      "tags": ["ranged", "multishot"],
-      "params": { "damage_mult": 0.70 }
+      "tags": [
+        "ranged",
+        "multishot"
+      ],
+      "params": {
+        "damage_mult": 0.7
+      }
     },
     {
       "id": "scattershot",
       "name": "Fan of Blades",
       "description": "Attacks spray 3 additional projectiles at nearby enemies for 55% damage each.",
-      "tags": ["ranged", "aoe"],
-      "params": { "extra_targets": 3, "radius": 280, "damage_mult": 0.55 }
+      "tags": [
+        "ranged",
+        "aoe"
+      ],
+      "params": {
+        "extra_targets": 3,
+        "radius": 280,
+        "damage_mult": 0.55
+      }
     },
     {
       "id": "ricochet",
       "name": "Ricochet",
       "description": "Projectiles bounce to the nearest enemy on hit, dealing 75% damage. Can chain once.",
-      "tags": ["ranged", "bounce"],
-      "params": { "radius": 300, "damage_mult": 0.75, "cooldown": 0.12 }
+      "tags": [
+        "ranged",
+        "bounce"
+      ],
+      "params": {
+        "radius": 300,
+        "damage_mult": 0.75,
+        "cooldown": 0.12
+      }
     },
     {
       "id": "execute_mark",
       "name": "Executioner",
       "description": "Targets below 25% HP are marked for death. Attacks against marked targets deal +50% damage.",
-      "tags": ["execute", "burst"],
-      "params": { "threshold": 0.25, "bonus_mult": 0.50 }
+      "tags": [
+        "execute",
+        "burst"
+      ],
+      "params": {
+        "threshold": 0.25,
+        "bonus_mult": 0.5
+      }
     },
     {
       "id": "hex_bomb",
       "name": "Hex Bomb",
       "description": "Hits plant an unstable hex. If the target dies within 2s, it explodes for 80% AoE damage.",
-      "tags": ["aoe", "setup"],
-      "params": { "arm_seconds": 2.0, "radius": 180, "damage_mult": 0.80 }
+      "tags": [
+        "aoe",
+        "setup"
+      ],
+      "params": {
+        "arm_seconds": 2.0,
+        "radius": 180,
+        "damage_mult": 0.8
+      }
     },
     {
       "id": "time_dilation",
       "name": "Temporal Rift",
       "description": "Attacks create time fractures that slow all nearby enemies by 30% for 1 second.",
-      "tags": ["control", "aoe"],
-      "params": { "radius": 200, "slow_mult": 0.70, "duration": 1.0, "cooldown": 0.3 }
+      "tags": [
+        "control",
+        "aoe"
+      ],
+      "params": {
+        "radius": 200,
+        "slow_mult": 0.7,
+        "duration": 1.0,
+        "cooldown": 0.3
+      }
     },
     {
       "id": "phase_step",
       "name": "Shadowstep",
       "description": "Every 3rd melee hit, blink through the enemy, becoming briefly invulnerable.",
-      "tags": ["mobility", "melee"],
-      "params": { "interval": 3, "distance": 45 }
+      "tags": [
+        "mobility",
+        "melee"
+      ],
+      "params": {
+        "interval": 3,
+        "distance": 45
+      }
     },
     {
       "id": "stagger",
       "name": "Stun Lock",
       "description": "Hits stagger enemies, reducing their movement by 60% for 0.5 seconds.",
-      "tags": ["control"],
-      "params": { "slow_mult": 0.40, "duration": 0.5, "cooldown": 0.2 }
+      "tags": [
+        "control"
+      ],
+      "params": {
+        "slow_mult": 0.4,
+        "duration": 0.5,
+        "cooldown": 0.2
+      }
     },
     {
       "id": "overload",
       "name": "Overcharge",
       "description": "Every 4th hit releases a massive arc to 2 random nearby enemies for 45% damage each.",
-      "tags": ["lightning", "proc"],
-      "params": { "interval": 4, "radius": 260, "damage_mult": 0.45, "chains": 2 }
+      "tags": [
+        "lightning",
+        "proc"
+      ],
+      "params": {
+        "interval": 4,
+        "radius": 260,
+        "damage_mult": 0.45,
+        "chains": 2
+      }
     },
     {
       "id": "pinpoint",
       "name": "Marked for Death",
       "description": "Projectiles mark targets. Your next hit consumes the mark for 50% bonus damage.",
-      "tags": ["setup", "burst"],
-      "params": { "window": 1.5, "damage_mult": 0.50 }
+      "tags": [
+        "setup",
+        "burst"
+      ],
+      "params": {
+        "window": 1.5,
+        "damage_mult": 0.5
+      }
     },
     {
       "id": "vortex_tag",
       "name": "Gravity Well",
       "description": "Hits create vortex zones. When 3+ enemies cluster in a zone, they take 35% AoE damage.",
-      "tags": ["aoe", "setup"],
-      "params": { "radius": 160, "cluster_count": 3, "damage_mult": 0.35, "cooldown": 0.4 }
+      "tags": [
+        "aoe",
+        "setup"
+      ],
+      "params": {
+        "radius": 160,
+        "cluster_count": 3,
+        "damage_mult": 0.35,
+        "cooldown": 0.4
+      }
     },
     {
       "id": "cinder_brand",
       "name": "Inferno Brand",
       "description": "Attacks ignite enemies, burning them for 20% of attack damage per second for 4 seconds.",
-      "tags": ["dot", "burn"],
-      "params": { "damage_mult": 0.20, "duration": 4.0, "tick_interval": 0.5 }
+      "tags": [
+        "dot",
+        "burn"
+      ],
+      "params": {
+        "damage_mult": 0.2,
+        "duration": 4.0,
+        "tick_interval": 0.5
+      }
     },
     {
       "id": "vampiric_bullets",
       "name": "Life Steal",
       "description": "Projectile hits heal the attacker for 20% of damage dealt. Crits heal double.",
-      "tags": ["ranged", "sustain"],
-      "params": { "heal_mult": 0.20, "crit_heal_mult": 0.40 }
+      "tags": [
+        "ranged",
+        "sustain"
+      ],
+      "params": {
+        "heal_mult": 0.2,
+        "crit_heal_mult": 0.4
+      }
     },
     {
       "id": "doomstack",
       "name": "Doom Mark",
       "description": "Attacks stack Doom (max 4). At 4 stacks, detonate for 100% bonus damage + AoE explosion.",
-      "tags": ["setup", "aoe", "burst"],
-      "params": { "stacks": 4, "window": 2.5, "damage_mult": 1.0, "radius": 140 }
+      "tags": [
+        "setup",
+        "aoe",
+        "burst"
+      ],
+      "params": {
+        "stacks": 4,
+        "window": 2.5,
+        "damage_mult": 1.0,
+        "radius": 140
+      }
     },
     {
       "id": "hailburst",
       "name": "Shatter",
       "description": "Attacking chilled enemies shatters the ice, dealing 55% AoE damage and spreading the chill.",
-      "tags": ["control", "aoe", "proc"],
-      "params": { "radius": 140, "damage_mult": 0.55 }
+      "tags": [
+        "control",
+        "aoe",
+        "proc"
+      ],
+      "params": {
+        "radius": 140,
+        "damage_mult": 0.55
+      }
     },
     {
       "id": "predator_instinct",
       "name": "Apex Predator",
       "description": "Deal +35% damage to enemies above 75% HP. Perfect for opening strikes.",
-      "tags": ["burst", "execute"],
-      "params": { "threshold": 0.75, "damage_mult": 0.35 }
+      "tags": [
+        "burst",
+        "execute"
+      ],
+      "params": {
+        "threshold": 0.75,
+        "damage_mult": 0.35
+      }
     },
     {
       "id": "berserker",
       "name": "Berserker",
       "description": "Below 50% HP, gain +40% attack speed and +20% damage. The lower your HP, the stronger.",
-      "tags": ["melee", "burst", "risk"],
-      "params": { "hp_threshold": 0.50, "attack_speed_mult": 1.40, "damage_mult": 1.20 }
+      "tags": [
+        "melee",
+        "burst",
+        "risk"
+      ],
+      "params": {
+        "hp_threshold": 0.5,
+        "attack_speed_mult": 1.4,
+        "damage_mult": 1.2
+      }
     },
     {
       "id": "chain_reaction",
       "name": "Chain Reaction",
       "description": "Kills trigger explosions that deal 60% damage to nearby enemies. Can chain infinitely.",
-      "tags": ["aoe", "execute"],
-      "params": { "radius": 120, "damage_mult": 0.60 }
+      "tags": [
+        "aoe",
+        "execute"
+      ],
+      "params": {
+        "radius": 120,
+        "damage_mult": 0.6
+      }
     },
     {
       "id": "glass_cannon",
       "name": "Glass Cannon",
       "description": "Deal +50% damage, but take +25% damage. High risk, high reward.",
-      "tags": ["burst", "risk"],
-      "params": { "damage_mult": 1.50, "damage_taken_mult": 1.25 }
+      "tags": [
+        "burst",
+        "risk"
+      ],
+      "params": {
+        "damage_mult": 1.5,
+        "damage_taken_mult": 1.25
+      }
     },
     {
       "id": "phantom_strike",
       "name": "Phantom Strike",
       "description": "20% chance for attacks to strike twice instantly. The phantom hit can crit.",
-      "tags": ["burst", "proc"],
-      "params": { "chance": 0.20, "damage_mult": 1.0 }
+      "tags": [
+        "burst",
+        "proc"
+      ],
+      "params": {
+        "chance": 0.2,
+        "damage_mult": 1.0
+      }
     },
     {
       "id": "toxic",
       "name": "Toxic Venom",
       "description": "Attacks apply deadly venom: 15% damage/sec for 5s. Venom stacks up to 3 times.",
-      "tags": ["dot", "stacking"],
-      "params": { "damage_mult": 0.15, "duration": 5.0, "max_stacks": 3, "tick_interval": 0.5 }
+      "tags": [
+        "dot",
+        "stacking"
+      ],
+      "params": {
+        "damage_mult": 0.15,
+        "duration": 5.0,
+        "max_stacks": 3,
+        "tick_interval": 0.5
+      }
     },
     {
       "id": "explosive_rounds",
       "name": "Explosive Rounds",
       "description": "Projectiles explode on impact, dealing 40% AoE damage in a 60px radius.",
-      "tags": ["ranged", "aoe", "explosive"],
-      "params": { "radius": 60, "damage_mult": 0.40 }
+      "tags": [
+        "ranged",
+        "aoe",
+        "explosive"
+      ],
+      "params": {
+        "radius": 60,
+        "damage_mult": 0.4
+      }
     },
     {
       "id": "chain_master",
       "name": "Chain Master",
       "description": "Chain Lightning weapons bounce 2 extra times with 15% less decay.",
-      "tags": ["lightning", "chain"],
-      "params": { "extra_chains": 2, "decay_reduction": 0.15 }
+      "tags": [
+        "lightning",
+        "chain"
+      ],
+      "params": {
+        "extra_chains": 2,
+        "decay_reduction": 0.15
+      }
     },
     {
       "id": "scatter_specialist",
       "name": "Scatter Specialist",
       "description": "Scatter Shot weapons fire 2 extra projectiles with tighter spread.",
-      "tags": ["ranged", "multishot"],
-      "params": { "extra_projectiles": 2, "spread_reduction": 0.25 }
+      "tags": [
+        "ranged",
+        "multishot"
+      ],
+      "params": {
+        "extra_projectiles": 2,
+        "spread_reduction": 0.25
+      }
     },
     {
       "id": "boomerang_mastery",
       "name": "Chakram Mastery",
       "description": "Boomerangs travel 50% further and return damage is increased to 100%.",
-      "tags": ["ranged", "returning"],
-      "params": { "range_mult": 1.50, "return_damage_mult": 1.0 }
+      "tags": [
+        "ranged",
+        "returning"
+      ],
+      "params": {
+        "range_mult": 1.5,
+        "return_damage_mult": 1.0
+      }
     },
     {
       "id": "beam_focus",
       "name": "Beam Focus",
       "description": "Beam attacks last 50% longer and grow 25% wider over time.",
-      "tags": ["beam", "sustained"],
-      "params": { "duration_mult": 1.50, "width_growth": 0.25 }
+      "tags": [
+        "beam",
+        "sustained"
+      ],
+      "params": {
+        "duration_mult": 1.5,
+        "width_growth": 0.25
+      }
     },
     {
       "id": "slam_aftershock",
       "name": "Aftershock",
       "description": "Ground Slams create a second shockwave after 0.5s dealing 50% damage.",
-      "tags": ["melee", "aoe", "delayed"],
-      "params": { "delay": 0.5, "damage_mult": 0.50 }
+      "tags": [
+        "melee",
+        "aoe",
+        "delayed"
+      ],
+      "params": {
+        "delay": 0.5,
+        "damage_mult": 0.5
+      }
     },
     {
       "id": "frost_mastery",
       "name": "Permafrost",
       "description": "Frost weapons slow 20% more and frozen enemies shatter on death for 70% AoE.",
-      "tags": ["control", "slow", "aoe"],
-      "params": { "slow_bonus": 0.20, "shatter_radius": 80, "shatter_damage": 0.70 }
+      "tags": [
+        "control",
+        "slow",
+        "aoe"
+      ],
+      "params": {
+        "slow_bonus": 0.2,
+        "shatter_radius": 80,
+        "shatter_damage": 0.7
+      }
     },
     {
       "id": "poison_mastery",
       "name": "Virulent Plague",
       "description": "Poison DOTs spread to nearby enemies and deal 30% more damage.",
-      "tags": ["dot", "poison", "spread"],
-      "params": { "spread_radius": 100, "damage_mult": 1.30 }
+      "tags": [
+        "dot",
+        "poison",
+        "spread"
+      ],
+      "params": {
+        "spread_radius": 100,
+        "damage_mult": 1.3
+      }
     },
     {
       "id": "fire_mastery",
       "name": "Wildfire",
       "description": "Fire damage spreads to 2 nearby enemies. Burning enemies take 25% more damage.",
-      "tags": ["burn", "spread", "amplify"],
-      "params": { "spread_count": 2, "spread_radius": 120, "damage_amp": 0.25 }
+      "tags": [
+        "burn",
+        "spread",
+        "amplify"
+      ],
+      "params": {
+        "spread_count": 2,
+        "spread_radius": 120,
+        "damage_amp": 0.25
+      }
     },
     {
       "id": "orbital_precision",
       "name": "Orbital Precision",
       "description": "Orbital Strikes charge 40% faster and deal 30% more damage to clustered enemies.",
-      "tags": ["delayed", "aoe", "heavy"],
-      "params": { "delay_reduction": 0.40, "cluster_bonus": 0.30 }
+      "tags": [
+        "delayed",
+        "aoe",
+        "heavy"
+      ],
+      "params": {
+        "delay_reduction": 0.4,
+        "cluster_bonus": 0.3
+      }
     },
     {
       "id": "reaper_hunger",
       "name": "Reaper's Hunger",
       "description": "Reaper Slash heals for 15% of total damage dealt. Killing blows heal double.",
-      "tags": ["melee", "cleave", "sustain"],
-      "params": { "heal_mult": 0.15, "kill_heal_mult": 0.30 }
+      "tags": [
+        "melee",
+        "cleave",
+        "sustain"
+      ],
+      "params": {
+        "heal_mult": 0.15,
+        "kill_heal_mult": 0.3
+      }
     },
     {
       "id": "bomb_expert",
       "name": "Demolition Expert",
       "description": "Bombs have 30% larger explosion radius and leave burning ground for 2s.",
-      "tags": ["explosive", "aoe", "burn"],
-      "params": { "radius_mult": 1.30, "burn_duration": 2.0, "burn_dps_mult": 0.25 }
+      "tags": [
+        "explosive",
+        "aoe",
+        "burn"
+      ],
+      "params": {
+        "radius_mult": 1.3,
+        "burn_duration": 2.0,
+        "burn_dps_mult": 0.25
+      }
     },
     {
       "id": "ricochet_master",
       "name": "Pinball Wizard",
       "description": "Ricochet bullets bounce 3 more times with no damage decay.",
-      "tags": ["ranged", "bouncing"],
-      "params": { "extra_bounces": 3, "no_decay": true }
+      "tags": [
+        "ranged",
+        "bouncing"
+      ],
+      "params": {
+        "extra_bounces": 3,
+        "no_decay": true
+      }
     },
     {
       "id": "spirit_surge",
       "name": "Spirit Surge",
       "description": "Delayed strikes spawn 2 additional phantom lances on marked targets.",
-      "tags": ["magic", "delayed", "burst"],
-      "params": { "extra_strikes": 2, "damage_mult": 0.65 }
+      "tags": [
+        "magic",
+        "delayed",
+        "burst"
+      ],
+      "params": {
+        "extra_strikes": 2,
+        "damage_mult": 0.65
+      }
     },
     {
       "id": "vampiric_mastery",
       "name": "Blood Lord",
       "description": "Lifesteal increased by 15%. Overheal creates a shield equal to 50% excess.",
-      "tags": ["sustain", "lifesteal", "shield"],
-      "params": { "lifesteal_bonus": 0.15, "overheal_shield": 0.50 }
+      "tags": [
+        "sustain",
+        "lifesteal",
+        "shield"
+      ],
+      "params": {
+        "lifesteal_bonus": 0.15,
+        "overheal_shield": 0.5
+      }
+    },
+    {
+      "id": "web_snare",
+      "name": "Silken Snare",
+      "description": "Hits entangle enemies, slowing them by 55% for 1.2s. Cannot trigger more than once every 0.35s.",
+      "tags": [
+        "control",
+        "slow",
+        "arachnid"
+      ],
+      "params": {
+        "slow_mult": 0.45,
+        "duration": 1.2,
+        "cooldown": 0.35
+      }
+    },
+    {
+      "id": "spore_bloom",
+      "name": "Spore Bloom",
+      "description": "On hit, release a spore burst that poisons nearby enemies for 22% damage per second for 3s.",
+      "tags": [
+        "dot",
+        "aoe",
+        "plantoid"
+      ],
+      "params": {
+        "radius": 160,
+        "damage_mult": 0.22,
+        "duration": 3.0,
+        "tick_interval": 0.6,
+        "cooldown": 0.6
+      }
+    },
+    {
+      "id": "gel_mitosis",
+      "name": "Gel Mitosis",
+      "description": "Every 4th hit splits into 2 gel bolts that strike nearby enemies for 45% damage.",
+      "tags": [
+        "proc",
+        "ranged",
+        "slimekin"
+      ],
+      "params": {
+        "interval": 4,
+        "extra_targets": 2,
+        "radius": 240,
+        "damage_mult": 0.45
+      }
     }
   ]
 }

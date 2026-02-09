@@ -110,7 +110,7 @@
       "race": "HUMANOID",
       "origin": "HUMAN",
       "class_type": "GUARDIAN",
-      "rarity_id": "epic",
+      "rarity_id": "mythic",
       "archetype_id": "bruiser",
       "folder": "humanoids/titan_juggernaut",
       "weapon_id": "ground_slam",
@@ -1351,7 +1351,7 @@
       "race": "DRACONIC",
       "origin": "ELEMENTAL",
       "class_type": "GUARDIAN",
-      "rarity_id": "rare",
+      "rarity_id": "mythic",
       "archetype_id": "bruiser",
       "folder": "dragons/stormscale_guard",
       "weapon_id": "ground_slam",
@@ -1691,7 +1691,7 @@
       "race": "CRYSTALLINE",
       "origin": "ELEMENTAL",
       "class_type": "HEALER",
-      "rarity_id": "rare",
+      "rarity_id": "mythic",
       "archetype_id": "support",
       "folder": "crystalline/gem_seer",
       "weapon_id": "spirit_lance",
@@ -2085,7 +2085,8 @@
         "attack_cooldown": 0.75,
         "move_speed": 110,
         "armor": 10
-      }
+      },
+      "racial_passive_id": "web_snare"
     },
     "silk_oracle": {
       "display_name": "Silk Oracle",
@@ -2106,7 +2107,8 @@
         "attack_cooldown": 0.9,
         "move_speed": 100,
         "armor": 8
-      }
+      },
+      "racial_passive_id": "web_snare"
     },
     "brood_titan": {
       "display_name": "Brood Titan",
@@ -2127,7 +2129,8 @@
         "attack_cooldown": 0.95,
         "move_speed": 90,
         "armor": 24
-      }
+      },
+      "racial_passive_id": "web_snare"
     },
     "venom_stalker": {
       "display_name": "Venom Stalker",
@@ -2148,7 +2151,8 @@
         "attack_cooldown": 1.0,
         "move_speed": 100,
         "armor": 8
-      }
+      },
+      "racial_passive_id": "web_snare"
     },
     "chitin_guard": {
       "display_name": "Chitin Guard",
@@ -2169,7 +2173,8 @@
         "attack_cooldown": 0.85,
         "move_speed": 95,
         "armor": 18
-      }
+      },
+      "racial_passive_id": "web_snare"
     },
     "skitter_scout": {
       "display_name": "Skitter Scout",
@@ -2190,7 +2195,8 @@
         "attack_cooldown": 0.75,
         "move_speed": 110,
         "armor": 10
-      }
+      },
+      "racial_passive_id": "web_snare"
     },
     "brood_summoner": {
       "display_name": "Brood Summoner",
@@ -2211,7 +2217,8 @@
         "attack_cooldown": 0.9,
         "move_speed": 95,
         "armor": 14
-      }
+      },
+      "racial_passive_id": "web_snare"
     },
     "vine_warden": {
       "display_name": "Vine Warden",
@@ -2232,7 +2239,8 @@
         "attack_cooldown": 0.95,
         "move_speed": 90,
         "armor": 24
-      }
+      },
+      "racial_passive_id": "spore_bloom"
     },
     "thorn_duelist": {
       "display_name": "Thorn Duelist",
@@ -2253,7 +2261,8 @@
         "attack_cooldown": 0.75,
         "move_speed": 110,
         "armor": 10
-      }
+      },
+      "racial_passive_id": "spore_bloom"
     },
     "bloom_mystic": {
       "display_name": "Bloom Mystic",
@@ -2274,7 +2283,8 @@
         "attack_cooldown": 0.9,
         "move_speed": 100,
         "armor": 8
-      }
+      },
+      "racial_passive_id": "spore_bloom"
     },
     "root_colossus": {
       "display_name": "Root Colossus",
@@ -2295,7 +2305,8 @@
         "attack_cooldown": 0.85,
         "move_speed": 95,
         "armor": 18
-      }
+      },
+      "racial_passive_id": "spore_bloom"
     },
     "petal_sniper": {
       "display_name": "Petal Sniper",
@@ -2316,7 +2327,8 @@
         "attack_cooldown": 1.0,
         "move_speed": 100,
         "armor": 8
-      }
+      },
+      "racial_passive_id": "spore_bloom"
     },
     "spore_shepherd": {
       "display_name": "Spore Shepherd",
@@ -2337,7 +2349,8 @@
         "attack_cooldown": 0.9,
         "move_speed": 95,
         "armor": 14
-      }
+      },
+      "racial_passive_id": "spore_bloom"
     },
     "briar_medic": {
       "display_name": "Briar Medic",
@@ -2358,7 +2371,8 @@
         "attack_cooldown": 0.85,
         "move_speed": 105,
         "armor": 12
-      }
+      },
+      "racial_passive_id": "spore_bloom"
     },
     "ooze_brute": {
       "display_name": "Ooze Brute",
@@ -2379,7 +2393,8 @@
         "attack_cooldown": 0.85,
         "move_speed": 95,
         "armor": 18
-      }
+      },
+      "racial_passive_id": "gel_mitosis"
     },
     "slime_savant": {
       "display_name": "Slime Savant",
@@ -2400,7 +2415,8 @@
         "attack_cooldown": 0.9,
         "move_speed": 100,
         "armor": 8
-      }
+      },
+      "racial_passive_id": "gel_mitosis"
     },
     "gel_slinger": {
       "display_name": "Gel Slinger",
@@ -2421,7 +2437,8 @@
         "attack_cooldown": 1.0,
         "move_speed": 100,
         "armor": 8
-      }
+      },
+      "racial_passive_id": "gel_mitosis"
     },
     "acid_maw": {
       "display_name": "Acid Maw",
@@ -2442,7 +2459,8 @@
         "attack_cooldown": 0.75,
         "move_speed": 110,
         "armor": 10
-      }
+      },
+      "racial_passive_id": "gel_mitosis"
     },
     "morph_medic": {
       "display_name": "Morph Medic",
@@ -2463,7 +2481,8 @@
         "attack_cooldown": 0.85,
         "move_speed": 105,
         "armor": 12
-      }
+      },
+      "racial_passive_id": "gel_mitosis"
     },
     "muck_guard": {
       "display_name": "Muck Guard",
@@ -2484,7 +2503,8 @@
         "attack_cooldown": 0.95,
         "move_speed": 90,
         "armor": 24
-      }
+      },
+      "racial_passive_id": "gel_mitosis"
     },
     "prism_slime": {
       "display_name": "Prism Slime",
@@ -2505,7 +2525,8 @@
         "attack_cooldown": 0.9,
         "move_speed": 95,
         "armor": 14
-      }
+      },
+      "racial_passive_id": "gel_mitosis"
     }
   }
 }

@@ -53,9 +53,49 @@ static func build_random_character_data(context: String, rng: RandomNumberGenera
 	ensure_loaded()
 	if _entries.is_empty():
 		return null
-	var idx := rng.randi_range(0, _entries.size() - 1)
-	var entry: Dictionary = _entries[idx]
+	var pool := _entries_for_map(context, map_mod)
+	if pool.is_empty():
+		pool = _entries_with_assets(_entries)
+	if pool.is_empty():
+		return null
+	var idx := rng.randi_range(0, pool.size() - 1)
+	var entry: Dictionary = pool[idx]
 	return _build_character_data_from_entry(entry, context, rng, elapsed_minutes, map_mod)
+
+static func _entries_for_map(context: String, map_mod: Dictionary) -> Array[Dictionary]:
+	if map_mod.is_empty():
+		return _entries_with_assets(_entries)
+	var pool: Array = []
+	if context == "enemy" and map_mod.has("race_pool_enemy"):
+		pool = map_mod.get("race_pool_enemy", []) as Array
+	elif context == "recruit" and map_mod.has("race_pool_recruit"):
+		pool = map_mod.get("race_pool_recruit", []) as Array
+	elif map_mod.has("race_pool"):
+		pool = map_mod.get("race_pool", []) as Array
+	var blacklist: Array = map_mod.get("race_blacklist", []) as Array
+	if pool.is_empty() and blacklist.is_empty():
+		return _entries_with_assets(_entries)
+	var out: Array[Dictionary] = []
+	for entry in _entries:
+		var race := String(entry.get("race", ""))
+		if not pool.is_empty() and not pool.has(race):
+			continue
+		if not blacklist.is_empty() and blacklist.has(race):
+			continue
+		out.append(entry)
+	return _entries_with_assets(out)
+
+static func _entries_with_assets(entries: Array) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for entry in entries:
+		var folder := String(entry.get("folder", ""))
+		if folder == "":
+			continue
+		var south_path := "res://assets/characters/%s/frames/walk_front/frame_000.png" % folder
+		if not ResourceLoader.exists(south_path):
+			continue
+		out.append(entry)
+	return out
 
 static func build_character_data_by_id(char_id: String, context: String, rng: RandomNumberGenerator, elapsed_minutes: float, map_mod: Dictionary = {}) -> CharacterData:
 	ensure_loaded()

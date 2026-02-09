@@ -150,6 +150,8 @@ static func rarity_name(rarity_id: String) -> String:
 
 static func rarity_color(rarity_id: String) -> Color:
 	match rarity_id:
+		"mythic":
+			return Color(1.0, 0.20, 0.20)
 		"legendary":
 			return Color(1.0, 0.80, 0.28)
 		"epic":
@@ -194,7 +196,12 @@ static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_
 				bonus = int(floor(eff_minutes * 0.2))
 			elif id == "legendary":
 				bonus = int(floor(eff_minutes * 0.08))
-		weights.append(max(1, w0 + bonus))
+			elif id == "mythic":
+				bonus = int(floor(eff_minutes * 0.03))
+		var w := w0 + bonus
+		if w <= 0:
+			continue
+		weights.append(w)
 		ids.append(id)
 	return _weighted_pick(ids, weights, rng)
 
@@ -338,6 +345,8 @@ static func _roll_passive_count(rarity_id: String, rng: RandomNumberGenerator) -
 	# Legendary: usually 4, sometimes 5
 	var roll := rng.randf()
 	match rarity_id:
+		"mythic":
+			return 6 if roll < 0.35 else 5
 		"legendary":
 			return 5 if roll < 0.18 else 4
 		"epic":
