@@ -131,7 +131,6 @@
         "CRYSTALLINE",
         "AVIAN",
         "SHADOWBORN",
-        "PLANTOID",
         "ALIEN",
         "MUTANT"
       ]
@@ -200,7 +199,6 @@
         "CELESTIAL",
         "DEMON",
         "ARACHNID",
-        "SLIMEKIN",
         "UNDEAD"
       ]
     }
