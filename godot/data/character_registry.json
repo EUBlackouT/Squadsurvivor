@@ -84,6 +84,24 @@
       "passive_slots": [
         "racial_ability"
       ]
+    },
+    "ARACHNID": {
+      "description": "Chitinous hive predators and web weavers",
+      "passive_slots": [
+        "racial_ability"
+      ]
+    },
+    "PLANTOID": {
+      "description": "Vine-bound sentinels and spore-fed guardians",
+      "passive_slots": [
+        "racial_ability"
+      ]
+    },
+    "SLIMEKIN": {
+      "description": "Amorphous oozes and gel sages",
+      "passive_slots": [
+        "racial_ability"
+      ]
     }
   },
   "characters": {
@@ -2046,6 +2064,447 @@
         "attack_cooldown": 0.85,
         "move_speed": 100,
         "armor": 22
+      }
+    },
+    "web_marauder": {
+      "display_name": "Web Marauder",
+      "race": "ARACHNID",
+      "origin": "BEAST",
+      "class_type": "WARRIOR",
+      "rarity_id": "common",
+      "archetype_id": "striker",
+      "folder": "arachnid/web_marauder",
+      "weapon_id": "heavy_strike",
+      "passive_ids": [
+        "predator_instinct",
+        "piercing_rounds"
+      ],
+      "base_stats": {
+        "max_hp": 180,
+        "attack_damage": 12,
+        "attack_cooldown": 0.75,
+        "move_speed": 110,
+        "armor": 10
+      }
+    },
+    "silk_oracle": {
+      "display_name": "Silk Oracle",
+      "race": "ARACHNID",
+      "origin": "BEAST",
+      "class_type": "MAGE",
+      "rarity_id": "rare",
+      "archetype_id": "caster",
+      "folder": "arachnid/silk_oracle",
+      "weapon_id": "beam",
+      "passive_ids": [
+        "time_dilation",
+        "vortex_tag"
+      ],
+      "base_stats": {
+        "max_hp": 160,
+        "attack_damage": 14,
+        "attack_cooldown": 0.9,
+        "move_speed": 100,
+        "armor": 8
+      }
+    },
+    "brood_titan": {
+      "display_name": "Brood Titan",
+      "race": "ARACHNID",
+      "origin": "BEAST",
+      "class_type": "GUARDIAN",
+      "rarity_id": "epic",
+      "archetype_id": "guardian",
+      "folder": "arachnid/brood_titan",
+      "weapon_id": "ground_slam",
+      "passive_ids": [
+        "stagger",
+        "shockwave"
+      ],
+      "base_stats": {
+        "max_hp": 240,
+        "attack_damage": 10,
+        "attack_cooldown": 0.95,
+        "move_speed": 90,
+        "armor": 24
+      }
+    },
+    "venom_stalker": {
+      "display_name": "Venom Stalker",
+      "race": "ARACHNID",
+      "origin": "BEAST",
+      "class_type": "ROGUE",
+      "rarity_id": "rare",
+      "archetype_id": "sniper",
+      "folder": "arachnid/venom_stalker",
+      "weapon_id": "poison_dart",
+      "passive_ids": [
+        "toxic",
+        "pinpoint"
+      ],
+      "base_stats": {
+        "max_hp": 150,
+        "attack_damage": 18,
+        "attack_cooldown": 1.0,
+        "move_speed": 100,
+        "armor": 8
+      }
+    },
+    "chitin_guard": {
+      "display_name": "Chitin Guard",
+      "race": "ARACHNID",
+      "origin": "BEAST",
+      "class_type": "GUARDIAN",
+      "rarity_id": "common",
+      "archetype_id": "bruiser",
+      "folder": "arachnid/chitin_guard",
+      "weapon_id": "whirlwind",
+      "passive_ids": [
+        "berserker",
+        "stagger"
+      ],
+      "base_stats": {
+        "max_hp": 220,
+        "attack_damage": 14,
+        "attack_cooldown": 0.85,
+        "move_speed": 95,
+        "armor": 18
+      }
+    },
+    "skitter_scout": {
+      "display_name": "Skitter Scout",
+      "race": "ARACHNID",
+      "origin": "BEAST",
+      "class_type": "ROGUE",
+      "rarity_id": "common",
+      "archetype_id": "striker",
+      "folder": "arachnid/skitter_scout",
+      "weapon_id": "boomerang",
+      "passive_ids": [
+        "phase_step",
+        "predator_instinct"
+      ],
+      "base_stats": {
+        "max_hp": 180,
+        "attack_damage": 12,
+        "attack_cooldown": 0.75,
+        "move_speed": 110,
+        "armor": 10
+      }
+    },
+    "brood_summoner": {
+      "display_name": "Brood Summoner",
+      "race": "ARACHNID",
+      "origin": "BEAST",
+      "class_type": "SUMMONER",
+      "rarity_id": "rare",
+      "archetype_id": "summoner",
+      "folder": "arachnid/brood_summoner",
+      "weapon_id": "bomb_toss",
+      "passive_ids": [
+        "hex_bomb",
+        "overload"
+      ],
+      "base_stats": {
+        "max_hp": 190,
+        "attack_damage": 11,
+        "attack_cooldown": 0.9,
+        "move_speed": 95,
+        "armor": 14
+      }
+    },
+    "vine_warden": {
+      "display_name": "Vine Warden",
+      "race": "PLANTOID",
+      "origin": "ELEMENTAL",
+      "class_type": "GUARDIAN",
+      "rarity_id": "common",
+      "archetype_id": "guardian",
+      "folder": "plantoid/vine_warden",
+      "weapon_id": "ground_slam",
+      "passive_ids": [
+        "vortex_tag",
+        "stagger"
+      ],
+      "base_stats": {
+        "max_hp": 240,
+        "attack_damage": 10,
+        "attack_cooldown": 0.95,
+        "move_speed": 90,
+        "armor": 24
+      }
+    },
+    "thorn_duelist": {
+      "display_name": "Thorn Duelist",
+      "race": "PLANTOID",
+      "origin": "ELEMENTAL",
+      "class_type": "WARRIOR",
+      "rarity_id": "rare",
+      "archetype_id": "striker",
+      "folder": "plantoid/thorn_duelist",
+      "weapon_id": "whirlwind",
+      "passive_ids": [
+        "execute_mark",
+        "piercing_rounds"
+      ],
+      "base_stats": {
+        "max_hp": 180,
+        "attack_damage": 12,
+        "attack_cooldown": 0.75,
+        "move_speed": 110,
+        "armor": 10
+      }
+    },
+    "bloom_mystic": {
+      "display_name": "Bloom Mystic",
+      "race": "PLANTOID",
+      "origin": "ELEMENTAL",
+      "class_type": "MAGE",
+      "rarity_id": "rare",
+      "archetype_id": "caster",
+      "folder": "plantoid/bloom_mystic",
+      "weapon_id": "frost_bolt",
+      "passive_ids": [
+        "time_dilation",
+        "frost_tag"
+      ],
+      "base_stats": {
+        "max_hp": 160,
+        "attack_damage": 14,
+        "attack_cooldown": 0.9,
+        "move_speed": 100,
+        "armor": 8
+      }
+    },
+    "root_colossus": {
+      "display_name": "Root Colossus",
+      "race": "PLANTOID",
+      "origin": "ELEMENTAL",
+      "class_type": "GUARDIAN",
+      "rarity_id": "epic",
+      "archetype_id": "bruiser",
+      "folder": "plantoid/root_colossus",
+      "weapon_id": "ground_slam",
+      "passive_ids": [
+        "shockwave",
+        "berserker"
+      ],
+      "base_stats": {
+        "max_hp": 220,
+        "attack_damage": 14,
+        "attack_cooldown": 0.85,
+        "move_speed": 95,
+        "armor": 18
+      }
+    },
+    "petal_sniper": {
+      "display_name": "Petal Sniper",
+      "race": "PLANTOID",
+      "origin": "ELEMENTAL",
+      "class_type": "ROGUE",
+      "rarity_id": "rare",
+      "archetype_id": "sniper",
+      "folder": "plantoid/petal_sniper",
+      "weapon_id": "piercing_shot",
+      "passive_ids": [
+        "pinpoint",
+        "ricochet"
+      ],
+      "base_stats": {
+        "max_hp": 150,
+        "attack_damage": 18,
+        "attack_cooldown": 1.0,
+        "move_speed": 100,
+        "armor": 8
+      }
+    },
+    "spore_shepherd": {
+      "display_name": "Spore Shepherd",
+      "race": "PLANTOID",
+      "origin": "ELEMENTAL",
+      "class_type": "SUMMONER",
+      "rarity_id": "common",
+      "archetype_id": "summoner",
+      "folder": "plantoid/spore_shepherd",
+      "weapon_id": "bomb_toss",
+      "passive_ids": [
+        "hex_bomb",
+        "vortex_tag"
+      ],
+      "base_stats": {
+        "max_hp": 190,
+        "attack_damage": 11,
+        "attack_cooldown": 0.9,
+        "move_speed": 95,
+        "armor": 14
+      }
+    },
+    "briar_medic": {
+      "display_name": "Briar Medic",
+      "race": "PLANTOID",
+      "origin": "ELEMENTAL",
+      "class_type": "HEALER",
+      "rarity_id": "common",
+      "archetype_id": "support",
+      "folder": "plantoid/briar_medic",
+      "weapon_id": "spirit_lance",
+      "passive_ids": [
+        "phase_step",
+        "overload"
+      ],
+      "base_stats": {
+        "max_hp": 170,
+        "attack_damage": 10,
+        "attack_cooldown": 0.85,
+        "move_speed": 105,
+        "armor": 12
+      }
+    },
+    "ooze_brute": {
+      "display_name": "Ooze Brute",
+      "race": "SLIMEKIN",
+      "origin": "BEAST",
+      "class_type": "WARRIOR",
+      "rarity_id": "common",
+      "archetype_id": "bruiser",
+      "folder": "slimekin/ooze_brute",
+      "weapon_id": "reaper_slash",
+      "passive_ids": [
+        "berserker",
+        "blood_siphon"
+      ],
+      "base_stats": {
+        "max_hp": 220,
+        "attack_damage": 14,
+        "attack_cooldown": 0.85,
+        "move_speed": 95,
+        "armor": 18
+      }
+    },
+    "slime_savant": {
+      "display_name": "Slime Savant",
+      "race": "SLIMEKIN",
+      "origin": "BEAST",
+      "class_type": "MAGE",
+      "rarity_id": "rare",
+      "archetype_id": "caster",
+      "folder": "slimekin/slime_savant",
+      "weapon_id": "chain_lightning",
+      "passive_ids": [
+        "arc_chain",
+        "time_dilation"
+      ],
+      "base_stats": {
+        "max_hp": 160,
+        "attack_damage": 14,
+        "attack_cooldown": 0.9,
+        "move_speed": 100,
+        "armor": 8
+      }
+    },
+    "gel_slinger": {
+      "display_name": "Gel Slinger",
+      "race": "SLIMEKIN",
+      "origin": "BEAST",
+      "class_type": "ROGUE",
+      "rarity_id": "rare",
+      "archetype_id": "sniper",
+      "folder": "slimekin/gel_slinger",
+      "weapon_id": "ricochet",
+      "passive_ids": [
+        "pinpoint",
+        "ricochet"
+      ],
+      "base_stats": {
+        "max_hp": 150,
+        "attack_damage": 18,
+        "attack_cooldown": 1.0,
+        "move_speed": 100,
+        "armor": 8
+      }
+    },
+    "acid_maw": {
+      "display_name": "Acid Maw",
+      "race": "SLIMEKIN",
+      "origin": "BEAST",
+      "class_type": "WARRIOR",
+      "rarity_id": "rare",
+      "archetype_id": "striker",
+      "folder": "slimekin/acid_maw",
+      "weapon_id": "poison_dart",
+      "passive_ids": [
+        "toxic",
+        "execute_mark"
+      ],
+      "base_stats": {
+        "max_hp": 180,
+        "attack_damage": 12,
+        "attack_cooldown": 0.75,
+        "move_speed": 110,
+        "armor": 10
+      }
+    },
+    "morph_medic": {
+      "display_name": "Morph Medic",
+      "race": "SLIMEKIN",
+      "origin": "BEAST",
+      "class_type": "HEALER",
+      "rarity_id": "common",
+      "archetype_id": "support",
+      "folder": "slimekin/morph_medic",
+      "weapon_id": "spirit_lance",
+      "passive_ids": [
+        "phase_step",
+        "overload"
+      ],
+      "base_stats": {
+        "max_hp": 170,
+        "attack_damage": 10,
+        "attack_cooldown": 0.85,
+        "move_speed": 105,
+        "armor": 12
+      }
+    },
+    "muck_guard": {
+      "display_name": "Muck Guard",
+      "race": "SLIMEKIN",
+      "origin": "BEAST",
+      "class_type": "GUARDIAN",
+      "rarity_id": "common",
+      "archetype_id": "guardian",
+      "folder": "slimekin/muck_guard",
+      "weapon_id": "ground_slam",
+      "passive_ids": [
+        "stagger",
+        "shockwave"
+      ],
+      "base_stats": {
+        "max_hp": 240,
+        "attack_damage": 10,
+        "attack_cooldown": 0.95,
+        "move_speed": 90,
+        "armor": 24
+      }
+    },
+    "prism_slime": {
+      "display_name": "Prism Slime",
+      "race": "SLIMEKIN",
+      "origin": "BEAST",
+      "class_type": "SUMMONER",
+      "rarity_id": "epic",
+      "archetype_id": "summoner",
+      "folder": "slimekin/prism_slime",
+      "weapon_id": "bomb_toss",
+      "passive_ids": [
+        "hex_bomb",
+        "vortex_tag"
+      ],
+      "base_stats": {
+        "max_hp": 190,
+        "attack_damage": 11,
+        "attack_cooldown": 0.9,
+        "move_speed": 95,
+        "armor": 14
       }
     }
   }
