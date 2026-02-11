@@ -65,6 +65,8 @@ static func execute_attack(
 	if w.is_empty():
 		_fire_standard_projectile(attacker, target, damage, is_crit, main_node, character_data)
 		return
+	if character_data != null:
+		w = PassiveSystem.apply_weapon_mods(weapon_id, w, character_data.passive_ids)
 	
 	var wtype := String(w.get("type", "projectile"))
 	
@@ -126,6 +128,8 @@ static func _execute_melee_arc(attacker: Node2D, target: Node2D, damage: int, is
 	var arc_angle := float(w.get("arc_angle", 160))
 	var falloff := float(w.get("damage_falloff", 0.8))
 	var dmg_bonus := float(w.get("damage_bonus", 1.5))
+	var heal_mult := float(w.get("reaper_hunger_heal_mult", 0.0))
+	var kill_mult := float(w.get("reaper_hunger_kill_mult", 0.0))
 	
 	var base_dmg := int(float(damage) * dmg_bonus)
 	var dir := (target.global_position - attacker.global_position).normalized()
@@ -153,6 +157,15 @@ static func _execute_melee_arc(attacker: Node2D, target: Node2D, damage: int, is
 		var dmg := base_dmg if hit_count == 0 else int(float(base_dmg) * falloff)
 		if n2.has_method("take_damage"):
 			n2.take_damage(dmg, is_crit and hit_count == 0, "reaper_slash")
+		if heal_mult > 0.0 and attacker.has_method("heal"):
+			attacker.heal(int(round(float(dmg) * heal_mult)))
+			var hp := VfxHolyPulse.new()
+			hp.setup(attacker.global_position + Vector2(0, -16), Color(0.8, 0.35, 0.45, 1.0), 10.0, 26.0, 0.18)
+			main_node.add_child(hp)
+			_play_sfx(main_node, "passive.reaper_hunger", attacker.global_position)
+		if kill_mult > heal_mult:
+			n2.set_meta("_reaper_hunger_attacker", attacker)
+			n2.set_meta("_reaper_hunger_kill_heal", int(round(float(dmg) * (kill_mult - heal_mult))))
 		hit_count += 1
 	
 	# VFX: big visible slash arc
@@ -197,6 +210,8 @@ static func _fire_bomb(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 		damage,
 		is_crit,
 		float(w.get("explosion_radius", 70)),
+		float(w.get("burn_duration", 0.0)),
+		float(w.get("burn_dps_mult", 0.0)),
 		float(w.get("projectile_speed", 380)),
 		main_node,
 		cd,
@@ -209,6 +224,17 @@ static func _fire_chain_lightning(attacker: Node2D, target: Node2D, damage: int,
 	var chain_count := int(w.get("chain_count", 3))
 	var decay := float(w.get("chain_damage_decay", 0.75))
 	var chain_range := float(w.get("chain_range", 120))
+	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "chain_master"):
+		var world := main_node
+		if world != null:
+			var pos := attacker.global_position + Vector2(0, -14)
+			var fx := VfxImpactFlash.new()
+			fx.setup(pos, Color(0.35, 0.85, 1.0, 1.0), 14.0, 0.12)
+			world.add_child(fx)
+			var fm := VfxFocusMark.new()
+			fm.setup(pos, Color(0.55, 0.95, 1.0, 1.0), 16.0, 0, 0.18)
+			world.add_child(fm)
+			_play_sfx(main_node, "passive.chain_master", attacker.global_position)
 	
 	var hit_targets: Array[Node2D] = []
 	var current_target := target
@@ -255,6 +281,12 @@ static func _fire_scatter_shot(attacker: Node2D, target: Node2D, damage: int, is
 	var proj_count := int(w.get("projectile_count", 5))
 	var spread := float(w.get("spread_angle", 45))
 	var dmg_per := float(w.get("damage_per_proj", 0.4))
+	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "scatter_specialist"):
+		var dir := (target.global_position - attacker.global_position).normalized()
+		var fb := VfxFlameBurst.new()
+		fb.setup(attacker.global_position, Color(0.95, 0.85, 0.35, 1.0), 26.0, 10, 0.18, dir)
+		main_node.add_child(fb)
+		_play_sfx(main_node, "passive.scatter_specialist", attacker.global_position)
 	
 	var dir := (target.global_position - attacker.global_position).normalized()
 	var base_angle := dir.angle()
@@ -292,6 +324,14 @@ static func _fire_boomerang(attacker: Node2D, target: Node2D, damage: int, is_cr
 	)
 	main_node.add_child(boomerang)
 	_play_sfx(main_node, "player.shot", attacker.global_position)
+	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "boomerang_mastery"):
+		var ms := VfxMeleeStreak.new()
+		ms.setup(attacker.global_position, Vector2(1, 0), Color(0.55, 0.95, 0.90, 1.0), 36.0, 8.0, 0.10)
+		main_node.add_child(ms)
+		var ms2 := VfxMeleeStreak.new()
+		ms2.setup(attacker.global_position, Vector2(0, 1), Color(0.35, 0.85, 0.95, 1.0), 32.0, 7.0, 0.10)
+		main_node.add_child(ms2)
+		_play_sfx(main_node, "passive.boomerang_mastery", attacker.global_position)
 
 static func _fire_beam(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var beam := WP.BeamAttack.new()
@@ -302,6 +342,7 @@ static func _fire_beam(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 		is_crit,
 		float(w.get("beam_length", 350)),
 		float(w.get("beam_width", 16)),
+		float(w.get("width_growth", 0.0)),
 		float(w.get("duration", 0.5)),
 		float(w.get("tick_rate", 0.1)),
 		main_node,
@@ -309,6 +350,12 @@ static func _fire_beam(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 	)
 	main_node.add_child(beam)
 	_play_sfx(main_node, "hit.crit", attacker.global_position)
+	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "beam_focus"):
+		var pos := attacker.global_position + (target.global_position - attacker.global_position).normalized() * 24.0
+		var sw := VfxShockwave.new()
+		sw.setup(pos, Color(1.0, 0.45, 0.55, 1.0), 10.0, 42.0, 4.0, 0.18)
+		main_node.add_child(sw)
+		_play_sfx(main_node, "passive.beam_focus", attacker.global_position)
 
 static func _execute_ground_slam(attacker: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var inner_r := float(w.get("inner_radius", 55))
@@ -344,6 +391,35 @@ static func _execute_ground_slam(attacker: Node2D, damage: int, is_crit: bool, m
 	var shake := main_node.get_node_or_null("/root/ScreenShake")
 	if shake and is_instance_valid(shake) and shake.has_method("shake"):
 		shake.shake(6.0, 0.15)
+
+	# Passive: Aftershock
+	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "slam_aftershock"):
+		var p := PassiveSystem.params_for("slam_aftershock")
+		var delay := float(p.get("delay", 0.5))
+		var mult := float(p.get("damage_mult", 0.5))
+		var extra_dmg := int(round(float(base_dmg) * mult))
+		if extra_dmg > 0 and main_node != null:
+			var t := main_node.get_tree().create_timer(delay)
+			t.timeout.connect(func():
+				if main_node == null or not is_instance_valid(main_node):
+					return
+				var enemies2 := _get_enemies(main_node)
+				for e2 in enemies2:
+					if not is_instance_valid(e2):
+						continue
+					var n2 := e2 as Node2D
+					if n2 == null:
+						continue
+					if n2.global_position.distance_to(pos) > outer_r:
+						continue
+					if n2.has_method("take_damage"):
+						n2.take_damage(extra_dmg, false, "slam_aftershock")
+				_spawn_shockwave_vfx(main_node, pos, outer_r * 0.9, Color(1.0, 0.65, 0.3, 0.9))
+				var flash := VfxImpactFlash.new()
+				flash.setup(pos, Color(1.0, 0.7, 0.35, 1.0), 22.0, 0.14)
+				main_node.add_child(flash)
+				_play_sfx(main_node, "passive.slam_aftershock", pos)
+			)
 
 static func _spawn_slam_vfx(main_node: Node2D, pos: Vector2, inner_r: float, outer_r: float) -> void:
 	# Inner shockwave ring
@@ -432,6 +508,8 @@ static func _fire_dot_projectile(attacker: Node2D, target: Node2D, damage: int, 
 		damage,
 		is_crit,
 		float(w.get("dot_damage_percent", 0.30)),
+		float(w.get("poison_damage_mult", 1.0)),
+		float(w.get("poison_spread_radius", 0.0)),
 		float(w.get("dot_duration", 4.0)),
 		float(w.get("dot_tick", 0.5)),
 		float(w.get("projectile_speed", 700)),
@@ -450,6 +528,9 @@ static func _fire_slow_projectile(attacker: Node2D, target: Node2D, damage: int,
 		damage,
 		is_crit,
 		float(w.get("slow_percent", 0.40)),
+		float(w.get("slow_bonus", 0.0)),
+		float(w.get("shatter_radius", 0.0)),
+		float(w.get("shatter_damage", 0.0)),
 		float(w.get("slow_duration", 2.5)),
 		float(w.get("projectile_speed", 500)),
 		main_node,
@@ -464,6 +545,9 @@ static func _fire_cone(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 	var cone_range := float(w.get("cone_range", 150))
 	var burn_pct := float(w.get("burn_damage_percent", 0.25))
 	var burn_dur := float(w.get("burn_duration", 3.0))
+	var spread_count := int(w.get("fire_spread_count", 0))
+	var spread_radius := float(w.get("fire_spread_radius", 0.0))
+	var damage_amp := float(w.get("fire_damage_amp", 0.0))
 	
 	var dir := (target.global_position - attacker.global_position).normalized()
 	var angle_to_target := dir.angle()
@@ -485,10 +569,18 @@ static func _fire_cone(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 			continue
 		# Hit and burn
 		if n2.has_method("take_damage"):
-			n2.take_damage(damage, is_crit, "fire_cone")
+			var total_dmg := damage
+			var burn_until: int = int(n2.get_meta("_burn_until_ms", 0))
+			if damage_amp > 0.0 and burn_until > 0 and int(Time.get_ticks_msec()) <= burn_until:
+				total_dmg += int(round(float(damage) * damage_amp))
+			n2.take_damage(total_dmg, is_crit, "fire_cone")
 		if n2.has_method("apply_burn"):
 			var dps := float(damage) * burn_pct / burn_dur
 			n2.apply_burn(dps, burn_dur, 0.5)
+			PassiveSystem.mark_burn(n2, burn_dur)
+			if spread_count > 0 and spread_radius > 0.0:
+				PassiveSystem.mark_fire_spread(n2, dps, burn_dur, 0.5, spread_count)
+				_play_sfx(main_node, "passive.fire_mastery", n2.global_position)
 		# Per-enemy burn VFX (small flame on each enemy)
 		_spawn_small_fire(main_node, n2.global_position)
 	
@@ -576,12 +668,22 @@ static func _fire_delayed_strike(attacker: Node2D, target: Node2D, damage: int, 
 	var delay := float(w.get("delay", 0.4))
 	var radius := float(w.get("strike_radius", 35))
 	var count := int(w.get("strike_count", 3))
+	var extra := int(w.get("extra_strikes", 0))
+	var dmg_mult := float(w.get("damage_mult", 1.0))
+	count += extra
+	var per_dmg := int(round(float(damage) * dmg_mult / max(1, count)))
+
+	if extra > 0:
+		var fm := VfxFocusMark.new()
+		fm.setup(attacker.global_position + Vector2(0, -12), Color(0.75, 0.55, 1.0, 1.0), 18.0, 0, 0.20)
+		main_node.add_child(fm)
+		_play_sfx(main_node, "passive.spirit_surge", attacker.global_position)
 	
 	for i in range(count):
 		var offset := Vector2(randf_range(-40, 40), randf_range(-40, 40))
 		var strike_pos := target.global_position + offset
 		var strike := WP.DelayedStrike.new()
-		strike.setup(strike_pos, damage / count, is_crit and i == 0, radius, delay + float(i) * 0.15, main_node, cd, attacker)
+		strike.setup(strike_pos, per_dmg, is_crit and i == 0, radius, delay + float(i) * 0.15, main_node, cd, attacker)
 		main_node.add_child(strike)
 	
 	_play_sfx(main_node, "player.shot", attacker.global_position)
@@ -722,6 +824,7 @@ static func _execute_lifesteal_melee(attacker: Node2D, target: Node2D, damage: i
 	var cleave_count := int(w.get("cleave_count", 3))
 	var cleave_radius := float(w.get("cleave_radius", 70))
 	var dmg_bonus := float(w.get("damage_bonus", 1.4))
+	var overheal_mult := float(w.get("overheal_shield", 0.0))
 	
 	var base_dmg := int(float(damage) * dmg_bonus)
 	var total_damage := 0
@@ -754,8 +857,11 @@ static func _execute_lifesteal_melee(attacker: Node2D, target: Node2D, damage: i
 	
 	# Heal attacker based on total damage
 	var heal_amount := int(float(total_damage) * lifesteal)
-	if heal_amount > 0 and attacker.has_method("heal"):
-		attacker.heal(heal_amount)
+	if heal_amount > 0:
+		if overheal_mult > 0.0 and attacker.has_method("heal_with_overheal"):
+			attacker.heal_with_overheal(heal_amount, overheal_mult)
+		elif attacker.has_method("heal"):
+			attacker.heal(heal_amount)
 		# Heal VFX
 		var heal_vfx := VfxHolyPulse.new()
 		heal_vfx.setup(attacker.global_position, Color(0.3, 1.0, 0.4, 1.0), 10.0, 25.0, 0.2)
@@ -786,9 +892,10 @@ static func _fire_orbital_strike(attacker: Node2D, target: Node2D, damage: int, 
 	var delay := float(w.get("delay", 1.2))
 	var radius := float(w.get("explosion_radius", 90))
 	var dmg_mult := float(w.get("damage_mult", 1.8))
+	var cluster_bonus := float(w.get("cluster_bonus", 0.0))
 	
 	var strike := WP.OrbitalStrike.new()
-	strike.setup(target.global_position, int(float(damage) * dmg_mult), is_crit, radius, delay, main_node, cd, attacker)
+	strike.setup(target.global_position, int(float(damage) * dmg_mult), is_crit, radius, delay, cluster_bonus, main_node, cd, attacker)
 	main_node.add_child(strike)
 	_play_sfx(main_node, "player.shot", attacker.global_position)
 

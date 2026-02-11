@@ -30,6 +30,7 @@ var _meta_label_bottom: Label = null
 var _meta_btn: Button = null
 var _meta_tree_btn: Button = null
 var _last_run_label: RichTextLabel = null
+var _last_unlocked_map_id: String = "graveyard"
 
 func _ready() -> void:
 	UiSkin.apply_global_font()
@@ -1017,13 +1018,18 @@ func _setup_map_select() -> void:
 	map_select.clear()
 
 	var ids: Array[String] = []
-	if rc.has_method("get_map_ids"):
+	if rc.has_method("get_map_ids_ordered"):
+		ids = rc.get_map_ids_ordered()
+	elif rc.has_method("get_map_ids"):
 		ids = rc.get_map_ids()
 	for i in range(ids.size()):
 		var m: Dictionary = rc.get_map(ids[i]) if rc.has_method("get_map") else {}
 		var name := String(m.get("name", ids[i]))
-		map_select.add_item(name, i)
+		var locked := not _is_map_unlocked(ids[i])
+		var label := ("🔒 " + name) if locked else name
+		map_select.add_item(label, i)
 		map_select.set_item_metadata(i, ids[i])
+		map_select.set_item_disabled(i, locked)
 
 	# Select current
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
@@ -1031,9 +1037,19 @@ func _setup_map_select() -> void:
 		if String(map_select.get_item_metadata(i)) == cur:
 			map_select.select(i)
 			break
+	_last_unlocked_map_id = cur if _is_map_unlocked(cur) else _last_unlocked_map_id
 
 	map_select.item_selected.connect(func(idx: int):
 		var id := String(map_select.get_item_metadata(idx))
+		if map_select.is_item_disabled(idx):
+			if _toast:
+				_toast.show_toast("Map locked. Win the previous map to unlock.", UiSkin.ACCENT_RED)
+			# Revert selection to last unlocked map.
+			for i in range(map_select.item_count):
+				if String(map_select.get_item_metadata(i)) == _last_unlocked_map_id:
+					map_select.select(i)
+					break
+			return
 		var s := get_node_or_null("/root/SfxSystem")
 		if s and s.has_method("play_ui"):
 			s.play_ui("ui.click")
@@ -1042,7 +1058,18 @@ func _setup_map_select() -> void:
 		var m2: Dictionary = rc.get_map(id) if rc.has_method("get_map") else {}
 		if _toast:
 			_toast.show_toast("Selected: %s — %s" % [String(m2.get("name", id)), String(m2.get("tagline", ""))], Color(0.65, 0.85, 1.0, 1.0))
+		_last_unlocked_map_id = id
 	)
+
+func _is_map_unlocked(map_id: String) -> bool:
+	if map_id == "" or map_id == "graveyard":
+		return true
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp):
+		return map_id == "graveyard"
+	if mp.has_method("is_map_unlocked"):
+		return bool(mp.is_map_unlocked(map_id))
+	return map_id == "graveyard"
 
 func _refresh() -> void:
 	_sync_synergy_system()

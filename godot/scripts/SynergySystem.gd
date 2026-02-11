@@ -5,7 +5,7 @@ extends Node
 #
 # Tags are generated automatically from CharacterData:
 # - class:<warrior|mage|rogue|guardian|healer|summoner>
-# - origin:<undead|machine|beast|demon|elemental|human>
+# - origin:<aspect_id> (data-driven, e.g. banner/forge/arcane/etc)
 # - style:<melee|ranged>
 # - arch:<archetype_id>
 #
@@ -2204,14 +2204,17 @@ static func _tags_for_cd(cd: CharacterData) -> PackedStringArray:
 		CharacterData.Class.SUMMONER: out.append("class:summoner")
 		_: pass
 	# Origin tags
-	match cd.origin:
-		CharacterData.Origin.UNDEAD: out.append("origin:undead")
-		CharacterData.Origin.MACHINE: out.append("origin:machine")
-		CharacterData.Origin.BEAST: out.append("origin:beast")
-		CharacterData.Origin.DEMON: out.append("origin:demon")
-		CharacterData.Origin.ELEMENTAL: out.append("origin:elemental")
-		CharacterData.Origin.HUMAN: out.append("origin:human")
-		_: pass
+	if cd.origin_id != "":
+		out.append("origin:%s" % cd.origin_id.to_lower())
+	else:
+		match cd.origin:
+			CharacterData.Origin.UNDEAD: out.append("origin:undead")
+			CharacterData.Origin.MACHINE: out.append("origin:machine")
+			CharacterData.Origin.BEAST: out.append("origin:beast")
+			CharacterData.Origin.DEMON: out.append("origin:demon")
+			CharacterData.Origin.ELEMENTAL: out.append("origin:elemental")
+			CharacterData.Origin.HUMAN: out.append("origin:human")
+			_: pass
 	# Style tags
 	if cd.attack_style == CharacterData.AttackStyle.MELEE:
 		out.append("style:melee")

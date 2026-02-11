@@ -672,38 +672,153 @@ func _die() -> void:
 	queue_free()
 
 func _process_death_tags() -> void:
-	# Hex Bomb: if armed recently, explode on death.
-	if not has_meta("_hex_bomb_until_ms"):
-		return
-	var until_ms: int = int(get_meta("_hex_bomb_until_ms", 0))
 	var now_ms: int = int(Time.get_ticks_msec())
-	if now_ms > until_ms:
-		return
-	var dmg: int = int(get_meta("_hex_bomb_dmg", 0))
-	var radius: float = float(get_meta("_hex_bomb_radius", 140.0))
-	if dmg <= 0:
-		return
 	var main := _main
 	if main == null or not is_instance_valid(main):
 		main = get_tree().get_first_node_in_group("main") as Node2D
+
 	var enemies: Array = []
 	if main and is_instance_valid(main) and main.has_method("get_cached_enemies"):
 		enemies = main.get_cached_enemies()
 	else:
 		enemies = get_tree().get_nodes_in_group("enemies")
-	var r2 := radius * radius
-	for e in enemies:
-		if not is_instance_valid(e):
-			continue
-		var n2 := e as Node2D
-		if n2 == null or n2 == self:
-			continue
-		if n2.global_position.distance_squared_to(global_position) <= r2:
-			if n2.has_method("take_damage"):
-				n2.take_damage(dmg, false, "blast")
-			# quick feedback pulse (non-circular)
-			if n2.has_method("pulse_vfx"):
-				n2.pulse_vfx(Color(0.75, 0.45, 1.0, 1.0))
+
+	# Chain Reaction passive
+	if has_meta("_chain_reaction_dmg"):
+		PassiveSystem.trigger_chain_reaction(self)
+
+	# Reaper's Hunger: kill heal
+	if has_meta("_reaper_hunger_kill_heal"):
+		var heal_amt := int(get_meta("_reaper_hunger_kill_heal", 0))
+		var attacker := get_meta("_reaper_hunger_attacker", null)
+		if heal_amt > 0 and attacker != null and is_instance_valid(attacker) and attacker.has_method("heal"):
+			attacker.heal(heal_amt)
+			if attacker.has_method("pulse_vfx"):
+				attacker.pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
+			if main != null and is_instance_valid(main):
+				var hp := VfxHolyPulse.new()
+				hp.setup(attacker.global_position + Vector2(0, -18), Color(0.85, 0.35, 0.45, 1.0), 12.0, 32.0, 0.20)
+				main.add_child(hp)
+				var s2 := main.get_node_or_null("/root/SfxSystem")
+				if s2 and is_instance_valid(s2) and s2.has_method("play_event"):
+					s2.play_event("passive.reaper_hunger", attacker.global_position, attacker)
+
+	# Frost Mastery: shatter on death
+	if has_meta("_frost_shatter_until_ms"):
+		var until_shatter: int = int(get_meta("_frost_shatter_until_ms", 0))
+		if now_ms <= until_shatter:
+			var rad_f: float = float(get_meta("_frost_shatter_radius", 0.0))
+			var dmg_f: int = int(get_meta("_frost_shatter_dmg", 0))
+			if rad_f > 0.0 and dmg_f > 0:
+				if main != null and is_instance_valid(main):
+					var fn := VfxFrostNova.new()
+					fn.setup(global_position, Color(0.55, 0.85, 1.0, 1.0), rad_f, 10, 0.28)
+					main.add_child(fn)
+					var s3 := main.get_node_or_null("/root/SfxSystem")
+					if s3 and is_instance_valid(s3) and s3.has_method("play_event"):
+						s3.play_event("passive.frost_mastery", global_position, self)
+				var r2f := rad_f * rad_f
+				for e in enemies:
+					if not is_instance_valid(e):
+						continue
+					var n2 := e as Node2D
+					if n2 == null or n2 == self:
+						continue
+					if n2.global_position.distance_squared_to(global_position) <= r2f:
+						if n2.has_method("take_damage"):
+							n2.take_damage(dmg_f, false, "frost")
+						if n2.has_method("pulse_vfx"):
+							n2.pulse_vfx(Color(0.55, 0.85, 1.0, 1.0))
+
+	# Poison Mastery: spread on death
+	if has_meta("_poison_spread_until_ms"):
+		var until_p: int = int(get_meta("_poison_spread_until_ms", 0))
+		if now_ms <= until_p:
+			var rad_p: float = float(get_meta("_poison_spread_radius", 0.0))
+			var dps_p: float = float(get_meta("_poison_spread_dps", 0.0))
+			var dur_p: float = float(get_meta("_poison_spread_dur", 0.0))
+			var tick_p: float = float(get_meta("_poison_spread_tick", 0.5))
+			var count_p: int = int(get_meta("_poison_spread_count", 2))
+			if rad_p > 0.0 and dps_p > 0.0 and count_p > 0:
+				if main != null and is_instance_valid(main):
+					var sf := VfxSmokeField.new()
+					sf.setup(global_position, Color(0.35, 0.95, 0.35, 0.55), rad_p * 0.55, 0.6)
+					main.add_child(sf)
+					var s4 := main.get_node_or_null("/root/SfxSystem")
+					if s4 and is_instance_valid(s4) and s4.has_method("play_event"):
+						s4.play_event("passive.poison_mastery", global_position, self)
+				var r2p := rad_p * rad_p
+				var picked := 0
+				for e in enemies:
+					if picked >= count_p:
+						break
+					if not is_instance_valid(e):
+						continue
+					var n2 := e as Node2D
+					if n2 == null or n2 == self:
+						continue
+					if n2.global_position.distance_squared_to(global_position) <= r2p:
+						if n2.has_method("apply_burn"):
+							n2.apply_burn(dps_p, dur_p, tick_p)
+						if n2.has_method("pulse_vfx"):
+							n2.pulse_vfx(Color(0.35, 0.95, 0.25, 1.0))
+						picked += 1
+
+	# Fire Mastery: spread burn on death
+	if has_meta("_fire_spread_until_ms"):
+		var until_f: int = int(get_meta("_fire_spread_until_ms", 0))
+		if now_ms <= until_f:
+			var rad_fi: float = float(get_meta("_fire_spread_radius", 0.0))
+			var dps_fi: float = float(get_meta("_fire_spread_dps", 0.0))
+			var dur_fi: float = float(get_meta("_fire_spread_dur", 0.0))
+			var tick_fi: float = float(get_meta("_fire_spread_tick", 0.5))
+			var count_fi: int = int(get_meta("_fire_spread_count", 2))
+			if rad_fi > 0.0 and dps_fi > 0.0 and count_fi > 0:
+				if main != null and is_instance_valid(main):
+					var fb := VfxFlameBurst.new()
+					fb.setup(global_position, Color(1.0, 0.55, 0.2, 1.0), rad_fi * 0.45, 12, 0.20, Vector2.ZERO)
+					main.add_child(fb)
+					var s5 := main.get_node_or_null("/root/SfxSystem")
+					if s5 and is_instance_valid(s5) and s5.has_method("play_event"):
+						s5.play_event("passive.fire_mastery", global_position, self)
+				var r2fi := rad_fi * rad_fi
+				var picked_f := 0
+				for e in enemies:
+					if picked_f >= count_fi:
+						break
+					if not is_instance_valid(e):
+						continue
+					var n2 := e as Node2D
+					if n2 == null or n2 == self:
+						continue
+					if n2.global_position.distance_squared_to(global_position) <= r2fi:
+						if n2.has_method("apply_burn"):
+							n2.apply_burn(dps_fi, dur_fi, tick_fi)
+							PassiveSystem.mark_burn(n2, dur_fi)
+						if n2.has_method("pulse_vfx"):
+							n2.pulse_vfx(Color(1.0, 0.55, 0.25, 1.0))
+						picked_f += 1
+
+	# Hex Bomb: if armed recently, explode on death.
+	if has_meta("_hex_bomb_until_ms"):
+		var until_ms: int = int(get_meta("_hex_bomb_until_ms", 0))
+		if now_ms <= until_ms:
+			var dmg: int = int(get_meta("_hex_bomb_dmg", 0))
+			var radius: float = float(get_meta("_hex_bomb_radius", 140.0))
+			if dmg > 0:
+				var r2 := radius * radius
+				for e in enemies:
+					if not is_instance_valid(e):
+						continue
+					var n2 := e as Node2D
+					if n2 == null or n2 == self:
+						continue
+					if n2.global_position.distance_squared_to(global_position) <= r2:
+						if n2.has_method("take_damage"):
+							n2.take_damage(dmg, false, "blast")
+						# quick feedback pulse (non-circular)
+						if n2.has_method("pulse_vfx"):
+							n2.pulse_vfx(Color(0.75, 0.45, 1.0, 1.0))
 
 # Non-circular on-hit pulse for passive feedback.
 func pulse_vfx(tint: Color) -> void:

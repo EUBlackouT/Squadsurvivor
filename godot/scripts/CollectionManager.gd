@@ -22,6 +22,7 @@ func _make_unlock_id(cd: CharacterData) -> String:
 		cd.rarity_id,
 		cd.archetype_id,
 		str(int(cd.attack_style)),
+		cd.origin_id,
 		pass_str
 	]
 
@@ -32,6 +33,7 @@ func _cd_to_dict(cd: CharacterData) -> Dictionary:
 		"rarity_id": cd.rarity_id,
 		"archetype_id": cd.archetype_id,
 		"race_id": cd.race_id,
+		"origin_id": cd.origin_id,
 		"origin": int(cd.origin),
 		"class_type": int(cd.class_type),
 		"tier": int(cd.tier),
@@ -54,6 +56,7 @@ func _dict_to_cd(d: Dictionary) -> CharacterData:
 	cd.rarity_id = String(d.get("rarity_id", "common"))
 	cd.archetype_id = String(d.get("archetype_id", "bruiser"))
 	cd.race_id = String(d.get("race_id", ""))
+	cd.origin_id = String(d.get("origin_id", ""))
 	cd.origin = int(d.get("origin", 0))
 	cd.class_type = int(d.get("class_type", 0))
 	cd.tier = int(d.get("tier", 1))

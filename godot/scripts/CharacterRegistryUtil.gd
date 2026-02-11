@@ -19,6 +19,26 @@ const _ORIGIN_PASSIVE: Dictionary = {
 	"HUMAN": "pinpoint"
 }
 
+const _ORIGIN_ASPECTS_BY_RACE: Dictionary = {
+	"HUMANOID": ["banner", "forge", "arcane"],
+	"MACHINE": ["forge", "arcane", "storm"],
+	"AQUATIC": ["abyss", "frost", "storm"],
+	"FAE": ["verdant", "astral", "arcane"],
+	"ELEMENTAL": ["storm", "ember", "frost"],
+	"CRYSTALLINE": ["frost", "arcane", "astral"],
+	"SHADOWBORN": ["umbra", "grave", "abyss"],
+	"AVIAN": ["storm", "astral", "primal"],
+	"ARACHNID": ["primal", "umbra", "verdant"],
+	"PLANTOID": ["verdant", "frost", "astral"],
+	"SLIMEKIN": ["abyss", "verdant", "primal"],
+	"MUTANT": ["verdant", "primal", "grave"],
+	"ALIEN": ["abyss", "arcane", "storm"],
+	"DRACONIC": ["ember", "storm", "primal"],
+	"CELESTIAL": ["astral", "arcane", "banner"],
+	"UNDEAD": ["grave", "umbra", "abyss"]
+}
+const _ORIGIN_ASPECTS_DEFAULT: Array = ["banner", "forge", "arcane", "primal"]
+
 static func ensure_loaded() -> void:
 	if _loaded:
 		return
@@ -137,6 +157,7 @@ static func _build_character_data_from_entry(entry: Dictionary, context: String,
 	if cd == null:
 		return null
 	cd.race_id = String(entry.get("race", ""))
+	cd.origin_id = _origin_aspect_for_entry(entry, cd.race_id)
 
 	var passives := Array(cd.passive_ids)
 	# Entry-specific guaranteed passives
@@ -154,6 +175,26 @@ static func _build_character_data_from_entry(entry: Dictionary, context: String,
 		passives.append(racial_id)
 	cd.passive_ids = PackedStringArray(passives)
 	return cd
+
+static func _origin_aspect_for_entry(entry: Dictionary, race_id: String) -> String:
+	var direct := String(entry.get("origin_id", ""))
+	if direct != "":
+		return direct.to_lower()
+	var race_key := race_id.to_upper()
+	var pool: Array = _ORIGIN_ASPECTS_BY_RACE.get(race_key, _ORIGIN_ASPECTS_DEFAULT) as Array
+	if pool.is_empty():
+		return ""
+	var id := String(entry.get("id", ""))
+	var idx := _stable_index(id, pool.size())
+	return String(pool[idx])
+
+static func _stable_index(id: String, mod: int) -> int:
+	if mod <= 0:
+		return 0
+	var h := 0
+	for i in id.length():
+		h = int((h * 31 + id.unicode_at(i)) % 2147483647)
+	return int(h % mod)
 
 static func _origin_from_string(s: String) -> int:
 	match s.to_upper():

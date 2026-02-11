@@ -21,6 +21,7 @@ var _offset: Vector2 = Vector2.ZERO
 
 var current_hp: int = 100
 var _max_hp_effective: int = 100
+var _overheal_shield: int = 0
 
 # Temporary defensive buff (Guardian callout): reduces incoming damage.
 var _aegis_until_s: float = 0.0
@@ -481,6 +482,14 @@ func take_damage(amount: int) -> void:
 		amount = maxi(0, int(round(float(amount) * _aegis_dmg_mult)))
 	if amount <= 0:
 		return
+	# Overheal shield absorbs first.
+	if _overheal_shield > 0:
+		var absorbed := mini(amount, _overheal_shield)
+		_overheal_shield -= absorbed
+		amount -= absorbed
+		if amount <= 0:
+			pulse_vfx(Color(0.65, 0.85, 1.0, 1.0))
+			return
 
 	var prev := current_hp
 	current_hp = max(0, current_hp - amount)
@@ -542,6 +551,27 @@ func heal(amount: int) -> void:
 	var max_hp_val := _max_hp_effective if _max_hp_effective > 0 else (character_data.max_hp if character_data != null else 100)
 	current_hp = min(max_hp_val, current_hp + amount)
 	pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
+
+func heal_with_overheal(amount: int, overheal_mult: float) -> void:
+	if amount <= 0:
+		return
+	var max_hp_val := _max_hp_effective if _max_hp_effective > 0 else (character_data.max_hp if character_data != null else 100)
+	var new_hp := current_hp + amount
+	if new_hp > max_hp_val and overheal_mult > 0.0:
+		var extra := new_hp - max_hp_val
+		_overheal_shield += int(round(float(extra) * overheal_mult))
+		var main := _main
+		if main == null or not is_instance_valid(main):
+			main = get_tree().get_first_node_in_group("main") as Node2D
+		if main and is_instance_valid(main):
+			var hp := VfxHolyPulse.new()
+			hp.setup(global_position + Vector2(0, -18), Color(0.55, 0.85, 1.0, 1.0), 12.0, 34.0, 0.20)
+			main.add_child(hp)
+			var s := main.get_node_or_null("/root/SfxSystem")
+			if s and is_instance_valid(s) and s.has_method("play_event"):
+				s.play_event("passive.vampiric_mastery", global_position, self)
+	current_hp = min(max_hp_val, new_hp)
+	pulse_vfx(Color(0.65, 0.90, 1.0, 1.0))
 
 func get_max_hp() -> int:
 	return _max_hp_effective if _max_hp_effective > 0 else (character_data.max_hp if character_data != null else 100)

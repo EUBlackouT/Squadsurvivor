@@ -2564,3 +2564,13 @@ func _award_meta(victory: bool) -> void:
 			"sigils_earned": total
 		}
 		mp.set_last_run(summary)
+
+	# Progression gate: unlock next map on victory.
+	if victory and mp != null and is_instance_valid(mp) and mp.has_method("unlock_map"):
+		var rc2 := get_node_or_null("/root/RunConfig")
+		if rc2 != null and is_instance_valid(rc2) and rc2.has_method("get_map_ids_ordered"):
+			var ordered: Array[String] = rc2.get_map_ids_ordered()
+			var cur := String(rc2.get("selected_map_id"))
+			var idx := ordered.find(cur)
+			if idx >= 0 and idx + 1 < ordered.size():
+				mp.unlock_map(ordered[idx + 1])

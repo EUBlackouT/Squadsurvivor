@@ -21,6 +21,9 @@ const SLOT_COSTS: Array[int] = [500, 1500, 4000, 9000, 17000] # for slots 4..8
 # Last run summary for UI (menu + end screen)
 var last_run: Dictionary = {}
 
+# Map progression gates (unlocked map ids).
+var map_unlocks: PackedStringArray = PackedStringArray(["graveyard"])
+
 # Meta skill tree (global Protocol Grid)
 var meta_nodes_owned: PackedStringArray = PackedStringArray(["core_0"])
 var _tree_cache: Dictionary = {}
@@ -242,12 +245,29 @@ func set_last_run(summary: Dictionary) -> void:
 	last_run = summary
 	save()
 
+func is_map_unlocked(map_id: String) -> bool:
+	if map_id == "":
+		return false
+	if map_unlocks.is_empty():
+		map_unlocks = PackedStringArray(["graveyard"])
+	return map_unlocks.has(map_id)
+
+func unlock_map(map_id: String) -> void:
+	if map_id == "":
+		return
+	if map_unlocks.is_empty():
+		map_unlocks = PackedStringArray(["graveyard"])
+	if not map_unlocks.has(map_id):
+		map_unlocks.append(map_id)
+		save()
+
 func load_save() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
 		sigils = 0
 		squad_slots = 3
 		last_run = {}
 		meta_nodes_owned = PackedStringArray(["core_0"])
+		map_unlocks = PackedStringArray(["graveyard"])
 		_mods_dirty = true
 		save()
 		return
@@ -261,6 +281,13 @@ func load_save() -> void:
 	sigils = int(d.get("sigils", 0))
 	squad_slots = int(d.get("squad_slots", 3))
 	last_run = d.get("last_run", {}) as Dictionary
+	var mu: Array = d.get("map_unlocks", ["graveyard"])
+	var mu_out := PackedStringArray()
+	for e in mu:
+		mu_out.append(String(e))
+	if not mu_out.has("graveyard"):
+		mu_out.append("graveyard")
+	map_unlocks = mu_out
 	var owned: Array = d.get("meta_nodes_owned", [])
 	var out := PackedStringArray()
 	for e in owned:
@@ -276,6 +303,7 @@ func save() -> void:
 		"sigils": sigils,
 		"squad_slots": squad_slots,
 		"last_run": last_run,
+		"map_unlocks": Array(map_unlocks),
 		"meta_nodes_owned": Array(meta_nodes_owned)
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)

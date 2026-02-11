@@ -128,6 +128,22 @@ func _build_streams() -> void:
 	_streams["web_snare"] = _make_glass(0.12, 1080.0, 0.20)
 	_streams["spore_bloom"] = _make_whoosh(0.18, 0.28)
 	_streams["gel_mitosis"] = _make_tick(0.06, 760.0, 0.14)
+	# New passive suite (unique tones)
+	_streams["passive_explosive_rounds"] = _make_explosion(0.18, 160.0, 0.65)
+	_streams["passive_chain_master"] = _make_zap(0.10, 1500.0, 320.0, 0.30)
+	_streams["passive_scatter_specialist"] = _make_tick(0.06, 1320.0, 0.18)
+	_streams["passive_boomerang_mastery"] = _make_whoosh(0.14, 0.22)
+	_streams["passive_beam_focus"] = _make_beam(0.18, 320.0, 0.12)
+	_streams["passive_slam_aftershock"] = _make_thump(0.14, 90.0, 0.70)
+	_streams["passive_frost_mastery"] = _make_glass(0.16, 880.0, 0.30)
+	_streams["passive_poison_mastery"] = _make_tick(0.12, 520.0, 0.25)
+	_streams["passive_fire_mastery"] = _make_whoosh(0.16, 0.35)
+	_streams["passive_orbital_precision"] = _make_chime(0.18, 780.0, 0.35)
+	_streams["passive_reaper_hunger"] = _make_chime(0.14, 420.0, 0.20)
+	_streams["passive_bomb_expert"] = _make_explosion(0.20, 140.0, 0.85)
+	_streams["passive_ricochet_master"] = _make_tick(0.08, 1500.0, 0.20)
+	_streams["passive_spirit_surge"] = _make_chime(0.16, 720.0, 0.35)
+	_streams["passive_vampiric_mastery"] = _make_chime(0.18, 500.0, 0.25)
 	# Execute hit
 	_streams["execute"] = _make_thump(0.10, 140.0, 0.75)
 	# UI + meta
@@ -215,6 +231,21 @@ func _build_event_cfg() -> void:
 	_event_cfg["passive.web_snare"] = {"stream": "web_snare", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 220}
 	_event_cfg["passive.spore_bloom"] = {"stream": "spore_bloom", "gain_db": 1.5 + loud, "pitch": 0.96, "jitter": 0.05, "min_ms_global": 140, "min_ms_emitter": 260}
 	_event_cfg["passive.gel_mitosis"] = {"stream": "gel_mitosis", "gain_db": 0.5 + loud, "pitch": 1.05, "jitter": 0.05, "min_ms_global": 110, "min_ms_emitter": 220}
+	_event_cfg["passive.explosive_rounds"] = {"stream": "passive_explosive_rounds", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 120, "min_ms_emitter": 220}
+	_event_cfg["passive.chain_master"] = {"stream": "passive_chain_master", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 120, "min_ms_emitter": 220}
+	_event_cfg["passive.scatter_specialist"] = {"stream": "passive_scatter_specialist", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 100, "min_ms_emitter": 200}
+	_event_cfg["passive.boomerang_mastery"] = {"stream": "passive_boomerang_mastery", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 140, "min_ms_emitter": 240}
+	_event_cfg["passive.beam_focus"] = {"stream": "passive_beam_focus", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 140, "min_ms_emitter": 240}
+	_event_cfg["passive.slam_aftershock"] = {"stream": "passive_slam_aftershock", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 160, "min_ms_emitter": 280}
+	_event_cfg["passive.frost_mastery"] = {"stream": "passive_frost_mastery", "gain_db": 1.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 160, "min_ms_emitter": 280}
+	_event_cfg["passive.poison_mastery"] = {"stream": "passive_poison_mastery", "gain_db": 0.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 160, "min_ms_emitter": 260}
+	_event_cfg["passive.fire_mastery"] = {"stream": "passive_fire_mastery", "gain_db": 1.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 160, "min_ms_emitter": 260}
+	_event_cfg["passive.orbital_precision"] = {"stream": "passive_orbital_precision", "gain_db": 1.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 200, "min_ms_emitter": 300}
+	_event_cfg["passive.reaper_hunger"] = {"stream": "passive_reaper_hunger", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 220}
+	_event_cfg["passive.bomb_expert"] = {"stream": "passive_bomb_expert", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 150, "min_ms_emitter": 260}
+	_event_cfg["passive.ricochet_master"] = {"stream": "passive_ricochet_master", "gain_db": -0.5 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 80, "min_ms_emitter": 140}
+	_event_cfg["passive.spirit_surge"] = {"stream": "passive_spirit_surge", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 160, "min_ms_emitter": 260}
+	_event_cfg["passive.vampiric_mastery"] = {"stream": "passive_vampiric_mastery", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 160, "min_ms_emitter": 260}
 
 	# Enemy special actions
 	_event_cfg["enemy.dash"] = {"stream": "shockwave", "gain_db": 2.5 + loud, "pitch": 1.05, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 350}

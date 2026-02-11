@@ -26,6 +26,7 @@ enum AttackStyle { MELEE, RANGED }
 @export var rarity_id: String = "common"
 @export var archetype_id: String = "bruiser"
 @export var race_id: String = "" # Registry race (e.g. "AQUATIC"); used for race synergies
+@export var origin_id: String = "" # Origin aspect (e.g. "forge"); used for origin synergies
 @export var origin: Origin = Origin.UNDEAD
 @export var class_type: Class = Class.WARRIOR
 @export var tier: int = 1  # Kept for UI; stats are data-driven now

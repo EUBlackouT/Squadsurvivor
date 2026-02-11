@@ -723,6 +723,276 @@
           ]
         }
       ]
+    },
+    {
+      "id": "origin_banner",
+      "name": "Banner Oath",
+      "description": "Warbound leaders focus fire and harvest spoils.",
+      "count_tag": "origin:banner",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "attack_damage_mult": 1.06 },
+          "effects": [
+            { "type": "focus_fire", "stacks": 5, "window": 1.5, "bonus_mult": 0.35, "cooldown": 0.08 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "attack_damage_mult": 1.12 },
+          "effects": [
+            { "type": "focus_fire", "stacks": 4, "window": 1.8, "bonus_mult": 0.50, "cooldown": 0.08 },
+            { "type": "bounty", "chance": 0.18, "essence": 1, "elite_bonus": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_forge",
+      "name": "Forgebound",
+      "description": "Forged souls harden their plating and pulse arcs.",
+      "count_tag": "origin:forge",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "max_hp_mult": 1.08 },
+          "effects": [
+            { "type": "steel_skin", "cooldown": 2.2, "aegis_mult": 0.65, "duration": 0.7 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "max_hp_mult": 1.16, "attack_damage_mult": 1.06 },
+          "effects": [
+            { "type": "steel_skin", "cooldown": 1.7, "aegis_mult": 0.70, "duration": 0.8 },
+            { "type": "pulse_arc", "interval_hits": 5, "radius": 220, "chains": 1, "damage_mult": 0.30 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_arcane",
+      "name": "Arcane Sigil",
+      "description": "Arcane imprints fire wisp bolts and crackling chains.",
+      "count_tag": "origin:arcane",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "mods": { "attack_cooldown_mult": 0.92 },
+          "effects": [
+            { "type": "wisp_bolt", "cooldown": 1.4, "radius": 520, "damage_mult": 0.40 }
+          ]
+        },
+        {
+          "count": 4,
+          "mods": { "attack_cooldown_mult": 0.85 },
+          "effects": [
+            { "type": "wisp_bolt", "cooldown": 1.0, "radius": 560, "damage_mult": 0.50, "extra": 1 },
+            { "type": "arc_focus", "interval_hits": 5, "radius": 260, "chains": 2, "damage_mult": 0.35 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_storm",
+      "name": "Tempest Kin",
+      "description": "Stormbound strikes crackle with chaining lightning.",
+      "count_tag": "origin:storm",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "arc_focus", "interval_hits": 5, "radius": 260, "chains": 2, "damage_mult": 0.35 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "arc_focus", "interval_hits": 4, "radius": 300, "chains": 3, "damage_mult": 0.45 },
+            { "type": "crit_arc", "chance": 0.35, "radius": 260, "damage_mult": 0.35, "cooldown": 0.15 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_frost",
+      "name": "Glacierbound",
+      "description": "Icy spirits unleash chilling novas and crystal shards.",
+      "count_tag": "origin:frost",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "grave_nova", "interval_hits": 6, "radius": 150, "slow_mult": 0.80, "duration": 0.7, "cooldown": 0.18 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "grave_nova", "interval_hits": 5, "radius": 180, "slow_mult": 0.72, "duration": 0.9, "cooldown": 0.16 },
+            { "type": "crystal_shard", "interval_hits": 4, "extra_targets": 2, "radius": 220, "damage_mult": 0.25 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_ember",
+      "name": "Ember Rite",
+      "description": "Ember-blooded ignite foes and detonate in bursts.",
+      "count_tag": "origin:ember",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "hellfire_burn", "chance": 0.35, "dps_mult": 0.16, "duration": 3.0, "tick": 0.5, "cooldown": 0.08 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "hellfire_burn", "chance": 0.50, "dps_mult": 0.22, "duration": 3.5, "tick": 0.5, "cooldown": 0.06 },
+            { "type": "inferno_blast", "interval_hits": 6, "radius": 150, "damage_mult": 0.30 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_verdant",
+      "name": "Verdant Pact",
+      "description": "Verdant kin seed spores that rot enemies and mend allies.",
+      "count_tag": "origin:verdant",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "spore_cloud", "interval_hits": 4, "radius": 160, "dps_mult": 0.16, "duration": 3.0, "tick": 0.6, "cooldown": 0.16 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "spore_cloud", "interval_hits": 3, "radius": 190, "dps_mult": 0.22, "duration": 3.5, "tick": 0.6, "cooldown": 0.14 },
+            { "type": "verdant_mend", "cooldown": 1.8, "heal_frac": 0.035 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_primal",
+      "name": "Primal Hunt",
+      "description": "Primal packs maul prey and shock the ground on impact.",
+      "count_tag": "origin:primal",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "pack_maul", "interval_hits": 3, "radius": 140, "damage_mult": 0.28, "slow_mult": 0.85, "slow_dur": 0.6 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "pack_maul", "interval_hits": 2, "radius": 165, "damage_mult": 0.36, "slow_mult": 0.75, "slow_dur": 0.8 },
+            { "type": "shockstep", "interval_hits": 3, "radius": 150, "damage_mult": 0.30, "slow_mult": 0.85, "duration": 0.5 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_abyss",
+      "name": "Abyssal Tide",
+      "description": "Abyssal forces collapse space and launch void bolts.",
+      "count_tag": "origin:abyss",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "gravity_well", "interval_hits": 4, "radius": 170, "cluster": 3, "damage_mult": 0.28, "slow_mult": 0.80, "duration": 0.6, "cooldown": 0.14 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "gravity_well", "interval_hits": 3, "radius": 200, "cluster": 3, "damage_mult": 0.35, "slow_mult": 0.70, "duration": 0.8, "cooldown": 0.12 },
+            { "type": "void_bolt", "chance": 0.40, "radius": 320, "damage_mult": 0.35, "cooldown": 0.18 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_umbra",
+      "name": "Umbral Veil",
+      "description": "Umbral kin strike from shadows and cloak in aegis.",
+      "count_tag": "origin:umbra",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "shadow_veil", "chance": 0.35, "bonus_mult": 0.30, "slow_mult": 0.85, "duration": 0.6, "cooldown": 0.18 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "shadow_veil", "chance": 0.50, "bonus_mult": 0.45, "slow_mult": 0.75, "duration": 0.8, "cooldown": 0.16 },
+            { "type": "shade_step", "aegis_mult": 0.65, "duration": 0.7, "cooldown": 1.8 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_astral",
+      "name": "Astral Chorus",
+      "description": "Astral choirs detonate starlight that heals and sears.",
+      "count_tag": "origin:astral",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "stellar_burst", "interval_hits": 5, "radius": 160, "damage_mult": 0.28, "heal_frac": 0.03, "cooldown": 0.16 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "stellar_burst", "interval_hits": 4, "radius": 190, "damage_mult": 0.34, "heal_frac": 0.04, "cooldown": 0.14 },
+            { "type": "guiding_star", "chance": 0.40, "radius": 380, "damage_mult": 0.35, "heal_frac": 0.03, "cooldown": 0.18 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "origin_grave",
+      "name": "Gravebound",
+      "description": "Gravebound drain life and release chilling novas.",
+      "count_tag": "origin:grave",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "soul_leech", "chance": 0.40, "heal_mult": 0.22, "cooldown": 0.10 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "soul_leech", "chance": 0.55, "heal_mult": 0.30, "cooldown": 0.08 },
+            { "type": "grave_nova", "interval_hits": 5, "radius": 170, "slow_mult": 0.75, "duration": 0.8, "cooldown": 0.16 }
+          ]
+        }
+      ]
     }
   ]
 }

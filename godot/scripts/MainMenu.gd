@@ -30,6 +30,7 @@ extends Control
 var _map_ids: Array[String] = []
 var _crowd: Node2D = null
 var _preview_root: Node = null
+var _selected_map_locked: bool = false
 
 @export var game_title: String = "Squad Protocol"
 @export var game_tagline: String = "Draft a squad. Survive the swarm."
@@ -121,7 +122,9 @@ func _setup_map_select_overlay() -> void:
 
 	map_list.clear()
 	_map_ids.clear()
-	if rc.has_method("get_map_ids"):
+	if rc.has_method("get_map_ids_ordered"):
+		_map_ids = rc.get_map_ids_ordered()
+	elif rc.has_method("get_map_ids"):
 		_map_ids = rc.get_map_ids()
 	for i in range(_map_ids.size()):
 		var m: Dictionary = rc.get_map(_map_ids[i]) if rc.has_method("get_map") else {}
@@ -129,7 +132,12 @@ func _setup_map_select_overlay() -> void:
 		var mult := float(m.get("meta_sigils_mult", 1.0))
 		# Simpler list entry - details shown in right panel
 		var tier := "★" if mult < 1.2 else ("★★" if mult < 1.5 else "★★★")
-		map_list.add_item("%s  %s" % [name, tier])
+		var locked := not _is_map_unlocked(_map_ids[i])
+		var label := ("🔒 " + name) if locked else name
+		map_list.add_item("%s  %s" % [label, tier])
+		map_list.set_item_disabled(i, locked)
+		if locked:
+			map_list.set_item_tooltip(i, "Locked. Win the previous map to unlock.")
 
 	# Select current
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
@@ -140,9 +148,13 @@ func _setup_map_select_overlay() -> void:
 
 	_update_map_tagline(rc)
 	_update_map_preview(rc)
+	_update_map_lock_state(rc)
 
 	map_list.item_selected.connect(func(idx: int):
 		if idx < 0 or idx >= _map_ids.size():
+			return
+		if map_list.is_item_disabled(idx):
+			_play_ui("ui.error")
 			return
 		var id := _map_ids[idx]
 		_play_ui("ui.click")
@@ -150,6 +162,7 @@ func _setup_map_select_overlay() -> void:
 			rc.set_selected_map_id(id)
 		_update_map_tagline(rc)
 		_update_map_preview(rc)
+		_update_map_lock_state(rc)
 	)
 
 	if map_back_btn:
@@ -175,6 +188,19 @@ func _update_map_tagline(rc: Node) -> void:
 	else:
 		map_tagline.text = "%s\nSigils multiplier: x%.2f" % [t, mult]
 	_update_map_details(m)
+	_update_map_lock_state(rc)
+
+func _update_map_lock_state(rc: Node) -> void:
+	if rc == null:
+		return
+	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
+	_selected_map_locked = not _is_map_unlocked(cur)
+	if map_start_btn:
+		map_start_btn.disabled = _selected_map_locked
+		if _selected_map_locked:
+			map_start_btn.text = "Locked"
+		else:
+			map_start_btn.text = "Start"
 
 func _danger_score(m: Dictionary) -> float:
 	# Calculate difficulty 1-10 based on map multipliers
@@ -358,7 +384,20 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _start_run_with_selected_map() -> void:
 	# RunConfig already holds selected_map_id; Main.gd reads it on _ready.
+	if _selected_map_locked:
+		_play_ui("ui.error")
+		return
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+func _is_map_unlocked(map_id: String) -> bool:
+	if map_id == "" or map_id == "graveyard":
+		return true
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp):
+		return map_id == "graveyard"
+	if mp.has_method("is_map_unlocked"):
+		return bool(mp.is_map_unlocked(map_id))
+	return map_id == "graveyard"
 
 func _play_ui(id: String) -> void:
 	var s := get_node_or_null("/root/SfxSystem")

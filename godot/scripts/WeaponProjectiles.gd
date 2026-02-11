@@ -8,6 +8,8 @@ class BombProjectile extends Node2D:
 	var _damage: int
 	var _is_crit: bool
 	var _radius: float
+	var _burn_dur: float
+	var _burn_dps_mult: float
 	var _speed: float
 	var _main: Node2D
 	var _cd: CharacterData
@@ -16,12 +18,14 @@ class BombProjectile extends Node2D:
 	var _duration: float = 0.0
 	var _sprite: Sprite2D
 	
-	func setup(start: Vector2, target: Vector2, dmg: int, crit: bool, radius: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+	func setup(start: Vector2, target: Vector2, dmg: int, crit: bool, radius: float, burn_dur: float, burn_dps_mult: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
 		_start_pos = start
 		_target_pos = target
 		_damage = dmg
 		_is_crit = crit
 		_radius = radius
+		_burn_dur = burn_dur
+		_burn_dps_mult = burn_dps_mult
 		_speed = speed
 		_main = main
 		_cd = cd
@@ -73,6 +77,17 @@ class BombProjectile extends Node2D:
 			if n2.global_position.distance_squared_to(global_position) <= r2:
 				if n2.has_method("take_damage"):
 					n2.take_damage(_damage, _is_crit, "bomb")
+				if _burn_dur > 0.0 and _burn_dps_mult > 0.0 and n2.has_method("apply_burn"):
+					var dps := float(_damage) * _burn_dps_mult
+					n2.apply_burn(dps, _burn_dur, 0.5)
+					PassiveSystem.mark_burn(n2, _burn_dur)
+					if _main != null and is_instance_valid(_main):
+						var fb := VfxFlameBurst.new()
+						fb.setup(global_position, Color(1.0, 0.55, 0.2, 1.0), _radius * 0.55, 12, 0.22, Vector2.ZERO)
+						_main.add_child(fb)
+						var s := _main.get_node_or_null("/root/SfxSystem")
+						if s and is_instance_valid(s) and s.has_method("play_event"):
+							s.play_event("passive.bomb_expert", global_position, self)
 		
 		# VFX - use weapon.bomb_explode event
 		var v := _main.get_node_or_null("/root/VfxSystem") if _main else null
@@ -191,6 +206,7 @@ class BeamAttack extends Node2D:
 	var _is_crit: bool
 	var _length: float
 	var _width: float
+	var _width_growth: float
 	var _duration: float
 	var _tick_rate: float
 	var _main: Node2D
@@ -199,13 +215,14 @@ class BeamAttack extends Node2D:
 	var _tick_t: float = 0.0
 	var _line: Line2D
 	
-	func setup(owner: Node2D, dir: Vector2, dmg: int, crit: bool, length: float, width: float, duration: float, tick: float, main: Node2D, cd: CharacterData) -> void:
+	func setup(owner: Node2D, dir: Vector2, dmg: int, crit: bool, length: float, width: float, width_growth: float, duration: float, tick: float, main: Node2D, cd: CharacterData) -> void:
 		_owner_ref = weakref(owner)
 		_direction = dir.normalized()
 		_damage = dmg
 		_is_crit = crit
 		_length = length
 		_width = width
+		_width_growth = width_growth
 		_duration = duration
 		_tick_rate = tick
 		_main = main
@@ -226,8 +243,11 @@ class BeamAttack extends Node2D:
 		if owner_node and is_instance_valid(owner_node):
 			global_position = owner_node.global_position
 		
-		# Pulse effect
+		# Pulse effect + optional growth
 		_line.default_color.a = 0.6 + 0.4 * sin(_elapsed * 20.0)
+		if _width_growth > 0.0 and _duration > 0.0:
+			var t := clampf(_elapsed / _duration, 0.0, 1.0)
+			_line.width = _width * (1.0 + _width_growth * t)
 		
 		if _tick_t >= _tick_rate:
 			_tick_t = 0.0
@@ -265,6 +285,8 @@ class DotProjectile extends Node2D:
 	var _damage: int
 	var _is_crit: bool
 	var _dot_pct: float
+	var _poison_mult: float
+	var _spread_radius: float
 	var _dot_dur: float
 	var _dot_tick: float
 	var _speed: float
@@ -273,12 +295,14 @@ class DotProjectile extends Node2D:
 	var _attacker: Node2D
 	var _sprite: Sprite2D
 	
-	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, dot_pct: float, dot_dur: float, dot_tick: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, dot_pct: float, poison_mult: float, spread_radius: float, dot_dur: float, dot_tick: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
 		global_position = start
 		_target_ref = weakref(target)
 		_damage = dmg
 		_is_crit = crit
 		_dot_pct = dot_pct
+		_poison_mult = poison_mult
+		_spread_radius = spread_radius
 		_dot_dur = dot_dur
 		_dot_tick = dot_tick
 		_speed = speed
@@ -319,8 +343,15 @@ class DotProjectile extends Node2D:
 		
 		# Apply DOT
 		if target.has_method("apply_burn"):
-			var dps := float(_damage) * _dot_pct / _dot_dur
+			var dps := float(_damage) * _dot_pct / _dot_dur * _poison_mult
 			target.apply_burn(dps, _dot_dur, _dot_tick)
+			if _spread_radius > 0.0:
+				target.set_meta("_poison_spread_dps", dps)
+				target.set_meta("_poison_spread_dur", _dot_dur)
+				target.set_meta("_poison_spread_tick", _dot_tick)
+				target.set_meta("_poison_spread_count", 2)
+				target.set_meta("_poison_spread_radius", _spread_radius)
+				target.set_meta("_poison_spread_until_ms", int(Time.get_ticks_msec()) + int(round(_dot_dur * 1000.0)))
 		
 		# Green poison visual
 		if target.has_method("pulse_vfx"):
@@ -335,6 +366,9 @@ class SlowProjectile extends Node2D:
 	var _damage: int
 	var _is_crit: bool
 	var _slow_pct: float
+	var _slow_bonus: float
+	var _shatter_radius: float
+	var _shatter_damage: float
 	var _slow_dur: float
 	var _speed: float
 	var _main: Node2D
@@ -342,12 +376,15 @@ class SlowProjectile extends Node2D:
 	var _attacker: Node2D
 	var _sprite: Sprite2D
 	
-	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, slow_pct: float, slow_dur: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, slow_pct: float, slow_bonus: float, shatter_radius: float, shatter_damage: float, slow_dur: float, speed: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
 		global_position = start
 		_target_ref = weakref(target)
 		_damage = dmg
 		_is_crit = crit
 		_slow_pct = slow_pct
+		_slow_bonus = slow_bonus
+		_shatter_radius = shatter_radius
+		_shatter_damage = shatter_damage
 		_slow_dur = slow_dur
 		_speed = speed
 		_main = main
@@ -387,7 +424,12 @@ class SlowProjectile extends Node2D:
 		
 		# Apply slow
 		if target.has_method("apply_slow"):
-			target.apply_slow(_slow_pct, _slow_dur)
+			var slow_val := minf(0.95, _slow_pct + _slow_bonus)
+			target.apply_slow(slow_val, _slow_dur)
+		if _shatter_radius > 0.0 and _shatter_damage > 0.0:
+			target.set_meta("_frost_shatter_radius", _shatter_radius)
+			target.set_meta("_frost_shatter_dmg", int(round(float(_damage) * _shatter_damage)))
+			target.set_meta("_frost_shatter_until_ms", int(Time.get_ticks_msec()) + int(round(_slow_dur * 1000.0)))
 		
 		# Frost visual
 		if target.has_method("pulse_vfx"):
@@ -457,6 +499,14 @@ class RicochetProjectile extends Node2D:
 		if target.has_method("take_damage"):
 			target.take_damage(_damage, _is_crit and _bounces_left == int(_bounces_left), "ricochet")
 		_hit_targets.append(target)
+		if _cd != null and PassiveSystem.has_passive(_cd.passive_ids, "ricochet_master"):
+			if _main != null and is_instance_valid(_main):
+				var f := VfxImpactFlash.new()
+				f.setup(target.global_position + Vector2(0, -10), Color(1.0, 0.85, 0.35, 1.0), 12.0, 0.10)
+				_main.add_child(f)
+				var s := _main.get_node_or_null("/root/SfxSystem")
+				if s and is_instance_valid(s) and s.has_method("play_event"):
+					s.play_event("passive.ricochet_master", target.global_position, self)
 		
 		_bounces_left -= 1
 		_damage = int(float(_damage) * _dmg_decay)
@@ -567,6 +617,7 @@ class OrbitalStrike extends Node2D:
 	var _is_crit: bool
 	var _radius: float
 	var _delay: float
+	var _cluster_bonus: float
 	var _main: Node2D
 	var _cd: CharacterData
 	var _attacker: Node2D
@@ -575,12 +626,13 @@ class OrbitalStrike extends Node2D:
 	var _warning_line: Line2D
 	var _played_charge_sfx: bool = false
 	
-	func setup(pos: Vector2, dmg: int, crit: bool, radius: float, delay: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+	func setup(pos: Vector2, dmg: int, crit: bool, radius: float, delay: float, cluster_bonus: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
 		_target_pos = pos
 		_damage = dmg
 		_is_crit = crit
 		_radius = radius
 		_delay = delay
+		_cluster_bonus = cluster_bonus
 		_main = main
 		_cd = cd
 		_attacker = attacker
@@ -644,6 +696,7 @@ class OrbitalStrike extends Node2D:
 			enemies = _main.get_cached_enemies()
 		
 		var r2 := _radius * _radius
+		var in_range: Array[Node2D] = []
 		for e in enemies:
 			if not is_instance_valid(e):
 				continue
@@ -651,8 +704,20 @@ class OrbitalStrike extends Node2D:
 			if n2 == null:
 				continue
 			if n2.global_position.distance_squared_to(global_position) <= r2:
-				if n2.has_method("take_damage"):
-					n2.take_damage(_damage, _is_crit, "orbital_strike")
+				in_range.append(n2)
+		var dmg := _damage
+		if _cluster_bonus > 0.0 and in_range.size() >= 3:
+			dmg = int(round(float(_damage) * (1.0 + _cluster_bonus)))
+			if _main != null and is_instance_valid(_main):
+				var fm := VfxFocusMark.new()
+				fm.setup(global_position + Vector2(0, -10), Color(1.0, 0.7, 0.35, 1.0), 22.0, 0, 0.22)
+				_main.add_child(fm)
+				var s := _main.get_node_or_null("/root/SfxSystem")
+				if s and is_instance_valid(s) and s.has_method("play_event"):
+					s.play_event("passive.orbital_precision", global_position, self)
+		for n in in_range:
+			if n.has_method("take_damage"):
+				n.take_damage(dmg, _is_crit, "orbital_strike")
 		
 		# Big explosion VFX
 		var v := _main.get_node_or_null("/root/VfxSystem") if _main else null

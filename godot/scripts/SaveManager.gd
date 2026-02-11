@@ -146,6 +146,7 @@ func save_meta() -> void:
 			"sigils": int(mp.sigils) if (mp != null and is_instance_valid(mp) and "sigils" in mp) else 0,
 			"squad_slots": int(mp.squad_slots) if (mp != null and is_instance_valid(mp) and "squad_slots" in mp) else 3,
 			"last_run": mp.last_run if (mp != null and is_instance_valid(mp) and "last_run" in mp) else {},
+			"map_unlocks": Array(mp.map_unlocks) if (mp != null and is_instance_valid(mp) and "map_unlocks" in mp) else ["graveyard"],
 			"meta_nodes_owned": Array(mp.meta_nodes_owned) if (mp != null and is_instance_valid(mp) and "meta_nodes_owned" in mp) else ["core_0"]
 		},
 		"collection": {
@@ -181,6 +182,14 @@ func load_meta() -> void:
 			mp.squad_slots = int(meta.get("squad_slots", int(mp.squad_slots)))
 		if "last_run" in mp:
 			mp.last_run = meta.get("last_run", mp.last_run) as Dictionary
+		if "map_unlocks" in mp:
+			var mu: Array = meta.get("map_unlocks", Array(mp.map_unlocks)) as Array
+			var mu_out := PackedStringArray()
+			for e in mu:
+				mu_out.append(String(e))
+			if not mu_out.has("graveyard"):
+				mu_out.append("graveyard")
+			mp.map_unlocks = mu_out
 		if "meta_nodes_owned" in mp:
 			var owned: Array = meta.get("meta_nodes_owned", Array(mp.meta_nodes_owned)) as Array
 			var out := PackedStringArray()
@@ -208,6 +217,7 @@ func _cd_to_dict(cd: CharacterData) -> Dictionary:
 		"pixellab_id": cd.pixellab_id,
 		"rarity_id": cd.rarity_id,
 		"archetype_id": cd.archetype_id,
+		"origin_id": cd.origin_id,
 		"origin": int(cd.origin),
 		"class_type": int(cd.class_type),
 		"tier": int(cd.tier),
@@ -228,6 +238,7 @@ func _dict_to_cd(d: Dictionary) -> CharacterData:
 	cd.pixellab_id = String(d.get("pixellab_id", ""))
 	cd.rarity_id = String(d.get("rarity_id", "common"))
 	cd.archetype_id = String(d.get("archetype_id", "bruiser"))
+	cd.origin_id = String(d.get("origin_id", ""))
 	cd.origin = int(d.get("origin", 0))
 	cd.class_type = int(d.get("class_type", 0))
 	cd.tier = int(d.get("tier", 1))

@@ -165,6 +165,41 @@ static func _sfx_event(world: Node2D, event_id: String, pos: Vector2, emitter: O
 	if s != null and is_instance_valid(s) and s.has_method("play_event"):
 		s.play_event(event_id, pos, emitter)
 
+static func _spawn_fx(world: Node2D, fx: Node2D) -> void:
+	if world == null or fx == null:
+		return
+	world.add_child(fx)
+
+static func _fx_flash(world: Node2D, pos: Vector2, color: Color, radius: float, dur: float = 0.14) -> void:
+	var f := VfxImpactFlash.new()
+	f.setup(pos, color, radius, dur)
+	_spawn_fx(world, f)
+
+static func _fx_shock(world: Node2D, pos: Vector2, color: Color, r0: float, r1: float, width: float, dur: float) -> void:
+	var sw := VfxShockwave.new()
+	sw.setup(pos, color, r0, r1, width, dur)
+	_spawn_fx(world, sw)
+
+static func _fx_flame_burst(world: Node2D, pos: Vector2, color: Color, radius: float, dir: Vector2 = Vector2.ZERO) -> void:
+	var fb := VfxFlameBurst.new()
+	fb.setup(pos, color, radius, 10, 0.20, dir)
+	_spawn_fx(world, fb)
+
+static func _fx_frost_nova(world: Node2D, pos: Vector2, color: Color, radius: float) -> void:
+	var fn := VfxFrostNova.new()
+	fn.setup(pos, color, radius, 10, 0.26)
+	_spawn_fx(world, fn)
+
+static func _fx_focus(world: Node2D, pos: Vector2, color: Color, size: float) -> void:
+	var fm := VfxFocusMark.new()
+	fm.setup(pos, color, size, 0, 0.20)
+	_spawn_fx(world, fm)
+
+static func _fx_holy(world: Node2D, pos: Vector2, color: Color, size0: float, size1: float) -> void:
+	var hp := VfxHolyPulse.new()
+	hp.setup(pos, color, size0, size1, 0.22)
+	_spawn_fx(world, hp)
+
 static func extra_pierce_count(passive_ids: PackedStringArray) -> int:
 	# Only one passive currently affects pierce.
 	var extra: int = 0
@@ -186,6 +221,87 @@ static func _param_i(pid: String, key: String, default_v: int) -> int:
 	var d := _p(pid)
 	var params := d.get("params", {}) as Dictionary
 	return int(params.get(key, default_v))
+
+static func params_for(pid: String) -> Dictionary:
+	return _p(pid).get("params", {}) as Dictionary
+
+static func has_passive(ids: PackedStringArray, pid: String) -> bool:
+	for id in ids:
+		if String(id) == pid:
+			return true
+	return false
+
+static func apply_weapon_mods(weapon_id: String, w: Dictionary, passive_ids: PackedStringArray) -> Dictionary:
+	if w.is_empty() or passive_ids.is_empty():
+		return w
+	var out := w.duplicate(true)
+	var wtype := String(out.get("type", ""))
+
+	if has_passive(passive_ids, "chain_master") and wtype == "chain":
+		out["chain_count"] = int(out.get("chain_count", 3)) + _param_i("chain_master", "extra_chains", 2)
+		var decay := float(out.get("chain_damage_decay", 0.8))
+		var red := _param_f("chain_master", "decay_reduction", 0.15)
+		out["chain_damage_decay"] = minf(1.0, decay + red)
+
+	if has_passive(passive_ids, "scatter_specialist") and wtype == "scatter":
+		out["projectile_count"] = int(out.get("projectile_count", 5)) + _param_i("scatter_specialist", "extra_projectiles", 2)
+		var spread := float(out.get("spread_angle", 45))
+		var red2 := _param_f("scatter_specialist", "spread_reduction", 0.25)
+		out["spread_angle"] = maxf(6.0, spread * (1.0 - red2))
+
+	if has_passive(passive_ids, "boomerang_mastery") and wtype == "boomerang":
+		out["travel_distance"] = float(out.get("travel_distance", 200.0)) * _param_f("boomerang_mastery", "range_mult", 1.5)
+		var ret := _param_f("boomerang_mastery", "return_damage_mult", 1.0)
+		out["return_damage_mult"] = maxf(float(out.get("return_damage_mult", 0.6)), ret)
+
+	if has_passive(passive_ids, "beam_focus") and wtype == "beam":
+		out["duration"] = float(out.get("duration", 0.5)) * _param_f("beam_focus", "duration_mult", 1.5)
+		out["width_growth"] = float(out.get("width_growth", 0.0)) + _param_f("beam_focus", "width_growth", 0.25)
+
+	if has_passive(passive_ids, "orbital_precision") and wtype == "orbital":
+		var delay := float(out.get("delay", 1.0))
+		var red3 := _param_f("orbital_precision", "delay_reduction", 0.4)
+		out["delay"] = maxf(0.2, delay * (1.0 - red3))
+		out["cluster_bonus"] = float(out.get("cluster_bonus", 0.0)) + _param_f("orbital_precision", "cluster_bonus", 0.3)
+
+	if has_passive(passive_ids, "bomb_expert") and wtype == "bomb":
+		out["explosion_radius"] = float(out.get("explosion_radius", 70.0)) * _param_f("bomb_expert", "radius_mult", 1.3)
+		out["burn_duration"] = maxf(float(out.get("burn_duration", 0.0)), _param_f("bomb_expert", "burn_duration", 2.0))
+		out["burn_dps_mult"] = float(out.get("burn_dps_mult", 0.0)) + _param_f("bomb_expert", "burn_dps_mult", 0.25)
+
+	if has_passive(passive_ids, "ricochet_master") and wtype == "ricochet":
+		out["bounce_count"] = int(out.get("bounce_count", 4)) + _param_i("ricochet_master", "extra_bounces", 3)
+		var p := params_for("ricochet_master")
+		if bool(p.get("no_decay", false)):
+			out["damage_per_bounce"] = 1.0
+
+	if has_passive(passive_ids, "spirit_surge") and wtype == "delayed_strike":
+		out["extra_strikes"] = int(out.get("extra_strikes", 0)) + _param_i("spirit_surge", "extra_strikes", 2)
+		out["damage_mult"] = float(out.get("damage_mult", 1.0)) * _param_f("spirit_surge", "damage_mult", 0.65)
+
+	if has_passive(passive_ids, "vampiric_mastery") and wtype == "lifesteal_melee":
+		out["lifesteal_percent"] = float(out.get("lifesteal_percent", 0.3)) + _param_f("vampiric_mastery", "lifesteal_bonus", 0.15)
+		out["overheal_shield"] = float(out.get("overheal_shield", 0.0)) + _param_f("vampiric_mastery", "overheal_shield", 0.5)
+
+	if has_passive(passive_ids, "reaper_hunger") and wtype == "melee_arc":
+		out["reaper_hunger_heal_mult"] = float(out.get("reaper_hunger_heal_mult", 0.0)) + _param_f("reaper_hunger", "heal_mult", 0.15)
+		out["reaper_hunger_kill_mult"] = float(out.get("reaper_hunger_kill_mult", 0.0)) + _param_f("reaper_hunger", "kill_heal_mult", 0.3)
+
+	if has_passive(passive_ids, "frost_mastery") and weapon_id == "frost_bolt":
+		out["slow_bonus"] = float(out.get("slow_bonus", 0.0)) + _param_f("frost_mastery", "slow_bonus", 0.2)
+		out["shatter_radius"] = float(out.get("shatter_radius", 0.0)) + _param_f("frost_mastery", "shatter_radius", 80.0)
+		out["shatter_damage"] = float(out.get("shatter_damage", 0.0)) + _param_f("frost_mastery", "shatter_damage", 0.7)
+
+	if has_passive(passive_ids, "poison_mastery") and weapon_id == "poison_dart":
+		out["poison_damage_mult"] = float(out.get("poison_damage_mult", 1.0)) * _param_f("poison_mastery", "damage_mult", 1.3)
+		out["poison_spread_radius"] = float(out.get("poison_spread_radius", 0.0)) + _param_f("poison_mastery", "spread_radius", 100.0)
+
+	if has_passive(passive_ids, "fire_mastery") and weapon_id == "fire_wave":
+		out["fire_spread_count"] = int(out.get("fire_spread_count", 0)) + _param_i("fire_mastery", "spread_count", 2)
+		out["fire_spread_radius"] = float(out.get("fire_spread_radius", 0.0)) + _param_f("fire_mastery", "spread_radius", 120.0)
+		out["fire_damage_amp"] = float(out.get("fire_damage_amp", 0.0)) + _param_f("fire_mastery", "damage_amp", 0.25)
+
+	return out
 
 static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, damage: int, is_crit: bool, is_melee: bool) -> void:
 	if cd == null:
@@ -234,9 +350,9 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 				_vortex_tag(unit, target, damage)
 			"cinder_brand":
 				if is_melee:
-					_cinder_brand(target, damage)
+					_cinder_brand(target, damage, cd)
 			"toxic":
-				_toxic_venom(target, damage)
+				_toxic_venom(target, damage, cd)
 			"doomstack":
 				_doomstack(unit, target, damage)
 			"hailburst":
@@ -264,6 +380,9 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 		if world.has_method("get_arc_surge_damage_mult"):
 			mult = float(world.get_arc_surge_damage_mult())
 		_arc_chain(unit, target, int(round(float(damage) * mult)))
+	# Fire Mastery: bonus damage to burning targets.
+	if has_passive(ids, "fire_mastery"):
+		_fire_mastery_bonus(target, damage)
 
 
 static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, enemy: Node2D, damage: int, _is_crit: bool) -> void:
@@ -291,9 +410,9 @@ static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, ene
 			"vortex_tag":
 				_vortex_tag(_proj, enemy, damage)
 			"cinder_brand":
-				_cinder_brand(enemy, damage)
+				_cinder_brand(enemy, damage, passive_ids)
 			"toxic":
-				_toxic_venom(enemy, damage)
+				_toxic_venom(enemy, damage, passive_ids)
 			"vampiric_bullets":
 				_vampiric_bullets(_proj, damage)
 			"doomstack":
@@ -308,6 +427,8 @@ static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, ene
 				_spore_bloom(_proj, enemy, damage)
 			"gel_mitosis":
 				_gel_mitosis(_proj, enemy, damage)
+			"explosive_rounds":
+				_explosive_rounds(_proj, enemy, damage)
 			_:
 				pass
 	# Mage callout: Arc Surge also applies to projectile hits.
@@ -317,6 +438,9 @@ static func on_projectile_hit(passive_ids: PackedStringArray, _proj: Node2D, ene
 		if world.has_method("get_arc_surge_damage_mult"):
 			mult = float(world.get_arc_surge_damage_mult())
 		_arc_chain(_proj, enemy, int(round(float(damage) * mult)))
+	# Fire Mastery: bonus damage to burning targets.
+	if has_passive(passive_ids, "fire_mastery"):
+		_fire_mastery_bonus(enemy, damage)
 
 static func _main_world(from: Node) -> Node2D:
 	if from == null:
@@ -751,7 +875,7 @@ static func _bleed_edge(target: Node2D, damage: int) -> void:
 	if world != null:
 		_vfx_event(world, "enemy.die", (target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.25, 0.35, 1.0), 0.7)
 
-static func _cinder_brand(target: Node2D, damage: int) -> void:
+static func _cinder_brand(target: Node2D, damage: int, passive_ids: PackedStringArray) -> void:
 	# Applies burn (DOT) on hit.
 	if target == null or not is_instance_valid(target):
 		return
@@ -764,15 +888,20 @@ static func _cinder_brand(target: Node2D, damage: int) -> void:
 	if dps <= 0.0:
 		return
 	target.apply_burn(dps, dur, tick)
-	# Tag for potential combos
+	_mark_burn(target, dur)
+	if has_passive(passive_ids, "fire_mastery"):
+		var count := _param_i("fire_mastery", "spread_count", 2)
+		_mark_fire_spread(target, dps, dur, tick, count)
 
-static func _toxic_venom(target: Node2D, damage: int) -> void:
+static func _toxic_venom(target: Node2D, damage: int, passive_ids: PackedStringArray) -> void:
 	# Applies stacking poison (uses burn system internally with green visual).
 	if target == null or not is_instance_valid(target):
 		return
 	if not target.has_method("apply_burn"):
 		return
 	var mult := _param_f("toxic", "damage_mult", 0.15)
+	if has_passive(passive_ids, "poison_mastery"):
+		mult *= _param_f("poison_mastery", "damage_mult", 1.3)
 	var dur := _param_f("toxic", "duration", 5.0)
 	var tick := _param_f("toxic", "tick_interval", 0.5)
 	# Stacking: each application adds more DPS (up to max_stacks)
@@ -785,6 +914,8 @@ static func _toxic_venom(target: Node2D, damage: int) -> void:
 	if dps <= 0.0:
 		return
 	target.apply_burn(dps, dur, tick)
+	if has_passive(passive_ids, "poison_mastery"):
+		_mark_poison_spread(target, dps, dur, tick, 2)
 	# Green poison visual
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.35, 0.95, 0.25, 1.0))
@@ -816,6 +947,78 @@ static func _vampiric_bullets(proj: Node2D, damage: int) -> void:
 		var hp := VfxHolyPulse.new()
 		hp.setup(su.global_position + Vector2(0, -18), Color(0.55, 1.0, 0.65, 1.0), 14.0, 38.0, 0.20)
 		_spawn_vfx(su, hp)
+
+static func _explosive_rounds(from: Node2D, target: Node2D, damage: int) -> void:
+	if from == null or target == null or not is_instance_valid(target):
+		return
+	var rad := _param_f("explosive_rounds", "radius", 60.0)
+	var mult := _param_f("explosive_rounds", "damage_mult", 0.4)
+	var dmg := int(round(float(damage) * mult))
+	if dmg <= 0:
+		return
+	var origin := (target as Node2D).global_position
+	var victims := _nearby_enemies(from, origin, rad, null)
+	for v in victims:
+		if v.has_method("take_damage"):
+			v.take_damage(dmg, false, "blast")
+		if v.has_method("pulse_vfx"):
+			v.pulse_vfx(Color(1.0, 0.7, 0.3, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_fx_shock(world, origin, Color(1.0, 0.55, 0.22, 1.0), 14.0, rad * 1.05, 6.0, 0.22)
+		_fx_flash(world, origin, Color(1.0, 0.75, 0.35, 1.0), 18.0 + rad * 0.25, 0.16)
+		_sfx_event(world, "passive.explosive_rounds", origin, from)
+
+static func _mark_burn(target: Node2D, duration: float) -> void:
+	if target == null:
+		return
+	var until_ms: int = int(Time.get_ticks_msec() + int(round(duration * 1000.0)))
+	target.set_meta("_burn_until_ms", until_ms)
+
+static func mark_burn(target: Node2D, duration: float) -> void:
+	_mark_burn(target, duration)
+
+static func _fire_mastery_bonus(target: Node2D, damage: int) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	var until_ms: int = int(target.get_meta("_burn_until_ms", 0))
+	if until_ms <= 0 or int(Time.get_ticks_msec()) > until_ms:
+		return
+	var mult := _param_f("fire_mastery", "damage_amp", 0.25)
+	var bonus := int(round(float(damage) * mult))
+	if bonus <= 0:
+		return
+	if target.has_method("take_damage"):
+		target.take_damage(bonus, false, "burn")
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(1.0, 0.55, 0.25, 1.0))
+	var world := _main_world(target)
+	if world != null:
+		_fx_flash(world, (target as Node2D).global_position + Vector2(0, -12), Color(1.0, 0.55, 0.25, 1.0), 14.0, 0.12)
+		_sfx_event(world, "passive.fire_mastery", (target as Node2D).global_position, target)
+
+static func _mark_fire_spread(target: Node2D, dps: float, dur: float, tick: float, count: int) -> void:
+	if target == null:
+		return
+	target.set_meta("_fire_spread_dps", dps)
+	target.set_meta("_fire_spread_dur", dur)
+	target.set_meta("_fire_spread_tick", tick)
+	target.set_meta("_fire_spread_count", count)
+	target.set_meta("_fire_spread_radius", _param_f("fire_mastery", "spread_radius", 120.0))
+	target.set_meta("_fire_spread_until_ms", int(Time.get_ticks_msec() + int(round(dur * 1000.0))))
+
+static func mark_fire_spread(target: Node2D, dps: float, dur: float, tick: float, count: int) -> void:
+	_mark_fire_spread(target, dps, dur, tick, count)
+
+static func _mark_poison_spread(target: Node2D, dps: float, dur: float, tick: float, count: int) -> void:
+	if target == null:
+		return
+	target.set_meta("_poison_spread_dps", dps)
+	target.set_meta("_poison_spread_dur", dur)
+	target.set_meta("_poison_spread_tick", tick)
+	target.set_meta("_poison_spread_count", count)
+	target.set_meta("_poison_spread_radius", _param_f("poison_mastery", "spread_radius", 100.0))
+	target.set_meta("_poison_spread_until_ms", int(Time.get_ticks_msec() + int(round(dur * 1000.0))))
 
 static func _doomstack(from: Node2D, target: Node2D, damage: int) -> void:
 	# Stacking mark: after N hits, detonate for bonus damage + small AoE.

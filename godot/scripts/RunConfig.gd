@@ -7,6 +7,7 @@ var selected_map_id: String = "graveyard"
 
 var _loaded: bool = false
 var _maps_by_id: Dictionary = {}
+var _map_ids_order: Array[String] = []
 
 const MAPS_PATH: String = "res://data/maps.json"
 const SAVE_PATH: String = "user://run_config.json"
@@ -32,6 +33,7 @@ func ensure_loaded() -> void:
 
 	var root := parsed as Dictionary
 	var arr: Array = root.get("maps", [])
+	_map_ids_order = []
 	for m in arr:
 		if typeof(m) != TYPE_DICTIONARY:
 			continue
@@ -40,6 +42,7 @@ func ensure_loaded() -> void:
 		if id == "":
 			continue
 		_maps_by_id[id] = d
+		_map_ids_order.append(id)
 
 func get_map_ids() -> Array[String]:
 	ensure_loaded()
@@ -48,6 +51,10 @@ func get_map_ids() -> Array[String]:
 		ids.append(String(k))
 	ids.sort()
 	return ids
+
+func get_map_ids_ordered() -> Array[String]:
+	ensure_loaded()
+	return _map_ids_order.duplicate()
 
 func get_map(map_id: String) -> Dictionary:
 	ensure_loaded()
