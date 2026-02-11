@@ -351,6 +351,378 @@
           ]
         }
       ]
+    },
+    {
+      "id": "race_aquatic",
+      "name": "Tidebound",
+      "description": "Aquatic squads drown the field in waves and healing brine.",
+      "count_tag": "race:aquatic",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "tidal_surge", "interval_hits": 5, "radius": 170, "damage_mult": 0.28, "slow_mult": 0.78, "duration": 0.7, "cooldown": 0.14 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "tidal_surge", "interval_hits": 4, "radius": 200, "damage_mult": 0.35, "slow_mult": 0.70, "duration": 0.9, "cooldown": 0.12 },
+            { "type": "tide_mend", "cooldown": 2.0, "heal_frac": 0.035 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_fae",
+      "name": "Glimmer Court",
+      "description": "Fae weave tricklight bolts and protective glamours.",
+      "count_tag": "race:fae",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "glimmer_bolt", "chance": 0.35, "radius": 360, "damage_mult": 0.35, "slow_mult": 0.85, "duration": 0.6, "cooldown": 0.18 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "glimmer_bolt", "chance": 0.50, "radius": 420, "damage_mult": 0.45, "slow_mult": 0.78, "duration": 0.75, "cooldown": 0.16 },
+            { "type": "aegis_blessing", "cooldown": 2.2, "aegis_mult": 0.70, "duration": 0.9 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_crystalline",
+      "name": "Prism Choir",
+      "description": "Crystalline units shatter into razor shards and form prism wards.",
+      "count_tag": "race:crystalline",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "crystal_shard", "interval_hits": 4, "extra_targets": 2, "radius": 240, "damage_mult": 0.32 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "crystal_shard", "interval_hits": 3, "extra_targets": 3, "radius": 270, "damage_mult": 0.40 },
+            { "type": "prism_guard", "cooldown": 2.0, "radius": 140, "aegis_mult": 0.70, "duration": 0.9 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_shadowborn",
+      "name": "Umbral Veil",
+      "description": "Shadowborn slip through reality, striking twice and fading into safety.",
+      "count_tag": "race:shadowborn",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "shadow_veil", "chance": 0.35, "bonus_mult": 0.35, "slow_mult": 0.85, "duration": 0.6, "cooldown": 0.18 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "shadow_veil", "chance": 0.50, "bonus_mult": 0.50, "slow_mult": 0.75, "duration": 0.8, "cooldown": 0.16 },
+            { "type": "shade_step", "aegis_mult": 0.65, "duration": 0.7, "cooldown": 1.8 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_avian",
+      "name": "Skyflight",
+      "description": "Avians unleash feather barrages and wind gusts that slow pursuers.",
+      "count_tag": "race:avian",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "featherstorm", "interval_hits": 4, "extra_targets": 2, "radius": 420, "damage_mult": 0.28 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "featherstorm", "interval_hits": 3, "extra_targets": 3, "radius": 480, "damage_mult": 0.35 },
+            { "type": "air_gust", "cooldown": 1.8, "radius": 150, "slow_mult": 0.80, "duration": 0.7 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_arachnid",
+      "name": "Silkweavers",
+      "description": "Arachnids blanket the field in webs and venom.",
+      "count_tag": "race:arachnid",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "web_ward", "interval_hits": 4, "radius": 160, "slow_mult": 0.75, "duration": 0.8, "cooldown": 0.14 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "web_ward", "interval_hits": 3, "radius": 190, "slow_mult": 0.65, "duration": 1.0, "cooldown": 0.12 },
+            { "type": "venom_bite", "chance": 0.35, "dps_mult": 0.18, "duration": 3.0, "tick": 0.6, "cooldown": 0.12 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_plantoid",
+      "name": "Verdant Host",
+      "description": "Plantoids spread spores that rot enemies and mend allies.",
+      "count_tag": "race:plantoid",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "spore_cloud", "interval_hits": 4, "radius": 160, "dps_mult": 0.18, "duration": 3.0, "tick": 0.6, "cooldown": 0.16 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "spore_cloud", "interval_hits": 3, "radius": 190, "dps_mult": 0.22, "duration": 3.5, "tick": 0.6, "cooldown": 0.14 },
+            { "type": "verdant_mend", "cooldown": 1.6, "heal_frac": 0.03 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_slimekin",
+      "name": "Gel Synapse",
+      "description": "Slimekin leave slick trails and split into splashing bolts.",
+      "count_tag": "race:slimekin",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "gel_slick", "interval_hits": 4, "radius": 170, "damage_mult": 0.22, "slow_mult": 0.75, "duration": 0.7, "cooldown": 0.14 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "gel_slick", "interval_hits": 3, "radius": 200, "damage_mult": 0.30, "slow_mult": 0.65, "duration": 0.9, "cooldown": 0.12 },
+            { "type": "gel_split", "interval_hits": 6, "extra_targets": 2, "radius": 240, "damage_mult": 0.30 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_humanoid",
+      "name": "Field Command",
+      "description": "Humanoids coordinate suppressive fire and rally wounded allies.",
+      "count_tag": "race:humanoid",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "suppressive_fire", "chance": 0.40, "slow_mult": 0.82, "duration": 0.6, "cooldown": 0.10 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "suppressive_fire", "chance": 0.55, "slow_mult": 0.72, "duration": 0.8, "cooldown": 0.08 },
+            { "type": "rally_ping", "cooldown": 2.2, "heal_frac": 0.05 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_machine",
+      "name": "Steel Circuit",
+      "description": "Machine squads pulse arcs and reinforce their plating.",
+      "count_tag": "race:machine",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "pulse_arc", "interval_hits": 5, "radius": 220, "chains": 1, "damage_mult": 0.35 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "pulse_arc", "interval_hits": 4, "radius": 260, "chains": 2, "damage_mult": 0.45 },
+            { "type": "steel_skin", "cooldown": 1.9, "aegis_mult": 0.70, "duration": 0.7 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_mutant",
+      "name": "Warped Brood",
+      "description": "Mutants lash out with toxic spikes and volatile surges.",
+      "count_tag": "race:mutant",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "toxic_spike", "chance": 0.35, "dps_mult": 0.16, "duration": 3.0, "tick": 0.6, "cooldown": 0.12 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "toxic_spike", "chance": 0.50, "dps_mult": 0.22, "duration": 3.5, "tick": 0.6, "cooldown": 0.10 },
+            { "type": "mutate_surge", "interval_hits": 5, "radius": 150, "damage_mult": 0.28, "slow_mult": 0.85, "duration": 0.6 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_alien",
+      "name": "Void Synapse",
+      "description": "Alien forces collapse space, crushing clustered enemies.",
+      "count_tag": "race:alien",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "gravity_well", "interval_hits": 4, "radius": 160, "cluster": 3, "damage_mult": 0.28, "slow_mult": 0.80, "duration": 0.6, "cooldown": 0.14 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "gravity_well", "interval_hits": 3, "radius": 190, "cluster": 3, "damage_mult": 0.35, "slow_mult": 0.70, "duration": 0.8, "cooldown": 0.12 },
+            { "type": "void_bolt", "chance": 0.35, "radius": 300, "damage_mult": 0.35, "cooldown": 0.18 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_draconic",
+      "name": "Wyrmkin",
+      "description": "Draconic units breathe flame and harden their scales.",
+      "count_tag": "race:draconic",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "wyrm_breath", "interval_hits": 5, "radius": 150, "dps_mult": 0.20, "duration": 3.0, "tick": 0.5, "cooldown": 0.16 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "wyrm_breath", "interval_hits": 4, "radius": 180, "dps_mult": 0.26, "duration": 3.5, "tick": 0.5, "cooldown": 0.14 },
+            { "type": "dragon_scales", "cooldown": 1.9, "aegis_mult": 0.70, "duration": 0.7 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_celestial",
+      "name": "Astral Chorus",
+      "description": "Celestials detonate starlight that heals allies and sears foes.",
+      "count_tag": "race:celestial",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "stellar_burst", "interval_hits": 5, "radius": 160, "damage_mult": 0.28, "heal_frac": 0.03, "cooldown": 0.16 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "stellar_burst", "interval_hits": 4, "radius": 190, "damage_mult": 0.34, "heal_frac": 0.04, "cooldown": 0.14 },
+            { "type": "guiding_star", "chance": 0.40, "radius": 380, "damage_mult": 0.35, "heal_frac": 0.03, "cooldown": 0.18 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_demon",
+      "name": "Blood Oath",
+      "description": "Demon packs fuel violent rites that explode and heal their own.",
+      "count_tag": "race:demon",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "blood_rite", "interval_hits": 4, "radius": 140, "damage_mult": 0.30, "heal_frac": 0.04, "cooldown": 0.16 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "blood_rite", "interval_hits": 3, "radius": 170, "damage_mult": 0.38, "heal_frac": 0.06, "cooldown": 0.14 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_elemental",
+      "name": "Fluxstorm",
+      "description": "Elementals discharge volatile surges on hit.",
+      "count_tag": "race:elemental",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "elemental_flux", "chance": 0.32, "radius": 220, "damage_mult": 0.22, "slow_mult": 0.80, "slow_dur": 0.6, "burn_dps_mult": 0.14, "burn_dur": 2.4, "cooldown": 0.12 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "elemental_flux", "chance": 0.45, "radius": 260, "damage_mult": 0.30, "slow_mult": 0.70, "slow_dur": 0.8, "burn_dps_mult": 0.18, "burn_dur": 3.0, "cooldown": 0.10 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "race_undead",
+      "name": "Gravecall",
+      "description": "Undead drain life with each strike and emit chilling novas.",
+      "count_tag": "race:undead",
+      "applies_to_tags": [],
+      "tiers": [
+        {
+          "count": 2,
+          "effects": [
+            { "type": "soul_leech", "chance": 0.40, "heal_mult": 0.22, "cooldown": 0.10 }
+          ]
+        },
+        {
+          "count": 4,
+          "effects": [
+            { "type": "soul_leech", "chance": 0.55, "heal_mult": 0.30, "cooldown": 0.08 },
+            { "type": "grave_nova", "interval_hits": 5, "radius": 170, "slow_mult": 0.75, "duration": 0.8, "cooldown": 0.16 }
+          ]
+        }
+      ]
     }
   ]
 }

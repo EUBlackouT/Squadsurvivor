@@ -136,6 +136,7 @@ static func _build_character_data_from_entry(entry: Dictionary, context: String,
 	var cd := UnitFactory.build_character_data(context, rng, elapsed_minutes, south_path, map_mod, base_stats, overrides)
 	if cd == null:
 		return null
+	cd.race_id = String(entry.get("race", ""))
 
 	var passives := Array(cd.passive_ids)
 	# Entry-specific guaranteed passives

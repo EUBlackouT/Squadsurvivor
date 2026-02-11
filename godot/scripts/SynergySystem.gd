@@ -463,6 +463,70 @@ static func _effect_line(e: Dictionary) -> String:
 			return "[color=#ffee66]:: Focus[/color] — After %d hits same target: [color=#ff6666]+%d%%[/color] dmg" % [int(e.get("stacks", 6)), int(round(float(e.get("bonus_mult", 0.35)) * 100.0))]
 		"bounty":
 			return "[color=#ffee66]$$ Bounty[/color] — [color=#ffaa66]%d%%[/color] on kill: [color=#ffee66]+%d[/color] Essence" % [int(round(float(e.get("chance", 0.14)) * 100.0)), int(e.get("essence", 1))]
+		"tidal_surge":
+			return "[color=#88ddff]~~ Tide[/color] — Every %d hits: [color=#ffaa66]%d%%[/color] AoE + slow" % [int(e.get("interval_hits", 5)), int(round(float(e.get("damage_mult", 0.25)) * 100.0))]
+		"tide_mend":
+			return "[color=#66ffcc]++ Brine[/color] — Periodic [color=#66ffcc]%d%% HP[/color] heal to all allies" % int(round(float(e.get("heal_frac", 0.03)) * 100.0))
+		"glimmer_bolt":
+			return "[color=#dd88ff]** Glimmer[/color] — [color=#ffaa66]%d%%[/color] chance to fire a slowing bolt" % int(round(float(e.get("chance", 0.35)) * 100.0))
+		"aegis_blessing":
+			return "[color=#66ffcc]++ Glamour[/color] — Periodic aegis to the weakest ally"
+		"crystal_shard":
+			return "[color=#88ddff]<> Shards[/color] — Every %d hits: %d bonus shards" % [int(e.get("interval_hits", 4)), int(e.get("extra_targets", 2))]
+		"prism_guard":
+			return "[color=#66ffcc]++ Prism Guard[/color] — Periodic aegis to nearby allies"
+		"shadow_veil":
+			return "[color=#bb88ff]// Veil[/color] — [color=#ffaa66]%d%%[/color] chance: bonus strike + slow" % int(round(float(e.get("chance", 0.35)) * 100.0))
+		"shade_step":
+			return "[color=#bb88ff]// Shade Step[/color] — Periodic self-aegis after striking"
+		"featherstorm":
+			return "[color=#88ddff]>> Storm[/color] — Every %d hits: %d feather bolts" % [int(e.get("interval_hits", 4)), int(e.get("extra_targets", 2))]
+		"air_gust":
+			return "[color=#88ddff]~~ Gust[/color] — Periodic wind slow around the unit"
+		"web_ward":
+			return "[color=#88ddff]## Web Ward[/color] — Every %d hits: web field slow" % int(e.get("interval_hits", 4))
+		"venom_bite":
+			return "[color=#88ff88]!! Venom[/color] — [color=#ffaa66]%d%%[/color] chance: poison DOT" % int(round(float(e.get("chance", 0.35)) * 100.0))
+		"spore_cloud":
+			return "[color=#88ff88]~~ Spores[/color] — Every %d hits: poison cloud" % int(e.get("interval_hits", 4))
+		"verdant_mend":
+			return "[color=#66ff88]++ Verdant[/color] — Periodic [color=#66ff88]%d%% HP[/color] heal to all allies" % int(round(float(e.get("heal_frac", 0.03)) * 100.0))
+		"gel_slick":
+			return "[color=#88ffcc]~~ Slick[/color] — Every %d hits: AoE slow + splash" % int(e.get("interval_hits", 4))
+		"gel_split":
+			return "[color=#88ffcc]<> Split[/color] — Every %d hits: %d gel bolts" % [int(e.get("interval_hits", 6)), int(e.get("extra_targets", 2))]
+		"suppressive_fire":
+			return "[color=#ffee66]:: Suppress[/color] — [color=#ffaa66]%d%%[/color] chance: slow target" % int(round(float(e.get("chance", 0.40)) * 100.0))
+		"rally_ping":
+			return "[color=#66ff88]++ Rally[/color] — Periodic heal to weakest ally"
+		"pulse_arc":
+			return "[color=#66eeff]~/ Pulse Arc[/color] — Every %d hits: arcs to %d foes" % [int(e.get("interval_hits", 5)), int(e.get("chains", 1))]
+		"steel_skin":
+			return "[color=#66ffcc]++ Steel Skin[/color] — Periodic self-aegis"
+		"toxic_spike":
+			return "[color=#88ff88]!! Spike[/color] — [color=#ffaa66]%d%%[/color] chance: toxic bleed" % int(round(float(e.get("chance", 0.35)) * 100.0))
+		"mutate_surge":
+			return "[color=#bb88ff]** Surge[/color] — Every %d hits: toxic shockwave" % int(e.get("interval_hits", 5))
+		"gravity_well":
+			return "[color=#88ddff]** Well[/color] — Every %d hits: crush clustered enemies" % int(e.get("interval_hits", 4))
+		"void_bolt":
+			return "[color=#bb88ff]>> Void Bolt[/color] — [color=#ffaa66]%d%%[/color] chance: extra bolt" % int(round(float(e.get("chance", 0.35)) * 100.0))
+		"wyrm_breath":
+			return "[color=#ff8844]{{ Breath[/color] — Every %d hits: burning cone" % int(e.get("interval_hits", 5))
+		"dragon_scales":
+			return "[color=#ff8844]++ Scales[/color] — Periodic self-aegis"
+		"stellar_burst":
+			return "[color=#ffee66]** Starlight[/color] — Every %d hits: AoE burst + heal" % int(e.get("interval_hits", 5))
+		"guiding_star":
+			return "[color=#ffee66]>> Star[/color] — [color=#ffaa66]%d%%[/color] chance: bolt heals allies" % int(round(float(e.get("chance", 0.40)) * 100.0))
+		"blood_rite":
+			return "[color=#ff6666]** Rite[/color] — Every %d hits: blood burst + self heal" % int(e.get("interval_hits", 4))
+		"elemental_flux":
+			return "[color=#dd88ff]<> Flux[/color] — [color=#ffaa66]%d%%[/color] chance: random element" % int(round(float(e.get("chance", 0.32)) * 100.0))
+		"soul_leech":
+			return "[color=#88ff88]<+ Leech[/color] — [color=#ffaa66]%d%%[/color] chance: heal on hit" % int(round(float(e.get("chance", 0.40)) * 100.0))
+		"grave_nova":
+			return "[color=#88ddff]** Grave Nova[/color] — Every %d hits: chill burst" % int(e.get("interval_hits", 5))
 		_:
 			return ""
 
@@ -503,6 +567,54 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 					_effect_pack_maul(unit, target, damage, e)
 			"focus_fire":
 				_effect_focus_fire(unit, target, damage, e)
+			"tidal_surge":
+				_effect_tidal_surge(unit, target, damage, e)
+			"glimmer_bolt":
+				_effect_glimmer_bolt(unit, target, damage, e)
+			"crystal_shard":
+				_effect_crystal_shard(unit, target, damage, e)
+			"shadow_veil":
+				_effect_shadow_veil(unit, target, damage, e)
+			"shade_step":
+				_effect_shade_step(unit, target, e)
+			"featherstorm":
+				_effect_featherstorm(unit, target, damage, e)
+			"web_ward":
+				_effect_web_ward(unit, target, damage, e)
+			"venom_bite":
+				_effect_venom_bite(unit, target, damage, e)
+			"spore_cloud":
+				_effect_spore_cloud(unit, target, damage, e)
+			"gel_slick":
+				_effect_gel_slick(unit, target, damage, e)
+			"gel_split":
+				_effect_gel_split(unit, target, damage, e)
+			"suppressive_fire":
+				_effect_suppressive_fire(unit, target, damage, e)
+			"pulse_arc":
+				_effect_pulse_arc(unit, target, damage, e)
+			"toxic_spike":
+				_effect_toxic_spike(unit, target, damage, e)
+			"mutate_surge":
+				_effect_mutate_surge(unit, target, damage, e)
+			"gravity_well":
+				_effect_gravity_well(unit, target, damage, e)
+			"void_bolt":
+				_effect_void_bolt(unit, target, damage, e)
+			"wyrm_breath":
+				_effect_wyrm_breath(unit, target, damage, e)
+			"stellar_burst":
+				_effect_stellar_burst(unit, target, damage, e)
+			"guiding_star":
+				_effect_guiding_star(unit, target, damage, e)
+			"blood_rite":
+				_effect_blood_rite(unit, target, damage, e)
+			"elemental_flux":
+				_effect_elemental_flux(unit, target, damage, e)
+			"soul_leech":
+				_effect_soul_leech(unit, target, damage, e)
+			"grave_nova":
+				_effect_grave_nova(unit, target, damage, e)
 			_:
 				pass
 
@@ -528,6 +640,40 @@ static func on_projectile_hit(cd: CharacterData, proj: Node2D, enemy: Node2D, da
 				_effect_prismatic_surge(proj, enemy, damage, e)
 			"focus_fire":
 				_effect_focus_fire(proj, enemy, damage, e)
+			"glimmer_bolt":
+				_effect_glimmer_bolt(proj, enemy, damage, e)
+			"shadow_veil":
+				_effect_shadow_veil(proj, enemy, damage, e)
+			"shade_step":
+				_effect_shade_step(proj, enemy, e)
+			"venom_bite":
+				_effect_venom_bite(proj, enemy, damage, e)
+			"spore_cloud":
+				_effect_spore_cloud(proj, enemy, damage, e)
+			"gel_slick":
+				_effect_gel_slick(proj, enemy, damage, e)
+			"suppressive_fire":
+				_effect_suppressive_fire(proj, enemy, damage, e)
+			"toxic_spike":
+				_effect_toxic_spike(proj, enemy, damage, e)
+			"gravity_well":
+				_effect_gravity_well(proj, enemy, damage, e)
+			"void_bolt":
+				_effect_void_bolt(proj, enemy, damage, e)
+			"wyrm_breath":
+				_effect_wyrm_breath(proj, enemy, damage, e)
+			"stellar_burst":
+				_effect_stellar_burst(proj, enemy, damage, e)
+			"guiding_star":
+				_effect_guiding_star(proj, enemy, damage, e)
+			"blood_rite":
+				_effect_blood_rite(proj, enemy, damage, e)
+			"elemental_flux":
+				_effect_elemental_flux(proj, enemy, damage, e)
+			"soul_leech":
+				_effect_soul_leech(proj, enemy, damage, e)
+			"grave_nova":
+				_effect_grave_nova(proj, enemy, damage, e)
 			_:
 				pass
 
@@ -547,6 +693,22 @@ static func tick_unit(cd: CharacterData, unit: Node2D) -> void:
 				_effect_wisp_bolt(unit, e)
 			"sanctuary_heal":
 				_effect_sanctuary_heal(unit, e)
+			"tide_mend":
+				_effect_tide_mend(unit, e)
+			"aegis_blessing":
+				_effect_aegis_blessing(unit, e)
+			"prism_guard":
+				_effect_prism_guard(unit, e)
+			"air_gust":
+				_effect_air_gust(unit, e)
+			"verdant_mend":
+				_effect_verdant_mend(unit, e)
+			"rally_ping":
+				_effect_rally_ping(unit, e)
+			"steel_skin":
+				_effect_steel_skin(unit, e)
+			"dragon_scales":
+				_effect_dragon_scales(unit, e)
 			_:
 				pass
 
@@ -789,6 +951,735 @@ static func _effect_focus_fire(from: Node2D, target: Node2D, damage: int, e: Dic
 	mark.setup((target as Node2D).global_position, Color(0.92, 0.85, 0.30, 1.0), 30.0, stacks_req, 0.24)
 	_spawn_vfx(world, mark)
 	_sfx(world, "syn.execute", (target as Node2D).global_position, from)
+
+static func _spawn_extra_bolts(from: Node2D, origin: Vector2, radius: float, extra: int, dmg: int, tint: Color, exclude: Node2D) -> void:
+	if extra <= 0:
+		return
+	var world := _main_world(from)
+	if world == null:
+		return
+	var pick := _pick_near_enemy(from, origin, radius, exclude)
+	var used: Array[Node2D] = []
+	for _i in range(extra):
+		if pick == null or used.has(pick):
+			break
+		used.append(pick)
+		_spawn_projectile(world, origin, pick, dmg, tint)
+		pick = _pick_near_enemy(from, (pick as Node2D).global_position, radius, pick)
+
+static func _effect_tidal_surge(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if target == null:
+		return
+	var interval := int(e.get("interval_hits", 5))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_tide_ctr", 0)) + 1
+	from.set_meta("_syn_tide_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_tide_cd", float(e.get("cooldown", 0.12))):
+		return
+	var radius := float(e.get("radius", 170.0))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.25))))
+	var slow_mult := float(e.get("slow_mult", 0.8))
+	var dur := float(e.get("duration", 0.7))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var nova := VfxFrostNova.new()
+		nova.setup(origin, Color(0.45, 0.85, 1.0, 1.0), radius, 9, 0.22)
+		_spawn_vfx(world, nova)
+		_sfx(world, "syn.frost", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			if n2.has_method("take_damage"):
+				n2.take_damage(dmg, false, "blast")
+			if n2.has_method("apply_slow"):
+				n2.apply_slow(slow_mult, dur)
+			if n2.has_method("pulse_vfx"):
+				n2.pulse_vfx(Color(0.45, 0.85, 1.0, 1.0))
+
+static func _effect_glimmer_bolt(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.35)):
+		return
+	if not _cooldown_gate(from, "_syn_glimmer_cd", float(e.get("cooldown", 0.18))):
+		return
+	var radius := float(e.get("radius", 360.0))
+	var pick := _pick_near_enemy(from, (target as Node2D).global_position, radius, target)
+	if pick == null:
+		return
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.35))))
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.wisp", (target as Node2D).global_position, from)
+	_spawn_projectile(world, (from as Node2D).global_position, pick, dmg, Color(0.85, 0.55, 1.0, 0.95))
+	if pick.has_method("apply_slow"):
+		pick.apply_slow(float(e.get("slow_mult", 0.85)), float(e.get("duration", 0.6)))
+
+static func _effect_crystal_shard(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 4))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_crystal_ctr", 0)) + 1
+	from.set_meta("_syn_crystal_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_crystal_cd", 0.10):
+		return
+	var extra := int(e.get("extra_targets", 2))
+	var radius := float(e.get("radius", 240.0))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.32))))
+	_spawn_extra_bolts(from, (target as Node2D).global_position, radius, extra, dmg, Color(0.75, 0.95, 1.0, 0.95), target)
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.arc", (target as Node2D).global_position, from)
+
+static func _effect_shadow_veil(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.35)):
+		return
+	if not _cooldown_gate(from, "_syn_veil_cd", float(e.get("cooldown", 0.18))):
+		return
+	var bonus := int(round(float(damage) * float(e.get("bonus_mult", 0.35))))
+	if bonus > 0 and target.has_method("take_damage"):
+		target.take_damage(bonus, false, "phantom")
+	if target.has_method("apply_slow"):
+		target.apply_slow(float(e.get("slow_mult", 0.85)), float(e.get("duration", 0.6)))
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.65, 0.55, 0.95, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.arc", (target as Node2D).global_position, from)
+
+static func _effect_shade_step(from: Node2D, target: Node2D, e: Dictionary) -> void:
+	if from == null or target == null:
+		return
+	if not _cooldown_gate(from, "_syn_shade_cd", float(e.get("cooldown", 1.8))):
+		return
+	if from.has_method("apply_aegis"):
+		from.apply_aegis(float(e.get("duration", 0.7)), float(e.get("aegis_mult", 0.65)))
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.65, 0.55, 0.95, 1.0))
+
+static func _effect_featherstorm(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 4))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_feather_ctr", 0)) + 1
+	from.set_meta("_syn_feather_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_feather_cd", 0.10):
+		return
+	var extra := int(e.get("extra_targets", 2))
+	var radius := float(e.get("radius", 420.0))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.28))))
+	_spawn_extra_bolts(from, (from as Node2D).global_position, radius, extra, dmg, Color(0.90, 0.90, 1.0, 0.95), target)
+
+static func _effect_web_ward(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 4))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_web_ctr", 0)) + 1
+	from.set_meta("_syn_web_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_web_cd", float(e.get("cooldown", 0.12))):
+		return
+	var radius := float(e.get("radius", 160.0))
+	var slow_mult := float(e.get("slow_mult", 0.75))
+	var dur := float(e.get("duration", 0.8))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var sw := VfxShockwave.new()
+		sw.setup(origin, Color(0.70, 0.95, 0.85, 1.0), 14.0, radius, 4.0, 0.20)
+		_spawn_vfx(world, sw)
+		_sfx(world, "syn.frost", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			if n2.has_method("apply_slow"):
+				n2.apply_slow(slow_mult, dur)
+			if n2.has_method("pulse_vfx"):
+				n2.pulse_vfx(Color(0.70, 0.95, 0.85, 1.0))
+
+static func _effect_venom_bite(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.35)):
+		return
+	if not _cooldown_gate(from, "_syn_venom_cd", float(e.get("cooldown", 0.12))):
+		return
+	var dps := maxf(1.0, float(damage) * float(e.get("dps_mult", 0.18)))
+	var dur := float(e.get("duration", 3.0))
+	var tick := float(e.get("tick", 0.6))
+	if target.has_method("apply_burn"):
+		target.apply_burn(dps, dur, tick)
+	elif target.has_method("apply_bleed"):
+		target.apply_bleed(dps, dur, tick)
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
+
+static func _effect_spore_cloud(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 4))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_spore_ctr", 0)) + 1
+	from.set_meta("_syn_spore_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_spore_cd", float(e.get("cooldown", 0.14))):
+		return
+	var radius := float(e.get("radius", 160.0))
+	var dps := maxf(1.0, float(damage) * float(e.get("dps_mult", 0.18)))
+	var dur := float(e.get("duration", 3.0))
+	var tick := float(e.get("tick", 0.6))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var fb := VfxFlameBurst.new()
+		fb.setup(origin, Color(0.45, 1.0, 0.55, 1.0), radius * 0.30, 10, 0.20)
+		_spawn_vfx(world, fb)
+		_sfx(world, "syn.holy", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			if n2.has_method("apply_burn"):
+				n2.apply_burn(dps, dur, tick)
+			elif n2.has_method("apply_bleed"):
+				n2.apply_bleed(dps, dur, tick)
+			if n2.has_method("pulse_vfx"):
+				n2.pulse_vfx(Color(0.45, 1.0, 0.55, 1.0))
+
+static func _effect_gel_slick(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 4))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_gel_ctr", 0)) + 1
+	from.set_meta("_syn_gel_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_gel_cd", float(e.get("cooldown", 0.12))):
+		return
+	var radius := float(e.get("radius", 170.0))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.22))))
+	var slow_mult := float(e.get("slow_mult", 0.75))
+	var dur := float(e.get("duration", 0.7))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var sw := VfxShockwave.new()
+		sw.setup(origin, Color(0.70, 0.95, 0.85, 1.0), 14.0, radius, 4.0, 0.22)
+		_spawn_vfx(world, sw)
+		_sfx(world, "syn.frost", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			if n2.has_method("take_damage"):
+				n2.take_damage(dmg, false, "blast")
+			if n2.has_method("apply_slow"):
+				n2.apply_slow(slow_mult, dur)
+			if n2.has_method("pulse_vfx"):
+				n2.pulse_vfx(Color(0.70, 0.95, 0.85, 1.0))
+
+static func _effect_gel_split(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 6))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_gel_split_ctr", 0)) + 1
+	from.set_meta("_syn_gel_split_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_gel_split_cd", 0.12):
+		return
+	var extra := int(e.get("extra_targets", 2))
+	var radius := float(e.get("radius", 240.0))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.30))))
+	_spawn_extra_bolts(from, (target as Node2D).global_position, radius, extra, dmg, Color(0.70, 0.95, 0.85, 0.95), target)
+
+static func _effect_suppressive_fire(from: Node2D, target: Node2D, _damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.40)):
+		return
+	if not _cooldown_gate(from, "_syn_suppress_cd", float(e.get("cooldown", 0.10))):
+		return
+	if target.has_method("apply_slow"):
+		target.apply_slow(float(e.get("slow_mult", 0.82)), float(e.get("duration", 0.6)))
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.85, 0.95, 1.0, 1.0))
+
+static func _effect_pulse_arc(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 5))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_pulse_ctr", 0)) + 1
+	from.set_meta("_syn_pulse_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_pulse_cd", 0.10):
+		return
+	var radius := float(e.get("radius", 220.0))
+	var chains := int(e.get("chains", 1))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.35))))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	var pick := _pick_near_enemy(from, origin, radius, target)
+	var hit: Array[Node2D] = []
+	for _i in range(chains):
+		if pick == null or hit.has(pick):
+			break
+		hit.append(pick)
+		if pick.has_method("take_damage"):
+			pick.take_damage(dmg, false, "arc")
+		if world != null:
+			_spawn_arc(world, origin, pick.global_position, Color(0.55, 0.95, 1.0, 0.95))
+			_sfx(world, "syn.arc", origin, from)
+		origin = pick.global_position
+		pick = _pick_near_enemy(from, origin, radius, pick)
+
+static func _effect_toxic_spike(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.35)):
+		return
+	if not _cooldown_gate(from, "_syn_toxic_cd", float(e.get("cooldown", 0.12))):
+		return
+	var dps := maxf(1.0, float(damage) * float(e.get("dps_mult", 0.16)))
+	var dur := float(e.get("duration", 3.0))
+	var tick := float(e.get("tick", 0.6))
+	if target.has_method("apply_bleed"):
+		target.apply_bleed(dps, dur, tick)
+	elif target.has_method("apply_burn"):
+		target.apply_burn(dps, dur, tick)
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
+
+static func _effect_mutate_surge(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 5))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_mutate_ctr", 0)) + 1
+	from.set_meta("_syn_mutate_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_mutate_cd", 0.12):
+		return
+	var radius := float(e.get("radius", 150.0))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.28))))
+	var slow_mult := float(e.get("slow_mult", 0.85))
+	var dur := float(e.get("duration", 0.6))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var sw := VfxShockwave.new()
+		sw.setup(origin, Color(0.65, 1.0, 0.55, 1.0), 14.0, radius, 4.0, 0.20)
+		_spawn_vfx(world, sw)
+		_sfx(world, "syn.shock", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			if n2.has_method("take_damage"):
+				n2.take_damage(dmg, false, "blast")
+			if n2.has_method("apply_slow"):
+				n2.apply_slow(slow_mult, dur)
+			if n2.has_method("pulse_vfx"):
+				n2.pulse_vfx(Color(0.65, 1.0, 0.55, 1.0))
+
+static func _effect_gravity_well(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 4))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_gravity_ctr", 0)) + 1
+	from.set_meta("_syn_gravity_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_gravity_cd", float(e.get("cooldown", 0.14))):
+		return
+	var radius := float(e.get("radius", 160.0))
+	var cluster := int(e.get("cluster", 3))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.28))))
+	var slow_mult := float(e.get("slow_mult", 0.80))
+	var dur := float(e.get("duration", 0.6))
+	var origin := (target as Node2D).global_position
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	var victims: Array[Node2D] = []
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			victims.append(n2)
+	if victims.size() < cluster:
+		return
+	var world := _main_world(from)
+	if world != null:
+		var sw := VfxShockwave.new()
+		sw.setup(origin, Color(0.65, 0.75, 1.0, 1.0), 16.0, radius, 5.0, 0.22)
+		_spawn_vfx(world, sw)
+		_sfx(world, "syn.arc", origin, from)
+	for v in victims:
+		if v.has_method("take_damage"):
+			v.take_damage(dmg, false, "blast")
+		if v.has_method("apply_slow"):
+			v.apply_slow(slow_mult, dur)
+		if v.has_method("pulse_vfx"):
+			v.pulse_vfx(Color(0.65, 0.75, 1.0, 1.0))
+
+static func _effect_void_bolt(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.35)):
+		return
+	if not _cooldown_gate(from, "_syn_void_cd", float(e.get("cooldown", 0.18))):
+		return
+	var radius := float(e.get("radius", 300.0))
+	var pick := _pick_near_enemy(from, (target as Node2D).global_position, radius, target)
+	if pick == null:
+		return
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.35))))
+	var world := _main_world(from)
+	_spawn_projectile(world, (from as Node2D).global_position, pick, dmg, Color(0.55, 0.75, 1.0, 0.95))
+
+static func _effect_wyrm_breath(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 5))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_wyrm_ctr", 0)) + 1
+	from.set_meta("_syn_wyrm_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_wyrm_cd", float(e.get("cooldown", 0.16))):
+		return
+	var radius := float(e.get("radius", 150.0))
+	var dps := maxf(1.0, float(damage) * float(e.get("dps_mult", 0.20)))
+	var dur := float(e.get("duration", 3.0))
+	var tick := float(e.get("tick", 0.5))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var fb := VfxFlameBurst.new()
+		fb.setup(origin, Color(1.0, 0.45, 0.25, 1.0), radius * 0.32, 12, 0.22)
+		_spawn_vfx(world, fb)
+		_sfx(world, "syn.flame", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			if n2.has_method("apply_burn"):
+				n2.apply_burn(dps, dur, tick)
+			if n2.has_method("pulse_vfx"):
+				n2.pulse_vfx(Color(1.0, 0.55, 0.25, 1.0))
+
+static func _effect_stellar_burst(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 5))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_star_ctr", 0)) + 1
+	from.set_meta("_syn_star_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_star_cd", float(e.get("cooldown", 0.14))):
+		return
+	var radius := float(e.get("radius", 160.0))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.28))))
+	var heal_frac := float(e.get("heal_frac", 0.03))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var sw := VfxShockwave.new()
+		sw.setup(origin, Color(0.95, 0.85, 0.55, 1.0), 16.0, radius, 4.0, 0.20)
+		_spawn_vfx(world, sw)
+		_sfx(world, "syn.holy", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2 and n2.has_method("take_damage"):
+			n2.take_damage(dmg, false, "blast")
+	var squad: Array = _cached_squad(from)
+	for u in squad:
+		if not is_instance_valid(u):
+			continue
+		var n2 := u as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2 and n2.has_method("heal") and n2.has_method("get_max_hp"):
+			var mh := int(n2.get_max_hp())
+			var amt := int(round(float(mh) * heal_frac))
+			n2.heal(max(1, amt))
+
+static func _effect_guiding_star(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.40)):
+		return
+	if not _cooldown_gate(from, "_syn_guiding_cd", float(e.get("cooldown", 0.18))):
+		return
+	var radius := float(e.get("radius", 380.0))
+	var pick := _pick_near_enemy(from, (target as Node2D).global_position, radius, target)
+	if pick == null:
+		return
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.35))))
+	var heal_frac := float(e.get("heal_frac", 0.03))
+	var world := _main_world(from)
+	_spawn_projectile(world, (from as Node2D).global_position, pick, dmg, Color(1.0, 0.85, 0.55, 0.95))
+	var squad: Array = _cached_squad(from)
+	var best: Node2D = null
+	var best_ratio := 2.0
+	for u in squad:
+		if not is_instance_valid(u):
+			continue
+		var n2 := u as Node2D
+		if n2 == null:
+			continue
+		if n2.has_method("get_hp_ratio"):
+			var r := float(n2.get_hp_ratio())
+			if r < best_ratio:
+				best_ratio = r
+				best = n2
+	if best != null and best.has_method("heal"):
+		var mh := int(best.get_max_hp()) if best.has_method("get_max_hp") else 100
+		var amt := int(round(float(mh) * heal_frac))
+		best.heal(max(1, amt))
+	if world != null:
+		_sfx(world, "syn.holy", (target as Node2D).global_position, from)
+
+static func _effect_blood_rite(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 4))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_rite_ctr", 0)) + 1
+	from.set_meta("_syn_rite_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_rite_cd", float(e.get("cooldown", 0.14))):
+		return
+	var radius := float(e.get("radius", 140.0))
+	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.30))))
+	var heal_frac := float(e.get("heal_frac", 0.04))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var sw := VfxShockwave.new()
+		sw.setup(origin, Color(1.0, 0.45, 0.45, 1.0), 16.0, radius, 4.0, 0.20)
+		_spawn_vfx(world, sw)
+		_sfx(world, "syn.flame", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2 and n2.has_method("take_damage"):
+			n2.take_damage(dmg, false, "blast")
+	if from.has_method("heal") and from.has_method("get_max_hp"):
+		var mh := int(from.get_max_hp())
+		var amt := int(round(float(mh) * heal_frac))
+		from.heal(max(1, amt))
+
+static func _effect_elemental_flux(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.32)):
+		return
+	if not _cooldown_gate(from, "_syn_flux_cd", float(e.get("cooldown", 0.12))):
+		return
+	var radius := float(e.get("radius", 220.0))
+	var roll := randi() % 3
+	match roll:
+		0:
+			var pick := _pick_near_enemy(from, (target as Node2D).global_position, radius, target)
+			if pick != null:
+				var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.22))))
+				if pick.has_method("take_damage"):
+					pick.take_damage(dmg, false, "arc")
+				var world := _main_world(from)
+				if world != null:
+					_spawn_arc(world, (target as Node2D).global_position, pick.global_position, Color(0.55, 0.95, 1.0, 0.95))
+					_sfx(world, "syn.arc", (target as Node2D).global_position, from)
+		1:
+			if target.has_method("apply_slow"):
+				target.apply_slow(float(e.get("slow_mult", 0.80)), float(e.get("slow_dur", 0.6)))
+			if target.has_method("pulse_vfx"):
+				target.pulse_vfx(Color(0.55, 0.85, 1.0, 1.0))
+			var world2 := _main_world(from)
+			if world2 != null:
+				_sfx(world2, "syn.frost", (target as Node2D).global_position, from)
+		_:
+			var dps := maxf(1.0, float(damage) * float(e.get("burn_dps_mult", 0.14)))
+			var dur := float(e.get("burn_dur", 2.4))
+			if target.has_method("apply_burn"):
+				target.apply_burn(dps, dur, 0.5)
+			elif target.has_method("apply_bleed"):
+				target.apply_bleed(dps, dur, 0.5)
+			if target.has_method("pulse_vfx"):
+				target.pulse_vfx(Color(1.0, 0.75, 0.25, 1.0))
+			var world3 := _main_world(from)
+			if world3 != null:
+				_sfx(world3, "syn.flame", (target as Node2D).global_position, from)
+
+static func _effect_soul_leech(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	if randf() > float(e.get("chance", 0.40)):
+		return
+	if not _cooldown_gate(from, "_syn_leech_cd", float(e.get("cooldown", 0.10))):
+		return
+	if not from.has_method("heal"):
+		return
+	var heal := int(round(float(damage) * float(e.get("heal_mult", 0.22))))
+	if heal <= 0:
+		return
+	from.heal(heal)
+	if target.has_method("pulse_vfx"):
+		target.pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
+
+static func _effect_grave_nova(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
+	var interval := int(e.get("interval_hits", 5))
+	if interval <= 0:
+		return
+	var c: int = int(from.get_meta("_syn_grave_ctr", 0)) + 1
+	from.set_meta("_syn_grave_ctr", c)
+	if c % interval != 0:
+		return
+	if not _cooldown_gate(from, "_syn_grave_cd", float(e.get("cooldown", 0.16))):
+		return
+	var radius := float(e.get("radius", 170.0))
+	var slow_mult := float(e.get("slow_mult", 0.75))
+	var dur := float(e.get("duration", 0.8))
+	var origin := (target as Node2D).global_position
+	var world := _main_world(from)
+	if world != null:
+		var nova := VfxFrostNova.new()
+		nova.setup(origin, Color(0.55, 0.85, 1.0, 1.0), radius, 9, 0.22)
+		_spawn_vfx(world, nova)
+		_sfx(world, "syn.frost", origin, from)
+	var enemies: Array = _cached_enemies(from)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2:
+			if n2.has_method("apply_slow"):
+				n2.apply_slow(slow_mult, dur)
+			if n2.has_method("pulse_vfx"):
+				n2.pulse_vfx(Color(0.55, 0.85, 1.0, 1.0))
+
+static func _effect_tide_mend(unit: Node2D, e: Dictionary) -> void:
+	_effect_aura_heal(unit, e)
+
+static func _effect_aegis_blessing(unit: Node2D, e: Dictionary) -> void:
+	var cd_s := float(e.get("cooldown", 2.2))
+	if not _cooldown_gate(unit, "_syn_aegis_bless_cd", cd_s):
+		return
+	var squad: Array = _cached_squad(unit)
+	var best: Node2D = null
+	var best_ratio: float = 2.0
+	for u in squad:
+		if not is_instance_valid(u):
+			continue
+		var n2 := u as Node2D
+		if n2 == null:
+			continue
+		if n2.has_method("get_hp_ratio"):
+			var r := float(n2.get_hp_ratio())
+			if r < best_ratio:
+				best_ratio = r
+				best = n2
+	if best != null and best.has_method("apply_aegis"):
+		best.apply_aegis(float(e.get("duration", 0.9)), float(e.get("aegis_mult", 0.70)))
+
+static func _effect_prism_guard(unit: Node2D, e: Dictionary) -> void:
+	var cd_s := float(e.get("cooldown", 2.0))
+	if not _cooldown_gate(unit, "_syn_prism_guard_cd", cd_s):
+		return
+	var radius := float(e.get("radius", 140.0))
+	var squad: Array = _cached_squad(unit)
+	var r2 := radius * radius
+	for u in squad:
+		if not is_instance_valid(u):
+			continue
+		var n2 := u as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to((unit as Node2D).global_position) <= r2 and n2.has_method("apply_aegis"):
+			n2.apply_aegis(float(e.get("duration", 0.9)), float(e.get("aegis_mult", 0.70)))
+
+static func _effect_air_gust(unit: Node2D, e: Dictionary) -> void:
+	var cd_s := float(e.get("cooldown", 1.8))
+	if not _cooldown_gate(unit, "_syn_air_gust_cd", cd_s):
+		return
+	var radius := float(e.get("radius", 150.0))
+	var slow_mult := float(e.get("slow_mult", 0.80))
+	var dur := float(e.get("duration", 0.7))
+	var world := _main_world(unit)
+	if world != null:
+		var nova := VfxFrostNova.new()
+		nova.setup((unit as Node2D).global_position, Color(0.70, 0.90, 1.0, 1.0), radius, 8, 0.20)
+		_spawn_vfx(world, nova)
+		_sfx(world, "syn.frost", (unit as Node2D).global_position, unit)
+	var enemies: Array = _cached_enemies(unit)
+	var r2 := radius * radius
+	for en in enemies:
+		if not is_instance_valid(en):
+			continue
+		var n2 := en as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to((unit as Node2D).global_position) <= r2:
+			if n2.has_method("apply_slow"):
+				n2.apply_slow(slow_mult, dur)
+
+static func _effect_verdant_mend(unit: Node2D, e: Dictionary) -> void:
+	_effect_aura_heal(unit, e)
+
+static func _effect_rally_ping(unit: Node2D, e: Dictionary) -> void:
+	_effect_sanctuary_heal(unit, e)
+
+static func _effect_steel_skin(unit: Node2D, e: Dictionary) -> void:
+	var cd_s := float(e.get("cooldown", 1.9))
+	if not _cooldown_gate(unit, "_syn_steel_skin_cd", cd_s):
+		return
+	if unit.has_method("apply_aegis"):
+		unit.apply_aegis(float(e.get("duration", 0.7)), float(e.get("aegis_mult", 0.70)))
+
+static func _effect_dragon_scales(unit: Node2D, e: Dictionary) -> void:
+	_effect_steel_skin(unit, e)
 
 #
 # Effect implementations
@@ -1329,4 +2220,7 @@ static func _tags_for_cd(cd: CharacterData) -> PackedStringArray:
 	# Archetype tag (always)
 	if cd.archetype_id != "":
 		out.append("arch:%s" % cd.archetype_id)
+	# Race tag (if present)
+	if cd.race_id != "":
+		out.append("race:%s" % cd.race_id.to_lower())
 	return out
