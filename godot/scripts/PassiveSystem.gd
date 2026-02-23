@@ -350,9 +350,9 @@ static func on_unit_attack(cd: CharacterData, unit: Node2D, target: Node2D, dama
 				_vortex_tag(unit, target, damage)
 			"cinder_brand":
 				if is_melee:
-					_cinder_brand(target, damage, cd)
+					_cinder_brand(target, damage, ids)
 			"toxic":
-				_toxic_venom(target, damage, cd)
+				_toxic_venom(target, damage, ids)
 			"doomstack":
 				_doomstack(unit, target, damage)
 			"hailburst":

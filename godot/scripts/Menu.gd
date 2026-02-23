@@ -1269,10 +1269,10 @@ func _make_collection_preview(data: Dictionary) -> Control:
 		spr.sprite_frames = frames
 		spr.animation = "walk_south"
 		spr.centered = true
-		# Framing: push DOWN (bigger Y) so heads fit in the 48×48 preview window.
-		# Also scale down a touch so tall sprites don't clip at the top.
-		spr.position = Vector2(24, 32)
-		spr.scale = Vector2.ONE * 0.90
+		# Framing: keep head visible while showing more body.
+		spr.position = Vector2(24, 30)
+		var scale := PixellabUtil.scale_for_target_height(frames, 32.0, 0.40, 0.80)
+		spr.scale = Vector2.ONE * scale
 		spr.play()
 		vp.add_child(spr)
 		return frame
@@ -1300,14 +1300,13 @@ func _make_collection_preview(data: Dictionary) -> Control:
 		var spr2 := Sprite2D.new()
 		spr2.texture = tex
 		spr2.centered = true
-		# Match animated framing: push DOWN so heads fit.
-		spr2.position = Vector2(24, 32)
+		# Match animated framing: keep head visible while showing more body.
+		spr2.position = Vector2(24, 30)
 		# Scale to fit nicely in the box.
 		var ts := tex.get_size()
 		var max_dim := maxf(1.0, maxf(ts.x, ts.y))
-		# Slightly smaller than before to avoid head clipping on tall sprites.
-		var scale := (40.0 / max_dim)
-		spr2.scale = Vector2.ONE * scale
+		var scale2 := (32.0 / max_dim)
+		spr2.scale = Vector2.ONE * clampf(scale2, 0.40, 0.80)
 		vp2.add_child(spr2)
 	return frame
 
@@ -1800,9 +1799,10 @@ func _make_detail_portrait(data: Dictionary) -> Control:
 		spr.sprite_frames = frames
 		spr.animation = "walk_south"
 		spr.centered = true
-		# Framing: keep head visible.
-		spr.position = Vector2(48, 64)
-		spr.scale = Vector2.ONE * 1.10
+		# Framing: keep head visible while reducing overall zoom.
+		spr.position = Vector2(48, 60)
+		var scale3 := PixellabUtil.scale_for_target_height(frames, 64.0, 0.45, 0.85)
+		spr.scale = Vector2.ONE * scale3
 		spr.play()
 		vp.add_child(spr)
 		return frame

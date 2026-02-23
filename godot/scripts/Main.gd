@@ -1353,8 +1353,9 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		spr.animation = "walk_south"
 		spr.play()
 		spr.centered = true
-		spr.position = Vector2(vp.size.x * 0.5, vp.size.y * 0.5 + 8.0)
-		spr.scale = Vector2(2.0, 2.0)
+		spr.position = Vector2(vp.size.x * 0.5, vp.size.y * 0.5 + 10.0)
+		var scale := PixellabUtil.scale_for_target_height(frames, 60.0, 0.40, 0.85)
+		spr.scale = Vector2.ONE * scale
 		spr.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 		vp.add_child(spr)
 	else:

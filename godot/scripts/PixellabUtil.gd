@@ -310,4 +310,35 @@ static func _custom_load_frames(dir_path: String) -> Array[Texture2D]:
 			out.append(tex)
 	return out
 
+static func max_frame_size(frames: SpriteFrames, anim_hint: String = "walk_south") -> Vector2:
+	if frames == null:
+		return Vector2.ZERO
+	var max_w := 0.0
+	var max_h := 0.0
+	var anims := frames.get_animation_names()
+	if anims.has(anim_hint):
+		anims = [anim_hint]
+	for a in anims:
+		var anim_name := String(a)
+		var count := frames.get_frame_count(anim_name)
+		for i in range(count):
+			var tex := frames.get_frame_texture(anim_name, i)
+			if tex == null:
+				continue
+			var sz := tex.get_size()
+			if sz.x > max_w:
+				max_w = sz.x
+			if sz.y > max_h:
+				max_h = sz.y
+	return Vector2(max_w, max_h)
+
+static func scale_for_target_height(frames: SpriteFrames, target_height: float, min_scale: float = 0.5, max_scale: float = 0.95) -> float:
+	if frames == null:
+		return 1.0
+	var sz := max_frame_size(frames)
+	if sz.y <= 0.001:
+		return 1.0
+	var scale := target_height / sz.y
+	return clampf(scale, min_scale, max_scale)
+
 

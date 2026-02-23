@@ -72,11 +72,15 @@ func _spawn_initial_squad() -> void:
 	if roster.is_empty():
 		var rng := RandomNumberGenerator.new()
 		rng.seed = int(Time.get_ticks_usec())
+		var map_mod: Dictionary = {}
+		var rc := get_node_or_null("/root/RunConfig")
+		if rc and is_instance_valid(rc) and rc.has_method("get_selected_map"):
+			map_mod = rc.get_selected_map()
 		for i in range(3):
-			var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0)
+			var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0, map_mod)
 			if cd == null:
 				var south := PixellabUtil.pick_random_south_path(rng)
-				cd = UnitFactory.build_character_data("recruit", rng, 0.0, south)
+				cd = UnitFactory.build_character_data("recruit", rng, 0.0, south, map_mod)
 			roster.append(cd)
 			# Also unlock and add to roster
 			var cm2 := get_node_or_null("/root/CollectionManager")

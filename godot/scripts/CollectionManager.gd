@@ -196,6 +196,32 @@ func clear_roster() -> void:
 	active_roster.clear()
 	save()
 
+func _is_old_model_dict(d: Dictionary) -> bool:
+	var sp := String(d.get("sprite_path", ""))
+	return sp.find("/assets/pixellab/") >= 0
+
+func _build_starter_roster(map_mod: Dictionary, rng: RandomNumberGenerator, count: int = 3) -> Array:
+	var starters: Array[Dictionary] = []
+	var tries: int = 0
+	while starters.size() < count and tries < 50:
+		tries += 1
+		var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0, map_mod)
+		if cd == null:
+			var south := PixellabUtil.pick_random_south_path(rng)
+			cd = UnitFactory.build_character_data("recruit", rng, 0.0, south, map_mod)
+		if cd == null:
+			continue
+		var uid := _make_unlock_id(cd)
+		var dup := false
+		for s in starters:
+			if String(s.get("id", "")) == uid:
+				dup = true
+				break
+		if dup:
+			continue
+		starters.append({"id": uid, "data": _cd_to_dict(cd)})
+	return starters
+
 func get_active_roster_character_data() -> Array[CharacterData]:
 	var out: Array[CharacterData] = []
 	for d in active_roster:
@@ -214,27 +240,17 @@ func load_save() -> void:
 		UnitFactory.ensure_loaded()
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 1337
-		var starters: Array[CharacterData] = []
-		var tries: int = 0
-		while starters.size() < 3 and tries < 50:
-			tries += 1
-			var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0)
-			if cd == null:
-				var south := PixellabUtil.pick_random_south_path(rng)
-				cd = UnitFactory.build_character_data("recruit", rng, 0.0, south)
-			# Avoid duplicates by unlock_id
-			var uid := _make_unlock_id(cd)
-			var dup := false
-			for s in starters:
-				if _make_unlock_id(s) == uid:
-					dup = true
-					break
-			if dup:
-				continue
-			starters.append(cd)
-		for cd2 in starters:
-			unlocked.append({"id": _make_unlock_id(cd2), "data": _cd_to_dict(cd2)})
-			active_roster.append(_cd_to_dict(cd2))
+		var map_mod: Dictionary = {}
+		var rc := get_node_or_null("/root/RunConfig")
+		if rc and is_instance_valid(rc) and rc.has_method("get_selected_map"):
+			map_mod = rc.get_selected_map()
+		var starters := _build_starter_roster(map_mod, rng, 3)
+		for entry in starters:
+			var entry_d: Dictionary = entry as Dictionary
+			unlocked.append(entry_d)
+			var data_d: Dictionary = entry_d.get("data", {}) as Dictionary
+			if typeof(data_d) == TYPE_DICTIONARY:
+				active_roster.append(data_d)
 		save()
 		return
 	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
@@ -249,12 +265,44 @@ func load_save() -> void:
 	var uarr: Array = root.get("unlocked", [])
 	for e in uarr:
 		if typeof(e) == TYPE_DICTIONARY:
-			unlocked.append(e)
+			unlocked.append(e as Dictionary)
 	active_roster = []
 	var rarr: Array = root.get("active_roster", [])
 	for e2 in rarr:
 		if typeof(e2) == TYPE_DICTIONARY:
-			active_roster.append(e2)
+			active_roster.append(e2 as Dictionary)
+
+	# Purge old Pixellab models from unlocks/roster and rebuild starters from base map.
+	var cleaned_unlocked: Array[Dictionary] = []
+	for e3 in unlocked:
+		if typeof(e3) != TYPE_DICTIONARY:
+			continue
+		var data := e3.get("data", {}) as Dictionary
+		if _is_old_model_dict(data):
+			continue
+		cleaned_unlocked.append(e3)
+	unlocked = cleaned_unlocked
+
+	var has_old := false
+	for r in active_roster:
+		if typeof(r) == TYPE_DICTIONARY and _is_old_model_dict(r):
+			has_old = true
+			break
+	if has_old or active_roster.is_empty():
+		var rng2 := RandomNumberGenerator.new()
+		rng2.seed = 1337
+		var map_mod2: Dictionary = {}
+		var rc2 := get_node_or_null("/root/RunConfig")
+		if rc2 and is_instance_valid(rc2) and rc2.has_method("get_selected_map"):
+			map_mod2 = rc2.get_selected_map()
+		var starters2 := _build_starter_roster(map_mod2, rng2, 3)
+		active_roster.clear()
+		for entry2 in starters2:
+			var data2: Dictionary = entry2.get("data", {}) as Dictionary
+			if typeof(data2) == TYPE_DICTIONARY:
+				active_roster.append(data2)
+			unlocked.append(entry2)
+		save()
 
 func save() -> void:
 	var root := {

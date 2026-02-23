@@ -39,6 +39,7 @@ enum TargetMode { NEAREST, LOWEST_HP, ELITES_FIRST }
 var _formation_mode: int = FormationMode.TIGHT
 var _target_mode: int = TargetMode.NEAREST
 const TARGET_MODE_COUNT: int = 3
+const TARGET_SPRITE_HEIGHT: float = 52.0
 
 var _current_anim: String = "walk_south"
 var _anim_cooldown: float = 0.0
@@ -101,6 +102,9 @@ func _apply_visuals() -> void:
 	if character_data != null and character_data.sprite_path != "":
 		var frames := PixellabUtil.walk_frames_from_south_path(character_data.sprite_path)
 		if frames != null:
+			var base_scale := anim.scale
+			var scale_mult := PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.6, 1.05)
+			anim.scale = base_scale * scale_mult
 			anim.sprite_frames = frames
 			_current_anim = "walk_south"
 			anim.animation = _current_anim
@@ -603,13 +607,9 @@ func pulse_vfx(tint: Color) -> void:
 	_pulse_tw = create_tween()
 	_pulse_tw.set_trans(Tween.TRANS_SINE)
 	_pulse_tw.set_ease(Tween.EASE_OUT)
-	var base := Vector2(1.0, 1.0)
-	var bump := base * 1.05
 	anim.modulate = Color(1, 1, 1, 1)
 	_pulse_tw.parallel().tween_property(anim, "modulate", tint, 0.06)
-	_pulse_tw.parallel().tween_property(anim, "scale", bump, 0.06)
 	_pulse_tw.tween_property(anim, "modulate", Color(1, 1, 1, 1), 0.10)
-	_pulse_tw.parallel().tween_property(anim, "scale", base, 0.10)
 
 func _projectile_color_for_unit() -> Color:
 	if character_data == null:

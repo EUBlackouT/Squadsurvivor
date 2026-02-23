@@ -69,6 +69,7 @@ var _move_speed_mult: float = 1.0
 var _dmg_mult: float = 1.0
 var _hp_mult: float = 1.0
 var _scale_mult: float = 1.0
+const TARGET_SPRITE_HEIGHT: float = 52.0
 
 var current_hp: int = 30
 
@@ -134,6 +135,9 @@ func _apply_visuals() -> void:
 		pixellab_south_path = character_data.sprite_path
 	var frames := PixellabUtil.walk_frames_from_south_path(pixellab_south_path)
 	if frames != null:
+		var base_scale := anim.scale
+		var scale_mult := PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.6, 1.05)
+		anim.scale = base_scale * scale_mult
 		anim.sprite_frames = frames
 	_current_anim = "walk_south"
 	anim.animation = _current_anim
@@ -145,7 +149,7 @@ func _apply_visuals() -> void:
 	_anim_base_scale = anim.scale
 	# Elites slightly larger
 	var base := 1.08 if is_elite else 1.0
-	anim.scale = Vector2(base, base) * _scale_mult
+	anim.scale = _anim_base_scale * base * _scale_mult
 	# Mild tint for readability by archetype/affix
 	if ai_id == "swarmer":
 		anim.modulate = Color(0.85, 0.95, 0.90, 1.0)
@@ -690,7 +694,7 @@ func _process_death_tags() -> void:
 	# Reaper's Hunger: kill heal
 	if has_meta("_reaper_hunger_kill_heal"):
 		var heal_amt := int(get_meta("_reaper_hunger_kill_heal", 0))
-		var attacker := get_meta("_reaper_hunger_attacker", null)
+		var attacker: Node2D = get_meta("_reaper_hunger_attacker", null) as Node2D
 		if heal_amt > 0 and attacker != null and is_instance_valid(attacker) and attacker.has_method("heal"):
 			attacker.heal(heal_amt)
 			if attacker.has_method("pulse_vfx"):
@@ -826,17 +830,13 @@ func pulse_vfx(tint: Color) -> void:
 		return
 	if _pulse_tw != null and is_instance_valid(_pulse_tw):
 		_pulse_tw.kill()
-	var base_scale: Vector2 = Vector2(1.08, 1.08) if is_elite else Vector2(1.0, 1.0)
-	var bump_scale: Vector2 = base_scale * 1.06
 	_pulse_tw = create_tween()
 	_pulse_tw.set_trans(Tween.TRANS_SINE)
 	_pulse_tw.set_ease(Tween.EASE_OUT)
 	# Brief tint + scale pop, then return to normal.
 	anim.modulate = Color(1, 1, 1, 1)
 	_pulse_tw.parallel().tween_property(anim, "modulate", tint, 0.06)
-	_pulse_tw.parallel().tween_property(anim, "scale", bump_scale, 0.06)
 	_pulse_tw.tween_property(anim, "modulate", Color(1, 1, 1, 1), 0.10)
-	_pulse_tw.parallel().tween_property(anim, "scale", base_scale, 0.10)
 
 # --- Status API for PassiveSystem ---
 
