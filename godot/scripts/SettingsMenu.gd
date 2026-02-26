@@ -14,6 +14,8 @@ var _vsync_toggle: CheckButton = null
 var _shake_toggle: CheckButton = null
 var _shake_slider: HSlider = null
 
+const SETTINGS_BG_PATH: String = "res://assets/ui/mockups/main_menu.webp"
+
 func _ready() -> void:
 	UiSkin.apply_global_font()
 	# Always active; this menu is used both in MainMenu and while paused.
@@ -39,6 +41,17 @@ func _build_ui() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(root)
+
+	if ResourceLoader.exists(SETTINGS_BG_PATH):
+		var art := TextureRect.new()
+		art.name = "SettingsBgArt"
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art.texture = load(SETTINGS_BG_PATH) as Texture2D
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.modulate = Color(1, 1, 1, 0.75)
+		root.add_child(art)
 
 	_backdrop = ColorRect.new()
 	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -132,6 +145,7 @@ func _build_ui() -> void:
 	close_btn.text = "Close"
 	close_btn.custom_minimum_size = Vector2(0, 44)
 	close_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	UiSkin.style_primary_button(close_btn, UiSkin.ACCENT)
 	close_btn.pressed.connect(func(): close())
 	v.add_child(close_btn)
 
@@ -185,6 +199,7 @@ func _make_slider_row(parent: VBoxContainer, label_text: String, on_change: Call
 	s.focus_mode = Control.FOCUS_ALL
 	s.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UiSkin.style_slider(s)
 	row.add_child(s)
 
 	s.value_changed.connect(func(v: float):
@@ -211,6 +226,7 @@ func _make_toggle_row(parent: VBoxContainer, label_text: String, on_toggle: Call
 	b.mouse_filter = Control.MOUSE_FILTER_STOP
 	b.focus_mode = Control.FOCUS_ALL
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	UiSkin.style_toggle(b)
 	row.add_child(b)
 	b.toggled.connect(func(on: bool):
 		on_toggle.call(on)

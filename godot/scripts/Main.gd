@@ -44,6 +44,8 @@ const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
 const DAMAGE_NUMBERS_LAYER_SCRIPT: Script = preload("res://scripts/DamageNumbersLayer.gd")
 const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
 const TILE_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TileMapWorld.gd")
+const HUD_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
+const DRAFT_BG_PATH: String = "res://assets/ui/mockups/draft_picks.webp"
 
 var damage_numbers: Node = null
 var toast_layer: ToastLayer
@@ -1083,6 +1085,18 @@ func _show_recruit_draft() -> void:
 	draft_ui.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	add_child(draft_ui)
 
+	# Background art for the draft screen (fun, not sci-fi).
+	if ResourceLoader.exists(DRAFT_BG_PATH):
+		var draft_bg := TextureRect.new()
+		draft_bg.name = "DraftBgArt"
+		draft_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		draft_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		draft_bg.texture = load(DRAFT_BG_PATH) as Texture2D
+		draft_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		draft_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		draft_bg.modulate = Color(1, 1, 1, 0.95)
+		draft_ui.add_child(draft_bg)
+
 	var backdrop := ColorRect.new()
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	backdrop.color = Color(0, 0, 0, 0.78)
@@ -1607,6 +1621,18 @@ func _setup_hud() -> void:
 	hud.name = "HUD"
 	hud.layer = 10
 	add_child(hud)
+
+	# HUD art overlay (low opacity so gameplay stays readable).
+	if ResourceLoader.exists(HUD_BG_PATH):
+		var hud_bg := TextureRect.new()
+		hud_bg.name = "HudArt"
+		hud_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hud_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hud_bg.texture = load(HUD_BG_PATH) as Texture2D
+		hud_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		hud_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		hud_bg.modulate = Color(1, 1, 1, 0.55)
+		hud.add_child(hud_bg)
 
 	# Tiny autosave indicator (top-right)
 	var autosave_lbl := Label.new()
@@ -2455,6 +2481,7 @@ func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> vo
 			bar.value = clampi(total_sigils, 0, cost)
 			bar.custom_minimum_size = Vector2(0, 22)
 			bar.show_percentage = false
+			UiSkin.style_progress_bar(bar)
 			prog_box.add_child(bar)
 			
 			var bar_pct := Label.new()

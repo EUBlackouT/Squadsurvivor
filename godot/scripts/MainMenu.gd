@@ -38,17 +38,21 @@ var _selected_map_locked: bool = false
 @export var footer_text: String = "v4.2 • Draft a squad • Survive the swarm"
 
 @export var use_menu_art: bool = true
-@export var bg_art_path: String = "res://assets/ui/main_menu_bg.jpg"
-@export var frame_art_path: String = "res://assets/ui/main_menu_frame.png"
+@export var bg_art_path: String = "res://assets/ui/mockups/main_menu.webp"
+@export var frame_art_path: String = ""
 @export var use_crowd_when_menu_art: bool = true
 
 # Optional font overrides (drop .ttf into res://assets/ui/fonts/ and point these at it)
 @export var title_font_path: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
 @export var subtitle_font_path: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
 
+const PROTOCOL_BG_PATH: String = "res://assets/ui/mockups/protocol_grid.webp"
+const INTRO_BG_PATH: String = "res://assets/ui/mockups/intro.webp"
+
 func _ready() -> void:
 	UiSkin.apply_global_font(title_font_path, 14)
 	_apply_menu_art()
+	_play_intro_splash()
 
 	# Menu music
 	var mm := get_node_or_null("/root/MusicManager")
@@ -473,7 +477,8 @@ func _apply_menu_art() -> void:
 		frame_art.visible = true
 		frame_ok = (frame_art.texture != null)
 
-	var loaded := bg_ok and frame_ok
+	# Use background art even if we don't have a matching frame overlay yet.
+	var loaded := bg_ok
 	set_meta("_menu_art_loaded", loaded)
 
 	# Only hide procedural layers when the authored art is actually present.
@@ -481,6 +486,27 @@ func _apply_menu_art() -> void:
 	if backdrop: backdrop.visible = not loaded
 	if backdrop_shader: backdrop_shader.visible = not loaded
 	if frame_shader: frame_shader.visible = not loaded
+
+func _play_intro_splash() -> void:
+	if not ResourceLoader.exists(INTRO_BG_PATH):
+		return
+	var splash := TextureRect.new()
+	splash.name = "IntroSplash"
+	splash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	splash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	splash.texture = load(INTRO_BG_PATH) as Texture2D
+	splash.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	splash.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	splash.modulate = Color(1, 1, 1, 1)
+	add_child(splash)
+	move_child(splash, get_child_count() - 1)
+
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.1)
+	tw.tween_property(splash, "modulate", Color(1, 1, 1, 0), 0.45)
+	tw.tween_callback(splash.queue_free)
 
 func _polish_menu_ui() -> void:
 	# Title/subtitle (lets us rename without touching the scene file).
@@ -509,13 +535,13 @@ func _polish_menu_ui() -> void:
 		tw.tween_property(card, "position", base, 0.22)
 		tw.parallel().tween_property(card, "modulate", Color(1, 1, 1, 1), 0.22)
 
-	# Buttons: consistent “neon” pill style, with a stronger primary (Start/Resume).
-	var primary := Color(0.40, 0.85, 1.0, 1.0)
-	var secondary := Color(1, 1, 1, 0.10)
+	# Buttons: consistent “fun” style, with a stronger primary (Start/Resume).
+	var primary := UiSkin.ACCENT
+	var secondary := Color(1, 1, 1, 0.12)
 	_style_button(play_btn, true, primary, secondary)
 	_style_button(resume_btn, true, primary, secondary)
 	_style_button(armory_btn, false, primary, secondary)
-	_style_button(protocol_btn, false, Color(0.8, 0.5, 1.0, 0.25), Color(0.6, 0.3, 0.9, 0.15))  # Purple accent
+	_style_button(protocol_btn, false, UiSkin.ACCENT_PURPLE, Color(0.55, 0.35, 0.8, 0.18))  # Purple accent
 	_style_button(settings_btn, false, primary, secondary)
 	_style_button(quit_btn, false, primary, secondary)
 
@@ -708,6 +734,18 @@ func _create_protocol_overlay() -> void:
 	_protocol_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_protocol_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_protocol_overlay)
+
+	# Background art for the protocol grid screen.
+	if ResourceLoader.exists(PROTOCOL_BG_PATH):
+		var art := TextureRect.new()
+		art.name = "ProtocolBgArt"
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art.texture = load(PROTOCOL_BG_PATH) as Texture2D
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.modulate = Color(1, 1, 1, 0.95)
+		_protocol_overlay.add_child(art)
 	
 	# Dark backdrop
 	var bg := ColorRect.new()

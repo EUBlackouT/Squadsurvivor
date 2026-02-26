@@ -32,6 +32,8 @@ var _meta_tree_btn: Button = null
 var _last_run_label: RichTextLabel = null
 var _last_unlocked_map_id: String = "graveyard"
 
+const COLLECTION_BG_PATH: String = "res://assets/ui/mockups/collection.webp"
+
 func _ready() -> void:
 	UiSkin.apply_global_font()
 	# Force load save
@@ -44,6 +46,7 @@ func _ready() -> void:
 
 	_toast = ToastLayer.new()
 	add_child(_toast)
+	_apply_background_art()
 	_apply_skin()
 	_refresh()
 
@@ -148,6 +151,29 @@ func _maybe_reroll_weapons_once(cm: Node) -> void:
 	if f:
 		f.store_string("done")
 
+func _apply_background_art() -> void:
+	if has_node("BgArt"):
+		return
+	if not ResourceLoader.exists(COLLECTION_BG_PATH):
+		return
+	var bg := TextureRect.new()
+	bg.name = "BgArt"
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.texture = load(COLLECTION_BG_PATH) as Texture2D
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.modulate = Color(1, 1, 1, 0.95)
+	add_child(bg)
+	move_child(bg, 0)
+	# Hide the old sci-fi backdrop layers if present.
+	var backdrop := get_node_or_null("Backdrop") as CanvasItem
+	if backdrop:
+		backdrop.visible = false
+	var backdrop_shader := get_node_or_null("BackdropShader") as CanvasItem
+	if backdrop_shader:
+		backdrop_shader.visible = false
+
 func _open_settings() -> void:
 	if has_node("SettingsMenu"):
 		return
@@ -208,6 +234,7 @@ func _setup_meta_ui() -> void:
 	_meta_prog.custom_minimum_size = Vector2(0, 18)
 	_meta_prog.min_value = 0
 	_meta_prog.max_value = 100
+	UiSkin.style_progress_bar(_meta_prog)
 	v.add_child(_meta_prog)
 
 	_meta_label_bottom = Label.new()

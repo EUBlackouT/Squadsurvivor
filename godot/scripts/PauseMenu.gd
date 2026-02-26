@@ -3,6 +3,7 @@ extends CanvasLayer
 # Pause menu that works while the tree is paused.
 
 var _panel: PanelContainer = null
+const PAUSE_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
 
 func _ready() -> void:
 	UiSkin.apply_global_font()
@@ -20,6 +21,17 @@ func _build_ui() -> void:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(root)
+
+	if ResourceLoader.exists(PAUSE_BG_PATH):
+		var art := TextureRect.new()
+		art.name = "PauseBgArt"
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art.texture = load(PAUSE_BG_PATH) as Texture2D
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.modulate = Color(1, 1, 1, 0.65)
+		root.add_child(art)
 
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -63,24 +75,28 @@ func _build_ui() -> void:
 	var resume := Button.new()
 	resume.text = "Resume"
 	resume.custom_minimum_size = Vector2(0, 44)
+	UiSkin.style_primary_button(resume, UiSkin.ACCENT)
 	resume.pressed.connect(func(): _on_resume())
 	v.add_child(resume)
 
 	var settings := Button.new()
 	settings.text = "Settings"
 	settings.custom_minimum_size = Vector2(0, 44)
+	UiSkin.style_secondary_button(settings, UiSkin.ACCENT_PURPLE)
 	settings.pressed.connect(func(): _on_settings())
 	v.add_child(settings)
 
 	var save_quit := Button.new()
 	save_quit.text = "Save & Quit"
 	save_quit.custom_minimum_size = Vector2(0, 44)
+	UiSkin.style_secondary_button(save_quit, UiSkin.ACCENT_GOLD)
 	save_quit.pressed.connect(func(): _on_save_and_quit())
 	v.add_child(save_quit)
 
 	var quit := Button.new()
 	quit.text = "Quit (No Save)"
 	quit.custom_minimum_size = Vector2(0, 44)
+	UiSkin.style_secondary_button(quit, UiSkin.ACCENT_RED)
 	quit.pressed.connect(func(): _on_quit_no_save())
 	v.add_child(quit)
 
