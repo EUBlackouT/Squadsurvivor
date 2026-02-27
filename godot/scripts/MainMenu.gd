@@ -1,121 +1,592 @@
 extends Control
 
-@onready var bg_art: TextureRect = get_node_or_null("BgArt") as TextureRect
-@onready var frame_art: TextureRect = get_node_or_null("FrameArt") as TextureRect
-@onready var backdrop: CanvasItem = get_node_or_null("Backdrop") as CanvasItem
-@onready var backdrop_shader: CanvasItem = get_node_or_null("BackdropShader") as CanvasItem
-@onready var frame_shader: CanvasItem = get_node_or_null("FrameShader") as CanvasItem
+# Main Menu - FULL rebuild in a cozy, playful, pixel-fantasy wooden sign style.
+# Behavior (scene changes, signals, logic) stays the same.
 
-@onready var resume_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Resume") as Button
-@onready var play_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Play") as Button
-@onready var armory_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Armory") as Button
-@onready var protocol_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Protocol") as Button
-@onready var settings_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Settings") as Button
-@onready var quit_btn: Button = get_node_or_null("Root/Card/Pad/VBox/Quit") as Button
+var _menu_root: Control
+var _card: PanelContainer
+var _play_btn: Button
+var _resume_btn: Button
+var _armory_btn: Button
+var _protocol_btn: Button
+var _settings_btn: Button
+var _quit_btn: Button
 
-@onready var card: Control = get_node_or_null("Root/Card") as Control
-@onready var title_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/TitleStack/Title") as Label
-@onready var title_glow_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/TitleStack/Glow") as Label
-@onready var title_bevel_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/TitleStack/Bevel") as Label
-@onready var subtitle_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/Subtitle") as Label
-
-@onready var map_overlay: Control = get_node_or_null("MapOverlay") as Control
-@onready var map_panel: PanelContainer = get_node_or_null("MapOverlay/Panel") as PanelContainer
-@onready var map_list: ItemList = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/LeftPanel/MapList") as ItemList
-@onready var map_preview_vp: SubViewport = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame/Pad/Preview/VP") as SubViewport
-@onready var map_tagline: Label = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapTagline") as Label
-@onready var map_details: RichTextLabel = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapDetails") as RichTextLabel
-@onready var map_back_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Back") as Button
-@onready var map_start_btn: Button = get_node_or_null("MapOverlay/Panel/Pad/VBox/Buttons/Start") as Button
+var _map_overlay: Control
+var _map_list: ItemList
+var _map_preview_vp: SubViewport
+var _map_tagline: Label
+var _map_details: RichTextLabel
+var _map_back_btn: Button
+var _map_start_btn: Button
+var _map_panel: PanelContainer
 
 var _map_ids: Array[String] = []
 var _crowd: Node2D = null
 var _preview_root: Node = null
 var _selected_map_locked: bool = false
 
-@export var game_title: String = "Squad Protocol"
-@export var game_tagline: String = "Draft a squad. Survive the swarm."
-@export var show_footer: bool = true
-@export var footer_text: String = "v4.2 • Draft a squad • Survive the swarm"
+@export var game_title: String = "Character Collection"
+@export var game_tagline: String = "Collect • Upgrade • Build your dream team"
+@export var footer_text: String = "v0.1 • Cozy collection run"
 
-@export var use_menu_art: bool = false
-@export var bg_art_path: String = "res://assets/ui/mockups/main_menu.webp"
-@export var frame_art_path: String = ""
-@export var use_crowd_when_menu_art: bool = true
+# ─────────────────────────────────────────────────────────────────────────────
+# ASSETS (put the generated PNGs here)
+# ─────────────────────────────────────────────────────────────────────────────
+const BG_PATH: String = "res://assets/ui/wood_menu/bg_fantasy_1920x1080.jpg"
+const ASSET_PANEL: String = "res://assets/ui/wood_menu/panel_wood_9slice_512.png"
 
-# Optional font overrides (drop .ttf into res://assets/ui/fonts/ and point these at it)
-@export var title_font_path: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
-@export var subtitle_font_path: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
+const BTN_NORMAL: String = "res://assets/ui/wood_menu/button_wood_normal_512x128.png"
+const BTN_HOVER: String = "res://assets/ui/wood_menu/button_wood_hover_512x128.png"
+const BTN_PRESSED: String = "res://assets/ui/wood_menu/button_wood_pressed_512x128.png"
+const BTN_DISABLED: String = "res://assets/ui/wood_menu/button_wood_disabled_512x128.png"
 
-const PROTOCOL_BG_PATH: String = "res://assets/ui/mockups/protocol_grid.webp"
-const INTRO_BG_PATH: String = "res://assets/ui/mockups/intro.webp"
+const TAB_NORMAL: String = "res://assets/ui/wood_menu/tab_wood_normal_384x128.png"
+const TAB_HOVER: String = "res://assets/ui/wood_menu/tab_wood_hover_384x128.png"
+const TAB_PRESSED: String = "res://assets/ui/wood_menu/tab_wood_pressed_384x128.png"
+
+# Keep your existing font pipeline; swap FONT_PATH if you have a pixel font.
+const FONT_PATH: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
+
+# Optional intro splash if you still use it (safe to ignore if not present)
+const INTRO_BG_PATH: String = ""
 const USE_UI_MOCKUPS: bool = false
 
+# ─────────────────────────────────────────────────────────────────────────────
+# COLORS (fallback / text)
+# ─────────────────────────────────────────────────────────────────────────────
+const TITLE_COLOR: Color = Color(1.0, 0.96, 0.86, 1.0)
+const SUBTITLE_COLOR: Color = Color(0.96, 0.92, 0.82, 0.92)
+const TEXT_DARK: Color = Color(0.12, 0.08, 0.06, 1.0)
+
+const ACCENT_LEAF: Color = Color(0.42, 0.86, 0.52, 1.0)
+const ACCENT_SUN: Color = Color(1.0, 0.83, 0.44, 1.0)
+const ACCENT_BERRY: Color = Color(0.86, 0.55, 0.88, 1.0)
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 func _ready() -> void:
-	UiSkin.apply_global_font(title_font_path, 14)
+	# If UiSkin exists in your project, keep using it.
+	# If you want pure pixel readability, swap FONT_PATH to your pixel font.
+	UiSkin.apply_global_font(FONT_PATH, 14)
+
+	_menu_root = get_node_or_null("MenuRoot")
+	if _menu_root == null:
+		_menu_root = self
+
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
 	_apply_menu_art()
 	_play_intro_splash()
 
-	# Menu music
 	var mm := get_node_or_null("/root/MusicManager")
 	if mm and is_instance_valid(mm) and mm.has_method("play"):
 		mm.play("menu", 1.0)
 
 	_spawn_menu_crowd()
-	_polish_menu_ui()
+	_build_menu()
+	_build_map_overlay()
+	_connect_signals()
 
-	if play_btn:
-		play_btn.pressed.connect(func():
+func _apply_menu_art() -> void:
+	var bg := get_node_or_null("MenuBackground") as TextureRect
+	if bg == null:
+		bg = TextureRect.new()
+		bg.name = "MenuBackground"
+		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		bg.z_index = -200
+		add_child(bg)
+		move_child(bg, 0)
+
+	var t := _load_tex(BG_PATH)
+	if t == null:
+		push_error("MainMenu: BG texture missing: " + BG_PATH)
+	bg.texture = t
+
+	# Hide purple overlays when we have a BG (otherwise they draw on top)
+	var bds := get_node_or_null("BackdropShader") as CanvasItem
+	if bds:
+		bds.visible = (t == null)
+	var bd := get_node_or_null("Backdrop") as CanvasItem
+	if bd:
+		bd.visible = (t == null)
+	var fs := get_node_or_null("FrameShader") as CanvasItem
+	if fs:
+		fs.visible = (t == null)
+
+func _play_intro_splash() -> void:
+	if (not USE_UI_MOCKUPS) or INTRO_BG_PATH.is_empty() or (not ResourceLoader.exists(INTRO_BG_PATH)):
+		return
+	var splash := TextureRect.new()
+	splash.name = "IntroSplash"
+	splash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	splash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	splash.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	splash.texture = load(INTRO_BG_PATH) as Texture2D
+	splash.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	splash.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	add_child(splash)
+	move_child(splash, get_child_count() - 1)
+	var tw := create_tween()
+	tw.tween_interval(1.0)
+	tw.tween_property(splash, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(splash.queue_free)
+
+func _spawn_menu_crowd() -> void:
+	# Your existing background FX/spawn
+	if _crowd != null and is_instance_valid(_crowd):
+		return
+	var bd := get_node_or_null("Backdrop") as CanvasItem
+	if bd:
+		bd.z_index = -100
+	var bds := get_node_or_null("BackdropShader") as CanvasItem
+	if bds:
+		bds.z_index = -90
+	var c := preload("res://scripts/MainMenuCrowd.gd").new()
+	c.name = "MenuCrowd"
+	add_child(c)
+	if c is CanvasItem:
+		(c as CanvasItem).z_index = -50
+	_crowd = c
+	if has_node("MenuRoot"):
+		move_child(_crowd, get_node("MenuRoot").get_index())
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUILD MENU (wooden sign style)
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _load_tex(path: String) -> Texture2D:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
+func _build_menu() -> void:
+	# Main wooden panel card (left-ish like your preferred concept)
+	_card = PanelContainer.new()
+	_card.name = "MenuCard"
+	_card.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	_card.offset_left = 64
+	_card.offset_top = -360
+	_card.offset_right = 560
+	_card.offset_bottom = 360
+	_card.add_theme_stylebox_override("panel", _make_panel_style())
+	_menu_root.add_child(_card)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 36)
+	pad.add_theme_constant_override("margin_right", 36)
+	pad.add_theme_constant_override("margin_top", 34)
+	pad.add_theme_constant_override("margin_bottom", 28)
+	_card.add_child(pad)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	pad.add_child(vbox)
+
+	# Title (big, cozy)
+	var title := Label.new()
+	title.name = "Title"
+	title.text = game_title
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 44)
+	title.add_theme_color_override("font_color", TITLE_COLOR)
+	title.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.06, 1))
+	title.add_theme_constant_override("outline_size", 6)
+	title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
+	title.add_theme_constant_override("shadow_offset_y", 4)
+	title.pivot_offset = Vector2(200, 30)
+	title.rotation = deg_to_rad(-1.0)
+	_apply_font(title)
+	vbox.add_child(title)
+
+	# Subtitle
+	var sub := Label.new()
+	sub.text = game_tagline
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_font_size_override("font_size", 15)
+	sub.add_theme_color_override("font_color", SUBTITLE_COLOR)
+	_apply_font(sub)
+	vbox.add_child(sub)
+
+	# Spacer
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 10)
+	vbox.add_child(spacer)
+
+	# Buttons (wood)
+	_resume_btn = _make_menu_button("Resume", false)
+	_resume_btn.visible = false
+	vbox.add_child(_resume_btn)
+
+	_play_btn = _make_menu_button("▶ Start", true)
+	vbox.add_child(_play_btn)
+
+	_armory_btn = _make_menu_button("Collection / Setup", false)
+	vbox.add_child(_armory_btn)
+
+	_protocol_btn = _make_menu_button("★ Progression", false, ACCENT_BERRY)
+	vbox.add_child(_protocol_btn)
+
+	_settings_btn = _make_menu_button("Settings", false)
+	vbox.add_child(_settings_btn)
+
+	_quit_btn = _make_menu_button("Quit", false)
+	vbox.add_child(_quit_btn)
+
+	# Footer
+	vbox.add_spacer(true)
+	var footer := Label.new()
+	footer.name = "Footer"
+	footer.text = footer_text
+	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	footer.add_theme_font_size_override("font_size", 11)
+	footer.add_theme_color_override("font_color", Color(0.98, 0.94, 0.86, 0.70))
+	_apply_font(footer)
+	vbox.add_child(footer)
+
+	# Entrance animation (gentle pop)
+	_card.modulate.a = 0
+	_card.scale = Vector2(0.94, 0.94)
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_BACK)
+	tw.set_ease(Tween.EASE_OUT)
+	tw.tween_property(_card, "scale", Vector2(1, 1), 0.45)
+	tw.parallel().tween_property(_card, "modulate:a", 1.0, 0.32)
+
+func _make_panel_style() -> StyleBox:
+	var tex := _load_tex(ASSET_PANEL)
+	if tex != null:
+		var sbt := StyleBoxTexture.new()
+		sbt.texture = tex
+		# The generated panel has a thick border; these margins are tuned for it.
+		sbt.texture_margin_left = 48
+		sbt.texture_margin_right = 48
+		sbt.texture_margin_top = 48
+		sbt.texture_margin_bottom = 48
+		sbt.content_margin_left = 28
+		sbt.content_margin_right = 28
+		sbt.content_margin_top = 24
+		sbt.content_margin_bottom = 24
+		return sbt
+
+	# Fallback
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.22, 0.15, 0.10, 0.95)
+	sb.border_width_left = 4
+	sb.border_width_right = 4
+	sb.border_width_top = 4
+	sb.border_width_bottom = 4
+	sb.border_color = Color(0.10, 0.06, 0.03, 0.8)
+	sb.corner_radius_top_left = 22
+	sb.corner_radius_top_right = 22
+	sb.corner_radius_bottom_left = 22
+	sb.corner_radius_bottom_right = 22
+	sb.shadow_color = Color(0, 0, 0, 0.5)
+	sb.shadow_size = 20
+	return sb
+
+func _stylebox_from(tex_path: String, tm: int, cm_v: int, cm_h: int) -> StyleBoxTexture:
+	var tex := _load_tex(tex_path)
+	if tex == null:
+		return null
+	var sbt := StyleBoxTexture.new()
+	sbt.texture = tex
+	sbt.texture_margin_left = tm
+	sbt.texture_margin_right = tm
+	sbt.texture_margin_top = tm
+	sbt.texture_margin_bottom = tm
+	sbt.content_margin_left = cm_h
+	sbt.content_margin_right = cm_h
+	sbt.content_margin_top = cm_v
+	sbt.content_margin_bottom = cm_v
+	return sbt
+
+func _make_menu_button(text: String, is_primary: bool, accent: Color = ACCENT_SUN) -> Button:
+	var btn := Button.new()
+	btn.text = text
+	btn.custom_minimum_size = Vector2(0, 62)
+	btn.add_theme_font_size_override("font_size", 22)
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_apply_font(btn)
+
+	# Wooden button textures (separate states)
+	var normal := _stylebox_from(BTN_NORMAL, 24, 16, 34)
+	var hover := _stylebox_from(BTN_HOVER, 24, 16, 34)
+	var pressed := _stylebox_from(BTN_PRESSED, 24, 18, 34)
+	var disabled := _stylebox_from(BTN_DISABLED, 24, 16, 34)
+
+	if normal != null:
+		btn.add_theme_stylebox_override("normal", normal)
+		btn.add_theme_stylebox_override("hover", hover if hover != null else normal)
+		btn.add_theme_stylebox_override("pressed", pressed if pressed != null else normal)
+		btn.add_theme_stylebox_override("focus", hover if hover != null else normal)
+		btn.add_theme_stylebox_override("disabled", disabled if disabled != null else normal)
+
+		# Text styling
+		btn.add_theme_color_override("font_color", TITLE_COLOR)
+		btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
+		btn.add_theme_color_override("font_pressed_color", TITLE_COLOR)
+		btn.add_theme_color_override("font_disabled_color", Color(0.9, 0.9, 0.9, 0.55))
+		btn.add_theme_color_override("font_outline_color", Color(0.10, 0.07, 0.04, 1))
+		btn.add_theme_constant_override("outline_size", 4)
+	else:
+		# Fallback flat
+		var sb := StyleBoxFlat.new()
+		sb.corner_radius_top_left = 14
+		sb.corner_radius_top_right = 14
+		sb.corner_radius_bottom_left = 14
+		sb.corner_radius_bottom_right = 14
+		sb.border_width_left = 2
+		sb.border_width_right = 2
+		sb.border_width_top = 2
+		sb.border_width_bottom = 2
+		sb.bg_color = Color(0.42, 0.28, 0.16, 1.0)
+		sb.border_color = Color(accent.r, accent.g, accent.b, 0.75)
+		btn.add_theme_stylebox_override("normal", sb)
+		btn.add_theme_stylebox_override("hover", sb.duplicate())
+		btn.add_theme_stylebox_override("pressed", sb.duplicate())
+		btn.add_theme_stylebox_override("focus", sb.duplicate())
+		btn.add_theme_color_override("font_color", TITLE_COLOR)
+
+	# Subtle bouncy hover (keeps your existing behavior vibe)
+	btn.mouse_entered.connect(func():
+		var t := btn.create_tween()
+		t.tween_property(btn, "scale", Vector2(1.04, 1.04), 0.08).set_trans(Tween.TRANS_BACK)
+	)
+	btn.mouse_exited.connect(func():
+		var t := btn.create_tween()
+		t.tween_property(btn, "scale", Vector2(1, 1), 0.10)
+	)
+
+	return btn
+
+func _apply_font(c: Control) -> void:
+	var f := UiSkin.get_font()
+	if f != null:
+		if c is Label:
+			(c as Label).add_theme_font_override("font", f)
+		elif c is Button:
+			(c as Button).add_theme_font_override("font", f)
+		elif c is RichTextLabel:
+			(c as RichTextLabel).add_theme_font_override("normal_font", f)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MAP OVERLAY (same behavior, wood styling)
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _build_map_overlay() -> void:
+	_map_overlay = Control.new()
+	_map_overlay.name = "MapOverlay"
+	_map_overlay.visible = false
+	_map_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_map_overlay)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.05, 0.04, 0.03, 0.86)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_overlay.add_child(dim)
+
+	_map_panel = PanelContainer.new()
+	_map_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_map_panel.offset_left = -500
+	_map_panel.offset_top = -340
+	_map_panel.offset_right = 500
+	_map_panel.offset_bottom = 340
+	_map_panel.add_theme_stylebox_override("panel", _make_panel_style())
+	_map_overlay.add_child(_map_panel)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 26)
+	pad.add_theme_constant_override("margin_right", 26)
+	pad.add_theme_constant_override("margin_top", 22)
+	pad.add_theme_constant_override("margin_bottom", 22)
+	_map_panel.add_child(pad)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	pad.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Choose your zone"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", TITLE_COLOR)
+	title.add_theme_color_override("font_outline_color", Color(0.10, 0.07, 0.04, 1))
+	title.add_theme_constant_override("outline_size", 5)
+	_apply_font(title)
+	vbox.add_child(title)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 18)
+	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(hbox)
+
+	# Left: map list
+	var left := VBoxContainer.new()
+	left.custom_minimum_size.x = 240
+	left.add_theme_constant_override("separation", 8)
+	hbox.add_child(left)
+
+	var list_lbl := Label.new()
+	list_lbl.text = "Zones"
+	list_lbl.add_theme_font_size_override("font_size", 14)
+	list_lbl.add_theme_color_override("font_color", SUBTITLE_COLOR)
+	list_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_apply_font(list_lbl)
+	left.add_child(list_lbl)
+
+	_map_list = ItemList.new()
+	_map_list.custom_minimum_size.y = 290
+	_map_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_map_list.allow_reselect = true
+	_map_list.add_theme_font_size_override("font_size", 15)
+	_map_list.add_theme_color_override("font_color", Color(0.98, 0.96, 0.90, 1))
+	_map_list.add_theme_color_override("font_selected_color", Color(1, 1, 1, 1))
+	_apply_font(_map_list)
+
+	var sel_sb := StyleBoxFlat.new()
+	sel_sb.bg_color = Color(0.22, 0.44, 0.22, 0.85)
+	sel_sb.corner_radius_top_left = 8
+	sel_sb.corner_radius_top_right = 8
+	sel_sb.corner_radius_bottom_left = 8
+	sel_sb.corner_radius_bottom_right = 8
+	_map_list.add_theme_stylebox_override("selected", sel_sb)
+	_map_list.add_theme_stylebox_override("selected_focus", sel_sb)
+	left.add_child(_map_list)
+
+	# Right: preview + details
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_theme_constant_override("separation", 10)
+	hbox.add_child(right)
+
+	var preview_frame := PanelContainer.new()
+	preview_frame.custom_minimum_size.y = 210
+	preview_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var pf_sb := StyleBoxFlat.new()
+	pf_sb.bg_color = Color(0.10, 0.08, 0.06, 1)
+	pf_sb.corner_radius_top_left = 12
+	pf_sb.corner_radius_top_right = 12
+	pf_sb.corner_radius_bottom_left = 12
+	pf_sb.corner_radius_bottom_right = 12
+	preview_frame.add_theme_stylebox_override("panel", pf_sb)
+	right.add_child(preview_frame)
+
+	var prev_pad := MarginContainer.new()
+	prev_pad.add_theme_constant_override("margin_left", 4)
+	prev_pad.add_theme_constant_override("margin_right", 4)
+	prev_pad.add_theme_constant_override("margin_top", 4)
+	prev_pad.add_theme_constant_override("margin_bottom", 4)
+	preview_frame.add_child(prev_pad)
+
+	var prev_container := SubViewportContainer.new()
+	prev_container.stretch = true
+	prev_pad.add_child(prev_container)
+
+	_map_preview_vp = SubViewport.new()
+	_map_preview_vp.size = Vector2i(560, 280)
+	_map_preview_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_map_preview_vp.transparent_bg = false
+	prev_container.add_child(_map_preview_vp)
+
+	_map_tagline = Label.new()
+	_map_tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_map_tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_map_tagline.add_theme_font_size_override("font_size", 14)
+	_map_tagline.add_theme_color_override("font_color", SUBTITLE_COLOR)
+	_apply_font(_map_tagline)
+	right.add_child(_map_tagline)
+
+	_map_details = RichTextLabel.new()
+	_map_details.custom_minimum_size.y = 72
+	_map_details.bbcode_enabled = true
+	_map_details.fit_content = true
+	_map_details.scroll_active = false
+	_map_details.add_theme_font_size_override("normal_font_size", 13)
+	_apply_font(_map_details)
+	right.add_child(_map_details)
+
+	# Buttons row
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 16)
+	vbox.add_child(btn_row)
+
+	_map_back_btn = _make_menu_button("← Back", false)
+	_map_back_btn.custom_minimum_size = Vector2(150, 48)
+	btn_row.add_child(_map_back_btn)
+
+	_map_start_btn = _make_menu_button("Start", true)
+	_map_start_btn.custom_minimum_size = Vector2(170, 48)
+	btn_row.add_child(_map_start_btn)
+
+	_setup_map_select_overlay()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SIGNALS & LOGIC (unchanged behavior)
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _connect_signals() -> void:
+	if _play_btn:
+		_play_btn.pressed.connect(func():
 			_play_ui("ui.confirm")
 			_open_map_overlay()
 		)
 
-	_setup_map_select_overlay()
-
-	# Resume run (if available)
 	var sv := get_node_or_null("/root/SaveManager")
-	var has := false
-	if sv and is_instance_valid(sv) and sv.has_method("has_saved_run"):
-		has = bool(sv.has_saved_run())
-	if resume_btn:
-		resume_btn.visible = has
-		if has:
-			resume_btn.pressed.connect(func():
+	var has_resume := sv and is_instance_valid(sv) and sv.has_method("has_saved_run") and bool(sv.has_saved_run())
+	if _resume_btn:
+		_resume_btn.visible = has_resume
+		if has_resume:
+			_resume_btn.pressed.connect(func():
 				_play_ui("ui.resume_load")
-				if sv and is_instance_valid(sv) and sv.has_method("request_resume"):
-					if bool(sv.request_resume()):
-						get_tree().change_scene_to_file("res://scenes/Main.tscn")
+				if sv and sv.has_method("request_resume") and bool(sv.request_resume()):
+					get_tree().change_scene_to_file("res://scenes/Main.tscn")
 			)
 
-	if armory_btn:
-		armory_btn.pressed.connect(func():
+	if _armory_btn:
+		_armory_btn.pressed.connect(func():
 			_play_ui("ui.click")
 			get_tree().change_scene_to_file("res://scenes/Menu.tscn")
 		)
 
-	if protocol_btn:
-		protocol_btn.pressed.connect(func():
+	if _protocol_btn:
+		_protocol_btn.pressed.connect(func():
 			_play_ui("ui.click")
 			_open_protocol_grid()
 		)
-	else:
-		# Create button dynamically if not in scene
-		_create_protocol_button()
 
-	if settings_btn:
-		settings_btn.pressed.connect(func():
+	if _settings_btn:
+		_settings_btn.pressed.connect(func():
 			_play_ui("ui.click")
 			_open_settings()
 		)
 
-	if quit_btn:
-		quit_btn.pressed.connect(func():
+	if _quit_btn:
+		_quit_btn.pressed.connect(func():
 			_play_ui("ui.cancel")
 			get_tree().quit()
 		)
 
+	if _map_back_btn:
+		_map_back_btn.pressed.connect(func():
+			_play_ui("ui.cancel")
+			_close_map_overlay()
+		)
+	if _map_start_btn:
+		_map_start_btn.pressed.connect(func():
+			_play_ui("ui.confirm")
+			_start_run_with_selected_map()
+		)
+
 func _setup_map_select_overlay() -> void:
-	if map_list == null:
+	if _map_list == null:
 		return
 	var rc := get_node_or_null("/root/RunConfig")
 	if rc == null or not is_instance_valid(rc):
@@ -123,18 +594,7 @@ func _setup_map_select_overlay() -> void:
 	if rc.has_method("ensure_loaded"):
 		rc.ensure_loaded()
 
-	# Style the map list
-	_style_map_list()
-	if map_panel:
-		map_panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
-	if map_start_btn:
-		UiSkin.style_primary_button(map_start_btn, UiSkin.ACCENT_GREEN)
-		UiSkin.add_hover_scale(map_start_btn, 1.02)
-	if map_back_btn:
-		UiSkin.style_secondary_button(map_back_btn, UiSkin.ACCENT_RED)
-		UiSkin.add_hover_scale(map_back_btn, 1.02)
-
-	map_list.clear()
+	_map_list.clear()
 	_map_ids.clear()
 	if rc.has_method("get_map_ids_ordered"):
 		_map_ids = rc.get_map_ids_ordered()
@@ -144,30 +604,28 @@ func _setup_map_select_overlay() -> void:
 		var m: Dictionary = rc.get_map(_map_ids[i]) if rc.has_method("get_map") else {}
 		var name := String(m.get("name", _map_ids[i]))
 		var mult := float(m.get("meta_sigils_mult", 1.0))
-		# Simpler list entry - details shown in right panel
 		var tier := "★" if mult < 1.2 else ("★★" if mult < 1.5 else "★★★")
 		var locked := not _is_map_unlocked(_map_ids[i])
 		var label := ("🔒 " + name) if locked else name
-		map_list.add_item("%s  %s" % [label, tier])
-		map_list.set_item_disabled(i, locked)
+		_map_list.add_item("%s  %s" % [label, tier])
+		_map_list.set_item_disabled(i, locked)
 		if locked:
-			map_list.set_item_tooltip(i, "Locked. Win the previous map to unlock.")
+			_map_list.set_item_tooltip(i, "Locked. Win the previous map to unlock.")
 
-	# Select current
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
 	for i in range(_map_ids.size()):
 		if _map_ids[i] == cur:
-			map_list.select(i)
+			_map_list.select(i)
 			break
 
 	_update_map_tagline(rc)
 	_update_map_preview(rc)
 	_update_map_lock_state(rc)
 
-	map_list.item_selected.connect(func(idx: int):
+	_map_list.item_selected.connect(func(idx: int):
 		if idx < 0 or idx >= _map_ids.size():
 			return
-		if map_list.is_item_disabled(idx):
+		if _map_list.is_item_disabled(idx):
 			_play_ui("ui.error")
 			return
 		var id := _map_ids[idx]
@@ -179,28 +637,14 @@ func _setup_map_select_overlay() -> void:
 		_update_map_lock_state(rc)
 	)
 
-	if map_back_btn:
-		map_back_btn.pressed.connect(func():
-			_play_ui("ui.cancel")
-			_close_map_overlay()
-		)
-	if map_start_btn:
-		map_start_btn.pressed.connect(func():
-			_play_ui("ui.confirm")
-			_start_run_with_selected_map()
-		)
-
 func _update_map_tagline(rc: Node) -> void:
-	if map_tagline == null:
+	if _map_tagline == null:
 		return
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
 	var m: Dictionary = rc.get_map(cur) if rc.has_method("get_map") else {}
 	var t := String(m.get("tagline", ""))
 	var mult := float(m.get("meta_sigils_mult", 1.0))
-	if t == "":
-		map_tagline.text = ""
-	else:
-		map_tagline.text = "%s\nSigils multiplier: x%.2f" % [t, mult]
+	_map_tagline.text = "%s\nSigils: x%.2f" % [t, mult] if t != "" else ""
 	_update_map_details(m)
 	_update_map_lock_state(rc)
 
@@ -209,41 +653,27 @@ func _update_map_lock_state(rc: Node) -> void:
 		return
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
 	_selected_map_locked = not _is_map_unlocked(cur)
-	if map_start_btn:
-		map_start_btn.disabled = _selected_map_locked
-		if _selected_map_locked:
-			map_start_btn.text = "Locked"
-		else:
-			map_start_btn.text = "Start"
+	if _map_start_btn:
+		_map_start_btn.disabled = _selected_map_locked
+		_map_start_btn.text = "Locked" if _selected_map_locked else "Start"
 
 func _danger_score(m: Dictionary) -> float:
-	# Calculate difficulty 1-10 based on map multipliers
-	# 1.0 = baseline (5), <1.0 = easier, >1.0 = harder
 	var hp: float = float(m.get("enemy_hp_mult", 1.0))
 	var dmg: float = float(m.get("enemy_damage_mult", 1.0))
 	var spd: float = float(m.get("enemy_speed_mult", 1.0))
 	var maxe: float = float(m.get("max_enemies_mult", 1.0))
-	var si: float = float(m.get("spawn_interval_mult", 1.0))  # Higher = slower spawns = easier
-	
-	# Convert to deviation from 1.0 (baseline)
-	# Graveyard: hp=0.95, dmg=0.85 → negative deviation → lower difficulty
-	# Foundry: hp=2.10, dmg=1.55 → positive deviation → higher difficulty
-	var hp_dev: float = (hp - 1.0) * 2.5
-	var dmg_dev: float = (dmg - 1.0) * 3.0
-	var spd_dev: float = (spd - 1.0) * 1.5
-	var maxe_dev: float = (maxe - 1.0) * 2.0
-	var si_dev: float = (1.0 - si) * 2.0  # Inverted: lower interval = harder
-	
-	# Base score of 5, modified by deviations
-	var s: float = 5.0 + hp_dev + dmg_dev + spd_dev + maxe_dev + si_dev
-	return clampf(s, 1.0, 10.0)
+	var si: float = float(m.get("spawn_interval_mult", 1.0))
+	var hp_dev := (hp - 1.0) * 2.5
+	var dmg_dev := (dmg - 1.0) * 3.0
+	var spd_dev := (spd - 1.0) * 1.5
+	var maxe_dev := (maxe - 1.0) * 2.0
+	var si_dev := (1.0 - si) * 2.0
+	return clampf(5.0 + hp_dev + dmg_dev + spd_dev + maxe_dev + si_dev, 1.0, 10.0)
 
 func _tier_color(score: float) -> String:
-	if score < 3.5:
-		return "#79ffd2" # chill
-	if score < 6.5:
-		return "#ffd86b" # spicy
-	return "#ff6a55" # brutal
+	if score < 3.5: return "#79ffd2"
+	if score < 6.5: return "#ffd86b"
+	return "#ff6a55"
 
 func _bar(score: float) -> String:
 	var n := int(round(score))
@@ -254,7 +684,7 @@ func _bar(score: float) -> String:
 	return s
 
 func _update_map_details(m: Dictionary) -> void:
-	if map_details == null:
+	if _map_details == null:
 		return
 	var score := _danger_score(m)
 	var col := _tier_color(score)
@@ -262,87 +692,55 @@ func _update_map_details(m: Dictionary) -> void:
 	var ess := float(m.get("essence_mult", 1.0))
 	var boss := bool(m.get("boss_enabled", true))
 	var boss_m := float(m.get("boss_spawn_minutes", 18.0))
-
-	# More visually appealing details
 	var diff_bar := "[color=%s]%s[/color]" % [col, _bar(score)]
-	var diff_line := "[color=#8090a0]Danger:[/color] %s [color=%s]%.1f[/color]" % [diff_bar, col, score]
-	var reward_line := "[color=#8090a0]Rewards:[/color] [color=#ffd070]★ x%.2f[/color]  [color=#70d0ff]◆ x%.2f[/color]" % [sig, ess]
+	var diff_line := "[color=#a8a0a0]Danger:[/color] %s [color=%s]%.1f[/color]" % [diff_bar, col, score]
+	var reward_line := "[color=#a8a0a0]Rewards:[/color] [color=#ffd070]★ x%.2f[/color]  [color=#70d0ff]◆ x%.2f[/color]" % [sig, ess]
 	var boss_text := "[color=#ff7070]Yes @ %.0fm[/color]" % boss_m if boss else "[color=#70ff70]No[/color]"
-	var boss_line := "[color=#8090a0]Boss:[/color] %s" % boss_text
-	map_details.text = "%s\n%s\n%s" % [diff_line, reward_line, boss_line]
-
-func _style_map_list() -> void:
-	if map_list == null:
-		return
-	# Style the ItemList for better visibility
-	map_list.add_theme_font_size_override("font_size", 15)
-	map_list.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95, 1.0))
-	map_list.add_theme_color_override("font_selected_color", Color(1.0, 1.0, 1.0, 1.0))
-	map_list.add_theme_color_override("font_hovered_color", Color(0.9, 0.95, 1.0, 1.0))
-	
-	# Selection style
-	var selected_sb := UiSkin.card_style(UiSkin.ACCENT, true)
-	map_list.add_theme_stylebox_override("selected", selected_sb)
-	map_list.add_theme_stylebox_override("selected_focus", selected_sb)
-	
-	# Hover style
-	var hover_sb := UiSkin.card_style_hover(UiSkin.ACCENT)
-	map_list.add_theme_stylebox_override("hovered", hover_sb)
+	_map_details.text = "%s\n%s\n[color=#a8a0a0]Boss:[/color] %s" % [diff_line, reward_line, boss_text]
 
 func _hash32(s: String) -> int:
-	# Simple stable hash for deterministic previews.
 	var h: int = 2166136261
 	for i in range(s.length()):
 		h = int((h ^ s.unicode_at(i)) * 16777619) & 0x7fffffff
 	return h
 
 func _update_map_preview(rc: Node) -> void:
-	if map_preview_vp == null:
+	if _map_preview_vp == null:
 		return
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
 	var m: Dictionary = rc.get_map(cur) if rc.has_method("get_map") else {}
 	var vis: Dictionary = {}
-	# Explicit type to avoid Variant inference warnings (warnings treated as errors).
 	var vv: Variant = m.get("visuals", {})
 	if typeof(vv) == TYPE_DICTIONARY:
 		vis = vv as Dictionary
 
-	# Rebuild preview scene (small + dense so it reads at a glance).
 	if _preview_root != null and is_instance_valid(_preview_root):
 		_preview_root.queue_free()
 		_preview_root = null
-	for c in map_preview_vp.get_children():
+	for c in _map_preview_vp.get_children():
 		(c as Node).queue_free()
 
-	# Ensure the SubViewport renders correctly.
-	map_preview_vp.transparent_bg = false
-	map_preview_vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-	map_preview_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	# Force a good size for the preview (matches new layout)
-	map_preview_vp.size = Vector2i(560, 280)
+	_map_preview_vp.size = Vector2i(560, 280)
+	_map_preview_vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 
 	var root := Node2D.new()
 	root.name = "PreviewRoot"
 	root.process_mode = Node.PROCESS_MODE_ALWAYS
-	map_preview_vp.add_child(root)
+	_map_preview_vp.add_child(root)
 	_preview_root = root
 
-	# Add a Camera2D so the MapRenderer has something to follow
 	var cam := Camera2D.new()
-	cam.name = "PreviewCam"
 	cam.position = Vector2.ZERO
-	cam.zoom = Vector2(0.45, 0.45)  # Zoomed out to show more of the map
+	cam.zoom = Vector2(0.45, 0.45)
 	cam.process_mode = Node.PROCESS_MODE_ALWAYS
 	cam.enabled = true
 	root.add_child(cam)
 	cam.make_current()
 
-	# Determine biome from map config
 	var biome := cur
 	if vis.has("theme_id"):
 		biome = String(vis.get("theme_id"))
-	
-	# Use TileMapWorld for real tile-based maps
+
 	var tmw := Node2D.new()
 	tmw.set_script(preload("res://scripts/TileMapWorld.gd"))
 	tmw.name = "TileMapWorld"
@@ -352,37 +750,32 @@ func _update_map_preview(rc: Node) -> void:
 	tmw.set("seed_value", _hash32(cur))
 	tmw.set("prop_count", 32)
 	tmw.set("prop_min_dist_from_center", 60.0)
-
-	# Add AFTER configuration so _ready() sees the right params on first run.
 	root.add_child(tmw)
 
 func _open_map_overlay() -> void:
-	if map_overlay == null:
-		# Fallback: if overlay is missing, still start the run.
+	if _map_overlay == null:
 		_start_run_with_selected_map()
 		return
-	map_overlay.visible = true
-	if map_list:
-		map_list.grab_focus()
-	elif map_start_btn:
-		map_start_btn.grab_focus()
+	_map_overlay.visible = true
+	if _map_list:
+		_map_list.grab_focus()
+	elif _map_start_btn:
+		_map_start_btn.grab_focus()
 
 func _close_map_overlay() -> void:
-	if map_overlay == null:
+	if _map_overlay == null:
 		return
-	map_overlay.visible = false
-	if play_btn:
-		play_btn.grab_focus()
+	_map_overlay.visible = false
+	if _play_btn:
+		_play_btn.grab_focus()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		var k := event as InputEventKey
-		if k.keycode == KEY_ESCAPE and map_overlay and map_overlay.visible:
+		if (event as InputEventKey).keycode == KEY_ESCAPE and _map_overlay and _map_overlay.visible:
 			_close_map_overlay()
 			get_viewport().set_input_as_handled()
 
 func _start_run_with_selected_map() -> void:
-	# RunConfig already holds selected_map_id; Main.gd reads it on _ready.
 	if _selected_map_locked:
 		_play_ui("ui.error")
 		return
@@ -394,9 +787,7 @@ func _is_map_unlocked(map_id: String) -> bool:
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
 		return map_id == "graveyard"
-	if mp.has_method("is_map_unlocked"):
-		return bool(mp.is_map_unlocked(map_id))
-	return map_id == "graveyard"
+	return bool(mp.is_map_unlocked(map_id)) if mp.has_method("is_map_unlocked") else map_id == "graveyard"
 
 func _play_ui(id: String) -> void:
 	var s := get_node_or_null("/root/SfxSystem")
@@ -410,291 +801,35 @@ func _open_settings() -> void:
 	sm.name = "SettingsMenu"
 	add_child(sm)
 
-func _spawn_menu_crowd() -> void:
-	# Fill empty space with a fun wandering crowd behind the UI.
-	# If menu art is active AND it loaded successfully, we optionally disable the crowd.
-	if use_menu_art and bool(get_meta("_menu_art_loaded", false)) and not use_crowd_when_menu_art:
-		return
-	if _crowd != null and is_instance_valid(_crowd):
-		return
-
-	# Push backdrops behind everything so the crowd is visible but UI stays on top.
-	var bd := get_node_or_null("Backdrop") as CanvasItem
-	if bd:
-		bd.z_index = -100
-	var bds := get_node_or_null("BackdropShader") as CanvasItem
-	if bds:
-		bds.z_index = -90
-
-	var c := preload("res://scripts/MainMenuCrowd.gd").new()
-	c.name = "MenuCrowd"
-	add_child(c)
-	# Ensure it's drawn above backdrop but below Root/Card (which stays at z_index 0 by default).
-	if c is CanvasItem:
-		(c as CanvasItem).z_index = -50
-	_crowd = c
-	# Keep it behind Root in draw order.
-	if has_node("Root"):
-		move_child(_crowd, get_node("Root").get_index())
-
-func _apply_menu_art() -> void:
-	# If the user dropped the provided images into res://assets/ui/,
-	# we can match the reference menu "exactly" using those textures.
-	if not use_menu_art:
-		set_meta("_menu_art_loaded", false)
-		return
-
-	# Default to procedural look unless BOTH textures load.
-	var bg_ok := false
-	var frame_ok := false
-
-	# Ensure art layers start hidden; we'll enable them if files exist.
-	if bg_art:
-		bg_art.visible = false
-	if frame_art:
-		frame_art.visible = false
-
-	# Background
-	if bg_art != null and ResourceLoader.exists(bg_art_path):
-		bg_art.texture = load(bg_art_path) as Texture2D
-		bg_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		bg_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		bg_art.visible = true
-		bg_ok = (bg_art.texture != null)
-
-	# Frame overlay
-	if frame_art != null and ResourceLoader.exists(frame_art_path):
-		frame_art.texture = load(frame_art_path) as Texture2D
-		frame_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		# Godot 4 TextureRect has KEEP_ASPECT / KEEP_ASPECT_CENTERED / KEEP_ASPECT_COVERED.
-		# We want "fit inside + centered" for the frame overlay.
-		frame_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		frame_art.visible = true
-		frame_ok = (frame_art.texture != null)
-
-	# Use background art even if we don't have a matching frame overlay yet.
-	var loaded := bg_ok
-	set_meta("_menu_art_loaded", loaded)
-
-	# Only hide procedural layers when the authored art is actually present.
-	# This prevents "gray background + empty screen" if the files aren't in the project yet.
-	if backdrop: backdrop.visible = not loaded
-	if backdrop_shader: backdrop_shader.visible = not loaded
-	if frame_shader: frame_shader.visible = not loaded
-
-func _play_intro_splash() -> void:
-	if (not USE_UI_MOCKUPS) or (not ResourceLoader.exists(INTRO_BG_PATH)):
-		return
-	var splash := TextureRect.new()
-	splash.name = "IntroSplash"
-	splash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	splash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	splash.texture = load(INTRO_BG_PATH) as Texture2D
-	splash.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	splash.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	splash.modulate = Color(1, 1, 1, 1)
-	add_child(splash)
-	move_child(splash, get_child_count() - 1)
-
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE)
-	tw.set_ease(Tween.EASE_OUT)
-	tw.tween_interval(1.1)
-	tw.tween_property(splash, "modulate", Color(1, 1, 1, 0), 0.45)
-	tw.tween_callback(splash.queue_free)
-
-func _polish_menu_ui() -> void:
-	# Title/subtitle (lets us rename without touching the scene file).
-	_apply_title_fx()
-	if title_lbl:
-		title_lbl.text = game_title.to_upper()
-	if subtitle_lbl:
-		subtitle_lbl.text = game_tagline
-		subtitle_lbl.add_theme_font_size_override("font_size", 18)
-		subtitle_lbl.add_theme_color_override("font_color", Color(0.82, 0.90, 1.0, 0.92))
-		# Slight outline + shadow so it feels "printed" like the reference.
-		subtitle_lbl.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.12, 0.80))
-		subtitle_lbl.add_theme_constant_override("outline_size", 3)
-		subtitle_lbl.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.45))
-		subtitle_lbl.add_theme_constant_override("shadow_offset_x", 0)
-		subtitle_lbl.add_theme_constant_override("shadow_offset_y", 3)
-
-	# Card entrance: subtle slide + fade for “premium” feel.
-	if card:
-		card.modulate = Color(1, 1, 1, 0)
-		var base := card.position
-		card.position = base + Vector2(0, 18)
-		var tw := create_tween()
-		tw.set_trans(Tween.TRANS_SINE)
-		tw.set_ease(Tween.EASE_OUT)
-		tw.tween_property(card, "position", base, 0.22)
-		tw.parallel().tween_property(card, "modulate", Color(1, 1, 1, 1), 0.22)
-
-	# Buttons: consistent “fun” style, with a stronger primary (Start/Resume).
-	var primary := UiSkin.ACCENT
-	var secondary := Color(1, 1, 1, 0.12)
-	_style_button(play_btn, true, primary, secondary)
-	_style_button(resume_btn, true, primary, secondary)
-	_style_button(armory_btn, false, primary, secondary)
-	_style_button(protocol_btn, false, UiSkin.ACCENT_PURPLE, Color(0.55, 0.35, 0.8, 0.18))  # Purple accent
-	_style_button(settings_btn, false, primary, secondary)
-	_style_button(quit_btn, false, primary, secondary)
-
-	# Footer line (small, helps communicate the loop).
-	if show_footer and card and card.has_node("Pad/VBox"):
-		var vb := card.get_node("Pad/VBox") as VBoxContainer
-		if vb and vb.get_node_or_null("Footer") == null:
-			vb.add_spacer(true)
-			var ft := Label.new()
-			ft.name = "Footer"
-			ft.text = footer_text
-			ft.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			ft.add_theme_font_size_override("font_size", 12)
-			ft.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0, 0.65))
-			vb.add_child(ft)
-
-func _style_button(btn: Button, is_primary: bool, primary: Color, secondary: Color) -> void:
-	if btn == null:
-		return
-	if is_primary:
-		UiSkin.style_primary_button(btn, primary)
-	else:
-		UiSkin.style_secondary_button(btn, primary)
-	UiSkin.add_hover_scale(btn, 1.02)
-
-func _apply_title_fx() -> void:
-	# The "cool" look on the reference comes mostly from:
-	# - a sci-fi font (not in repo yet)
-	# - layered glow + bevel + crisp outline
-	#
-	# We implement the layering now so dropping a font later becomes instant.
-	var text := game_title.to_upper()
-	var title_font := _load_font_or_null(title_font_path)
-	var subtitle_font := _load_font_or_null(subtitle_font_path)
-
-	if title_lbl:
-		title_lbl.text = text
-		title_lbl.add_theme_font_size_override("font_size", 56)
-		title_lbl.add_theme_color_override("font_color", Color(0.95, 0.98, 1.0, 1.0))
-		title_lbl.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.12, 0.95))
-		title_lbl.add_theme_constant_override("outline_size", 4)
-		title_lbl.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.45))
-		title_lbl.add_theme_constant_override("shadow_offset_x", 0)
-		title_lbl.add_theme_constant_override("shadow_offset_y", 6)
-		_apply_font_override(title_lbl, title_font)
-
-	if title_bevel_lbl:
-		title_bevel_lbl.text = text
-		title_bevel_lbl.add_theme_font_size_override("font_size", 56)
-		# Dark inner stroke to simulate bevel/engrave.
-		title_bevel_lbl.add_theme_color_override("font_color", Color(0.88, 0.92, 1.0, 0.25))
-		title_bevel_lbl.add_theme_color_override("font_outline_color", Color(0.02, 0.03, 0.05, 0.95))
-		title_bevel_lbl.add_theme_constant_override("outline_size", 9)
-		title_bevel_lbl.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
-		_apply_font_override(title_bevel_lbl, title_font)
-
-	if title_glow_lbl:
-		title_glow_lbl.text = text
-		title_glow_lbl.add_theme_font_size_override("font_size", 56)
-		# Cyan outer glow ring.
-		title_glow_lbl.add_theme_color_override("font_color", Color(0.55, 0.95, 1.0, 0.16))
-		title_glow_lbl.add_theme_color_override("font_outline_color", Color(0.35, 0.85, 1.0, 0.75))
-		title_glow_lbl.add_theme_constant_override("outline_size", 16)
-		title_glow_lbl.add_theme_color_override("font_shadow_color", Color(0.25, 0.70, 1.0, 0.16))
-		title_glow_lbl.add_theme_constant_override("shadow_offset_x", 0)
-		title_glow_lbl.add_theme_constant_override("shadow_offset_y", 0)
-		_apply_font_override(title_glow_lbl, title_font)
-
-	# Apply subtitle font if provided (keeps the "poster" vibe)
-	if subtitle_lbl:
-		_apply_font_override(subtitle_lbl, subtitle_font)
-
-func _load_font_or_null(path: String) -> Font:
-	if path == null or path == "":
-		return null
-	if not ResourceLoader.exists(path):
-		return null
-	var res := load(path)
-	if res is Font:
-		return res as Font
-	return null
-
-func _apply_font_override(lbl: Label, f: Font) -> void:
-	if lbl == null or f == null:
-		return
-	lbl.add_theme_font_override("font", f)
-
 # ─────────────────────────────────────────────────────────────────────────────
-# PROTOCOL GRID - Meta Progression System
+# PROTOCOL GRID (logic unchanged; small fix: node VBox named so lookups work)
 # ─────────────────────────────────────────────────────────────────────────────
 
 var _protocol_overlay: Control = null
 var _protocol_nodes: Array[Dictionary] = []
 
 const PROTOCOL_UPGRADES := [
-	# Tier 1: Very cheap - buy after first run even if you die (~50-75 sigils)
 	{"id": "hp_boost_1", "name": "Vitality I", "desc": "+10% Squad HP", "cost": 50, "icon": "♥", "row": 0, "col": 1, "color": "#ff6060", "prereq": []},
 	{"id": "dmg_boost_1", "name": "Power I", "desc": "+8% Squad Damage", "cost": 60, "icon": "⚔", "row": 0, "col": 3, "color": "#ffa040", "prereq": []},
 	{"id": "speed_1", "name": "Agility I", "desc": "+5% Move Speed", "cost": 40, "icon": "»", "row": 0, "col": 2, "color": "#60ff90", "prereq": []},
-	
-	# Tier 2: Affordable - 1-2 decent runs (~150-250 sigils)
 	{"id": "hp_boost_2", "name": "Vitality II", "desc": "+15% Squad HP", "cost": 180, "icon": "♥♥", "row": 1, "col": 0, "color": "#ff4040", "prereq": ["hp_boost_1"]},
 	{"id": "dmg_boost_2", "name": "Power II", "desc": "+12% Squad Damage", "cost": 200, "icon": "⚔⚔", "row": 1, "col": 4, "color": "#ff8020", "prereq": ["dmg_boost_1"]},
 	{"id": "speed_2", "name": "Agility II", "desc": "+8% Move Speed", "cost": 150, "icon": "»»", "row": 1, "col": 2, "color": "#40ff70", "prereq": ["speed_1"]},
 	{"id": "crit_1", "name": "Precision I", "desc": "+3% Crit Chance", "cost": 120, "icon": "✧", "row": 1, "col": 1, "color": "#ffff60", "prereq": ["hp_boost_1"]},
 	{"id": "essence_1", "name": "Harvest I", "desc": "+10% Essence Gain", "cost": 100, "icon": "◆", "row": 1, "col": 3, "color": "#60d0ff", "prereq": ["dmg_boost_1"]},
-	
-	# Tier 3: Requires victories (~350-500 sigils)
 	{"id": "hp_boost_3", "name": "Vitality III", "desc": "+20% Squad HP", "cost": 450, "icon": "♥♥♥", "row": 2, "col": 0, "color": "#ff2020", "prereq": ["hp_boost_2"]},
 	{"id": "dmg_boost_3", "name": "Power III", "desc": "+18% Squad Damage", "cost": 500, "icon": "⚔⚔⚔", "row": 2, "col": 4, "color": "#ff6000", "prereq": ["dmg_boost_2"]},
 	{"id": "crit_2", "name": "Precision II", "desc": "+5% Crit Chance", "cost": 350, "icon": "✧✧", "row": 2, "col": 1, "color": "#ffff40", "prereq": ["crit_1"]},
 	{"id": "essence_2", "name": "Harvest II", "desc": "+15% Essence Gain", "cost": 300, "icon": "◆◆", "row": 2, "col": 3, "color": "#40b0ff", "prereq": ["essence_1"]},
 	{"id": "draft_luck", "name": "Fortune", "desc": "+Higher Rarity Drafts", "cost": 400, "icon": "★", "row": 2, "col": 2, "color": "#c080ff", "prereq": ["speed_2"]},
-	
-	# Capstone: Major goal (~800 sigils = ~2 victories)
 	{"id": "starting_unit", "name": "Reinforcement", "desc": "+1 Starting Squad", "cost": 800, "icon": "☗", "row": 3, "col": 2, "color": "#ff80c0", "prereq": ["draft_luck", "crit_2", "essence_2"]},
 ]
-
-func _create_protocol_button() -> void:
-	if card == null or not card.has_node("Pad/VBox"):
-		return
-	var vbox := card.get_node("Pad/VBox") as VBoxContainer
-	if vbox == null:
-		return
-	
-	# Find position after Armory
-	var insert_idx := -1
-	for i in range(vbox.get_child_count()):
-		var child := vbox.get_child(i)
-		if child.name == "Armory":
-			insert_idx = i + 1
-			break
-	
-	if insert_idx == -1:
-		return
-	
-	# Create button
-	protocol_btn = Button.new()
-	protocol_btn.name = "Protocol"
-	protocol_btn.text = "PROTOCOL GRID"
-	protocol_btn.custom_minimum_size = Vector2(240, 48)
-	vbox.add_child(protocol_btn)
-	vbox.move_child(protocol_btn, insert_idx)
-	
-	protocol_btn.pressed.connect(func():
-		_play_ui("ui.click")
-		_open_protocol_grid()
-	)
-	
-	# Style it with purple accent
-	_style_button(protocol_btn, false, Color(0.8, 0.5, 1.0, 0.25), Color(0.6, 0.3, 0.9, 0.15))
 
 func _open_protocol_grid() -> void:
 	if _protocol_overlay != null and is_instance_valid(_protocol_overlay):
 		_protocol_overlay.visible = true
 		_update_protocol_grid()
 		return
-	
 	_create_protocol_overlay()
 	_update_protocol_grid()
 
@@ -705,188 +840,163 @@ func _create_protocol_overlay() -> void:
 	_protocol_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_protocol_overlay)
 
-	# Background art for the protocol grid screen (optional mockup).
-	if USE_UI_MOCKUPS and ResourceLoader.exists(PROTOCOL_BG_PATH):
-		var art := TextureRect.new()
-		art.name = "ProtocolBgArt"
-		art.set_anchors_preset(Control.PRESET_FULL_RECT)
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		art.texture = load(PROTOCOL_BG_PATH) as Texture2D
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.modulate = Color(1, 1, 1, 0.95)
-		_protocol_overlay.add_child(art)
-	
-	# Dark backdrop
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.02, 0.02, 0.06, 0.92)
+	bg.color = Color(0.08, 0.06, 0.05, 0.92)
 	_protocol_overlay.add_child(bg)
-	
-	# Main panel
+
 	var panel := PanelContainer.new()
+	panel.name = "PanelContainer"
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(900, 650)
 	panel.position = Vector2(-450, -325)
-	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT_PURPLE, true))
+	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	_protocol_overlay.add_child(panel)
-	
+
 	var vbox := VBoxContainer.new()
+	vbox.name = "VBoxContainer"
 	vbox.add_theme_constant_override("separation", 16)
 	panel.add_child(vbox)
-	
-	# Header
+
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 20)
 	vbox.add_child(header)
-	
+
 	var title := Label.new()
-	title.name = "Title"
-	title.text = "⬡ PROTOCOL GRID ⬡"
-	title.add_theme_font_size_override("font_size", 32)
-	title.add_theme_color_override("font_color", Color(0.85, 0.7, 1.0, 1.0))
+	title.text = "★ Progression ★"
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", ACCENT_BERRY)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_apply_font(title)
 	header.add_child(title)
-	
+
 	var sigils_lbl := Label.new()
 	sigils_lbl.name = "SigilsLabel"
 	sigils_lbl.text = "★ 0"
-	sigils_lbl.add_theme_font_size_override("font_size", 26)
-	sigils_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4, 1.0))
+	sigils_lbl.add_theme_font_size_override("font_size", 24)
+	sigils_lbl.add_theme_color_override("font_color", ACCENT_SUN)
+	_apply_font(sigils_lbl)
 	header.add_child(sigils_lbl)
-	
-	# Subtitle
+
 	var sub := Label.new()
 	sub.text = "Permanent upgrades that persist across all runs"
 	sub.add_theme_font_size_override("font_size", 14)
-	sub.add_theme_color_override("font_color", Color(0.7, 0.75, 0.85, 0.8))
+	sub.add_theme_color_override("font_color", SUBTITLE_COLOR)
+	_apply_font(sub)
 	vbox.add_child(sub)
-	
-	# Grid container for nodes
+
 	var grid_wrap := Control.new()
 	grid_wrap.name = "GridWrap"
 	grid_wrap.custom_minimum_size = Vector2(850, 420)
 	grid_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(grid_wrap)
-	
-	# Create upgrade nodes
+
 	_protocol_nodes.clear()
 	for upgrade in PROTOCOL_UPGRADES:
 		var node := _create_protocol_node(upgrade)
 		grid_wrap.add_child(node["panel"])
 		_protocol_nodes.append(node)
-	
-	# Draw connection lines
+
 	_draw_protocol_lines(grid_wrap)
-	
-	# Buttons
+
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_row.add_theme_constant_override("separation", 20)
 	vbox.add_child(btn_row)
-	
-	var back_btn := Button.new()
-	back_btn.name = "BackBtn"
-	back_btn.text = "← BACK"
+
+	var back_btn := _make_menu_button("← Back", false)
 	back_btn.custom_minimum_size = Vector2(160, 44)
 	back_btn.pressed.connect(func():
 		_play_ui("ui.cancel")
 		_protocol_overlay.visible = false
 	)
 	btn_row.add_child(back_btn)
-	_style_button(back_btn, false, Color(0.6, 0.65, 0.7, 0.4), Color(0.5, 0.55, 0.6, 0.2))
 
 func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	var col := int(upgrade.get("col", 0))
 	var row := int(upgrade.get("row", 0))
 	var node_color := Color.from_string(String(upgrade.get("color", "#ffffff")), Color.WHITE)
-	
+
 	var panel := PanelContainer.new()
 	panel.name = String(upgrade.get("id", "node"))
-	panel.custom_minimum_size = Vector2(140, 90)
-	
-	# Position based on grid
-	var x := 80.0 + float(col) * 160.0
-	var y := 20.0 + float(row) * 100.0
-	panel.position = Vector2(x, y)
-	
-	panel.add_theme_stylebox_override("panel", UiSkin.card_style(node_color, false))
-	
+	panel.custom_minimum_size = Vector2(140, 92)
+	panel.position = Vector2(80.0 + float(col) * 160.0, 20.0 + float(row) * 100.0)
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.18, 0.12, 0.08, 0.95)
+	sb.border_color = Color(node_color.r, node_color.g, node_color.b, 0.65)
+	sb.corner_radius_top_left = 14
+	sb.corner_radius_top_right = 14
+	sb.corner_radius_bottom_left = 14
+	sb.corner_radius_bottom_right = 14
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	panel.add_theme_stylebox_override("panel", sb)
+
 	var content := VBoxContainer.new()
+	content.name = "VBoxContainer" # fixes later lookups
 	content.add_theme_constant_override("separation", 2)
 	panel.add_child(content)
-	
+
 	var icon_lbl := Label.new()
 	icon_lbl.text = String(upgrade.get("icon", "?"))
 	icon_lbl.add_theme_font_size_override("font_size", 22)
 	icon_lbl.add_theme_color_override("font_color", node_color)
 	icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_apply_font(icon_lbl)
 	content.add_child(icon_lbl)
-	
+
 	var name_lbl := Label.new()
 	name_lbl.name = "Name"
 	name_lbl.text = String(upgrade.get("name", "?"))
 	name_lbl.add_theme_font_size_override("font_size", 13)
-	name_lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
+	name_lbl.add_theme_color_override("font_color", TITLE_COLOR)
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_apply_font(name_lbl)
 	content.add_child(name_lbl)
-	
+
 	var cost_lbl := Label.new()
 	cost_lbl.name = "Cost"
 	cost_lbl.text = "★ %d" % int(upgrade.get("cost", 0))
 	cost_lbl.add_theme_font_size_override("font_size", 12)
-	cost_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4, 0.9))
+	cost_lbl.add_theme_color_override("font_color", ACCENT_SUN)
 	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_apply_font(cost_lbl)
 	content.add_child(cost_lbl)
-	
-	# Click handler
+
 	var btn_overlay := Button.new()
 	btn_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	btn_overlay.flat = true
 	btn_overlay.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	panel.add_child(btn_overlay)
-	
+
 	var upgrade_id := String(upgrade.get("id", ""))
-	btn_overlay.pressed.connect(func():
-		_on_protocol_node_clicked(upgrade_id)
-	)
-	btn_overlay.mouse_entered.connect(func():
-		_on_protocol_node_hovered(upgrade_id, true)
-	)
-	btn_overlay.mouse_exited.connect(func():
-		_on_protocol_node_hovered(upgrade_id, false)
-	)
-	
-	return {
-		"id": upgrade_id,
-		"panel": panel,
-		"color": node_color,
-		"upgrade": upgrade
-	}
+	btn_overlay.pressed.connect(func(): _on_protocol_node_clicked(upgrade_id))
+	btn_overlay.mouse_entered.connect(func(): _on_protocol_node_hovered(upgrade_id, true))
+	btn_overlay.mouse_exited.connect(func(): _on_protocol_node_hovered(upgrade_id, false))
+
+	return {"id": upgrade_id, "panel": panel, "color": node_color, "upgrade": upgrade}
 
 func _draw_protocol_lines(container: Control) -> void:
-	# Draw lines connecting prerequisites
 	for node in _protocol_nodes:
 		var upgrade: Dictionary = node.get("upgrade", {})
 		var prereqs: Array = upgrade.get("prereq", [])
 		var panel: Control = node.get("panel")
 		if panel == null:
 			continue
-		
-		var to_pos := panel.position + Vector2(70, 0)  # Top center
-		
+		var to_pos := panel.position + Vector2(70, 0)
 		for prereq_id in prereqs:
-			# Find prereq node
 			for pnode in _protocol_nodes:
 				if String(pnode.get("id", "")) == String(prereq_id):
 					var from_panel: Control = pnode.get("panel")
 					if from_panel == null:
 						continue
-					var from_pos := from_panel.position + Vector2(70, 90)  # Bottom center
-					
+					var from_pos := from_panel.position + Vector2(70, 92)
 					var line := Line2D.new()
 					line.width = 2.0
-					line.default_color = Color(0.5, 0.4, 0.7, 0.4)
+					line.default_color = Color(0.75, 0.55, 0.35, 0.45)
 					line.points = [from_pos, to_pos]
 					line.z_index = -1
 					container.add_child(line)
@@ -896,18 +1006,15 @@ func _update_protocol_grid() -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
 	var sigils := 0
 	var unlocked: Array = []
-	
 	if mp and is_instance_valid(mp):
 		if mp.has_method("get_sigils"):
 			sigils = int(mp.get_sigils())
 		if mp.has_method("get_unlocked_upgrades"):
 			unlocked = mp.get_unlocked_upgrades()
-	
-	# Update sigils display
+
 	if _protocol_overlay:
 		var sigils_lbl := _protocol_overlay.get_node_or_null("PanelContainer/VBoxContainer/HBoxContainer/SigilsLabel") as Label
 		if sigils_lbl == null:
-			# Try alternate path
 			for child in _protocol_overlay.get_children():
 				if child is PanelContainer:
 					for c2 in child.get_children():
@@ -920,17 +1027,14 @@ func _update_protocol_grid() -> void:
 											break
 		if sigils_lbl:
 			sigils_lbl.text = "★ %d" % sigils
-	
-	# Update node states
+
 	for node in _protocol_nodes:
 		var id := String(node.get("id", ""))
 		var panel: PanelContainer = node.get("panel")
-		var color: Color = node.get("color", Color.WHITE)
 		var upgrade: Dictionary = node.get("upgrade", {})
-		
 		if panel == null:
 			continue
-		
+
 		var is_unlocked := id in unlocked
 		var prereqs: Array = upgrade.get("prereq", [])
 		var prereqs_met := true
@@ -938,122 +1042,59 @@ func _update_protocol_grid() -> void:
 			if not String(prereq_id) in unlocked:
 				prereqs_met = false
 				break
-		
+
 		var cost := int(upgrade.get("cost", 0))
 		var can_afford := sigils >= cost
-		
+
 		if is_unlocked:
-			# Unlocked - bright and glowing
-			panel.add_theme_stylebox_override("panel", UiSkin.card_style(color, true))
 			panel.modulate = Color(1, 1, 1, 1)
-			# Update cost to show "OWNED"
 			var cost_lbl := panel.get_node_or_null("VBoxContainer/Cost") as Label
 			if cost_lbl:
 				cost_lbl.text = "✓ OWNED"
-				cost_lbl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5, 1.0))
+				cost_lbl.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65, 1.0))
 		elif prereqs_met and can_afford:
-			# Available - normal
-			panel.add_theme_stylebox_override("panel", UiSkin.card_style(color, false))
 			panel.modulate = Color(1, 1, 1, 1)
 		elif prereqs_met:
-			# Prereqs met but can't afford - dimmed
-			panel.add_theme_stylebox_override("panel", UiSkin.card_style(color, false))
-			panel.modulate = Color(0.7, 0.7, 0.7, 1)
+			panel.modulate = Color(0.75, 0.75, 0.75, 1)
 		else:
-			# Locked - very dim
-			panel.add_theme_stylebox_override("panel", UiSkin.card_style(color, false))
-			panel.modulate = Color(0.4, 0.4, 0.4, 0.7)
+			panel.modulate = Color(0.45, 0.45, 0.45, 0.75)
 
 func _on_protocol_node_clicked(upgrade_id: String) -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
 		return
-	
-	# Find upgrade
 	var upgrade: Dictionary = {}
 	for u in PROTOCOL_UPGRADES:
 		if String(u.get("id", "")) == upgrade_id:
 			upgrade = u
 			break
-	
 	if upgrade.is_empty():
 		return
-	
-	var unlocked: Array = []
-	if mp.has_method("get_unlocked_upgrades"):
-		unlocked = mp.get_unlocked_upgrades()
-	
-	# Already owned?
+	var unlocked: Array = mp.get_unlocked_upgrades() if mp.has_method("get_unlocked_upgrades") else []
 	if upgrade_id in unlocked:
 		_play_ui("ui.error")
 		return
-	
-	# Check prereqs
-	var prereqs: Array = upgrade.get("prereq", [])
-	for prereq_id in prereqs:
+	for prereq_id in upgrade.get("prereq", []):
 		if not String(prereq_id) in unlocked:
 			_play_ui("ui.error")
 			return
-	
-	# Check cost
 	var cost := int(upgrade.get("cost", 0))
-	var sigils := 0
-	if mp.has_method("get_sigils"):
-		sigils = int(mp.get_sigils())
-	
+	var sigils := int(mp.get_sigils()) if mp.has_method("get_sigils") else 0
 	if sigils < cost:
 		_play_ui("ui.error")
 		return
-	
-	# Purchase!
 	if mp.has_method("spend_sigils"):
 		mp.spend_sigils(cost)
 	if mp.has_method("unlock_upgrade"):
 		mp.unlock_upgrade(upgrade_id)
-	
 	_play_ui("ui.levelup")
 	_update_protocol_grid()
-	
-	# Celebration effect
-	_spawn_purchase_vfx(upgrade_id)
 
 func _on_protocol_node_hovered(upgrade_id: String, hovered: bool) -> void:
-	# Find node
 	for node in _protocol_nodes:
 		if String(node.get("id", "")) == upgrade_id:
-			var panel: PanelContainer = node.get("panel")
+			var panel: Control = node.get("panel")
 			if panel:
-				if hovered:
-					var tw := panel.create_tween()
-					tw.tween_property(panel, "scale", Vector2(1.08, 1.08), 0.1)
-				else:
-					var tw := panel.create_tween()
-					tw.tween_property(panel, "scale", Vector2(1.0, 1.0), 0.1)
-			break
-
-func _spawn_purchase_vfx(upgrade_id: String) -> void:
-	# Find node position
-	for node in _protocol_nodes:
-		if String(node.get("id", "")) == upgrade_id:
-			var panel: PanelContainer = node.get("panel")
-			var color: Color = node.get("color", Color.WHITE)
-			if panel and panel.get_parent():
-				var pos := panel.global_position + Vector2(70, 45)
-				# Spawn particles
-				for i in range(12):
-					var p := ColorRect.new()
-					p.size = Vector2(6, 6)
-					p.color = color
-					p.position = pos
-					_protocol_overlay.add_child(p)
-					
-					var angle := randf() * TAU
-					var dist := 60.0 + randf() * 40.0
-					var target := pos + Vector2.from_angle(angle) * dist
-					
-					var tw := p.create_tween()
-					tw.set_parallel(true)
-					tw.tween_property(p, "position", target, 0.4).set_ease(Tween.EASE_OUT)
-					tw.tween_property(p, "modulate:a", 0.0, 0.4)
-					tw.chain().tween_callback(p.queue_free)
+				var t := panel.create_tween()
+				t.tween_property(panel, "scale", Vector2(1.08, 1.08) if hovered else Vector2(1, 1), 0.10)
 			break

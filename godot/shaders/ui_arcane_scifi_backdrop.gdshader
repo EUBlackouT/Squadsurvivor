@@ -2,14 +2,14 @@ shader_type canvas_item;
 
 // Animated arcane sci-fi backdrop for UI modals.
 
-uniform vec4 base_a : source_color = vec4(0.08, 0.09, 0.11, 1.0);
-uniform vec4 base_b : source_color = vec4(0.12, 0.14, 0.18, 1.0);
-uniform vec4 glow_color : source_color = vec4(0.35, 0.85, 1.0, 1.0);
+uniform vec4 base_a : source_color = vec4(0.10, 0.14, 0.18, 1.0);
+uniform vec4 base_b : source_color = vec4(0.16, 0.20, 0.24, 1.0);
+uniform vec4 glow_color : source_color = vec4(0.30, 0.75, 0.80, 1.0);
 
-uniform float scanline_strength = 0.10;
-uniform float noise_strength = 0.07;
-uniform float band_strength = 0.20;
-uniform float band_speed = 0.40;
+uniform float scanline_strength = 0.03;
+uniform float noise_strength = 0.02;
+uniform float band_strength = 0.12;
+uniform float band_speed = 0.30;
 
 float hash(vec2 p) {
 	// Cheap 2D hash

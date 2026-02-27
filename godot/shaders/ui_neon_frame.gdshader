@@ -3,11 +3,11 @@ shader_type canvas_item;
 // Neon frame glow for Panel/PanelContainer via CanvasItem material.
 // Draws a soft border glow around the rect.
 
-uniform vec4 base_color : source_color = vec4(0.10, 0.11, 0.13, 1.0);
-uniform vec4 glow_color : source_color = vec4(0.40, 0.80, 1.0, 0.65);
-uniform float glow_width = 0.02;     // UV space (~0.01-0.04)
-uniform float glow_strength = 1.0;
-uniform float pulse_speed = 1.2;
+uniform vec4 base_color : source_color = vec4(0.12, 0.17, 0.21, 1.0);
+uniform vec4 glow_color : source_color = vec4(0.25, 0.80, 0.82, 0.55);
+uniform float glow_width = 0.018;     // UV space (~0.01-0.04)
+uniform float glow_strength = 0.85;
+uniform float pulse_speed = 0.9;
 
 float rect_sdf(vec2 p, vec2 b) {
 	vec2 d = abs(p) - b;

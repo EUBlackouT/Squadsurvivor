@@ -12,7 +12,7 @@ extends Control
 @onready var _search_clear: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Clear") as Button
 
 @onready var _inspector_card: PanelContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard") as PanelContainer
-@onready var _inspector_portrait: PanelContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorPortrait") as PanelContainer
+@onready var _inspector_portrait: Control = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorPortrait") as Control
 @onready var _inspector_name: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorName") as Label
 @onready var _inspector_stats: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorStats") as Label
 @onready var _inspector_passives: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorPassives") as Label
@@ -35,7 +35,209 @@ var _last_unlocked_map_id: String = "graveyard"
 const COLLECTION_BG_PATH: String = "res://assets/ui/mockups/collection.webp"
 const USE_UI_MOCKUPS: bool = false
 
+# Vine/fantasy skin (same vibe as main menu)
+const BG_FANTASY_PATH := "res://assets/ui/wood_menu/bg_fantasy_1920x1080.jpg"
+const KIT_DIR := "res://assets/ui/vine_menu/kit/"
+const TEX_PANEL := KIT_DIR + "panel_mossstone_9slice.png"
+const TEX_BTN_P := KIT_DIR + "button_primary_vine_9slice.png"
+const TEX_BTN_S := KIT_DIR + "button_secondary_vine_9slice.png"
+const TEX_CARD := KIT_DIR + "card_moss_9slice.png"
+const TEX_CHIP := KIT_DIR + "chip_leaf_9slice.png"
+const TEX_SPARKLE := KIT_DIR + "sparkle_leaf_16.png"
+const TEX_DIVIDER := KIT_DIR + "divider_vine.png"
+const INK := Color(0.14, 0.11, 0.08, 1.0)
+const INK_SOFT := Color(0.22, 0.17, 0.12, 0.92)
+
+func _load_tex(p: String) -> Texture2D:
+	if p.is_empty() or not ResourceLoader.exists(p):
+		return null
+	return load(p) as Texture2D
+
+func _sb_tex_9(tex_path: String, tm_l := 36, tm_t := 36, tm_r := 36, tm_b := 36, cm_h := 18, cm_v := 14) -> StyleBox:
+	var t := _load_tex(tex_path)
+	if t == null:
+		return null
+	var sb := StyleBoxTexture.new()
+	sb.texture = t
+	sb.texture_margin_left = tm_l
+	sb.texture_margin_top = tm_t
+	sb.texture_margin_right = tm_r
+	sb.texture_margin_bottom = tm_b
+	sb.content_margin_left = cm_h
+	sb.content_margin_right = cm_h
+	sb.content_margin_top = cm_v
+	sb.content_margin_bottom = cm_v
+	return sb
+
+func _sb_panel() -> StyleBox:
+	var sb := _sb_tex_9(TEX_PANEL, 36, 36, 36, 36, 18, 16)
+	if sb != null:
+		return sb
+	var f := StyleBoxFlat.new()
+	f.bg_color = Color(0.16, 0.11, 0.08, 0.92)
+	f.border_width_left = 1
+	f.border_width_right = 1
+	f.border_width_top = 1
+	f.border_width_bottom = 1
+	f.border_color = Color(0.22, 0.18, 0.14, 0.5)
+	f.corner_radius_top_left = 16
+	f.corner_radius_top_right = 16
+	f.corner_radius_bottom_left = 16
+	f.corner_radius_bottom_right = 16
+	f.shadow_size = 12
+	f.shadow_color = Color(0, 0, 0, 0.25)
+	return f
+
+func _sb_card(selected: bool) -> StyleBox:
+	var sb := _sb_tex_9(TEX_CARD, 26, 26, 26, 26, 14, 10)
+	if sb != null:
+		return sb
+	var f := StyleBoxFlat.new()
+	f.bg_color = Color(0.92, 0.84, 0.68, 0.92)
+	f.border_width_left = 1
+	f.border_width_right = 1
+	f.border_width_top = 1
+	f.border_width_bottom = 1
+	f.border_color = Color(0.28, 0.22, 0.16, 0.22)
+	f.corner_radius_top_left = 10
+	f.corner_radius_top_right = 10
+	f.corner_radius_bottom_left = 10
+	f.corner_radius_bottom_right = 10
+	if selected:
+		f.border_color = Color(0.45, 0.55, 0.35, 0.45)
+		f.shadow_size = 6
+		f.shadow_color = Color(0.2, 0.35, 0.2, 0.08)
+	return f
+
+func _strip_scroll_frames(sc: ScrollContainer) -> void:
+	if sc == null:
+		return
+	sc.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	sc.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var h := sc.get_h_scroll_bar()
+	var v := sc.get_v_scroll_bar()
+	if h:
+		h.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
+		h.add_theme_stylebox_override("scroll_focus", StyleBoxEmpty.new())
+		h.add_theme_stylebox_override("grabber", StyleBoxEmpty.new())
+		h.add_theme_stylebox_override("grabber_highlight", StyleBoxEmpty.new())
+		h.add_theme_stylebox_override("grabber_pressed", StyleBoxEmpty.new())
+	if v:
+		v.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
+		v.add_theme_stylebox_override("scroll_focus", StyleBoxEmpty.new())
+		v.add_theme_stylebox_override("grabber", StyleBoxEmpty.new())
+		v.add_theme_stylebox_override("grabber_highlight", StyleBoxEmpty.new())
+		v.add_theme_stylebox_override("grabber_pressed", StyleBoxEmpty.new())
+
+func _add_inner_wash(panel: Control, inset := 18) -> void:
+	if panel == null:
+		return
+	if panel.has_node("InnerWash"):
+		return
+	var wash := ColorRect.new()
+	wash.name = "InnerWash"
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wash.color = Color(0.94, 0.92, 0.86, 0.72)
+	wash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wash.offset_left = inset
+	wash.offset_top = inset
+	wash.offset_right = -inset
+	wash.offset_bottom = -inset
+	panel.add_child(wash)
+	panel.move_child(wash, 0)
+
+## Clear input field: light background, dark text, readable placeholder
+func _sb_input() -> StyleBox:
+	var f := StyleBoxFlat.new()
+	f.bg_color = Color(0.96, 0.94, 0.90, 0.95)
+	f.border_width_left = 1
+	f.border_width_right = 1
+	f.border_width_top = 1
+	f.border_width_bottom = 1
+	f.border_color = Color(0.25, 0.22, 0.18, 0.35)
+	f.corner_radius_top_left = 8
+	f.corner_radius_top_right = 8
+	f.corner_radius_bottom_left = 8
+	f.corner_radius_bottom_right = 8
+	f.shadow_size = 4
+	f.shadow_color = Color(0, 0, 0, 0.08)
+	return f
+
+func _sb_btn(primary: bool) -> StyleBox:
+	var sb := _sb_tex_9(TEX_BTN_P if primary else TEX_BTN_S, 30, 22, 30, 22, 22, 14)
+	if sb != null:
+		return sb
+	var f := StyleBoxFlat.new()
+	f.bg_color = Color(0.55, 0.33, 0.16, 1.0) if primary else Color(0.32, 0.21, 0.14, 0.95)
+	f.border_width_left = 2
+	f.border_width_right = 2
+	f.border_width_top = 2
+	f.border_width_bottom = 2
+	f.border_color = Color(1, 1, 1, 0.20)
+	f.corner_radius_top_left = 12
+	f.corner_radius_top_right = 12
+	f.corner_radius_bottom_left = 12
+	f.corner_radius_bottom_right = 12
+	return f
+
+func _style_btn(b: Button, primary: bool) -> void:
+	if b == null:
+		return
+	var sb := _sb_btn(primary)
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	b.add_theme_stylebox_override("pressed", sb)
+	b.add_theme_stylebox_override("focus", sb)
+	b.add_theme_font_size_override("font_size", 16)
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_color_override("font_color", INK if primary else Color(0.96, 0.93, 0.88, 1))
+	b.add_theme_color_override("font_hover_color", b.get_theme_color("font_color"))
+
+func _style_line_edit(le: LineEdit) -> void:
+	if le == null:
+		return
+	le.add_theme_stylebox_override("normal", _sb_input())
+	le.add_theme_color_override("font_color", INK)
+	le.add_theme_color_override("font_placeholder_color", Color(0.35, 0.30, 0.25, 0.85))
+
+func _rarity_rank(r: String) -> int:
+	match r:
+		"common": return 0
+		"uncommon": return 1
+		"rare": return 2
+		"epic": return 3
+		"legendary": return 4
+		_: return 1
+
+func _add_rarity_sparkle(parent: Control, rank: int) -> void:
+	if parent == null or rank < 2:
+		return
+	var tex := _load_tex(TEX_SPARKLE)
+	if tex == null:
+		return
+	var overlay := Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(overlay)
+	var sp := TextureRect.new()
+	sp.texture = tex
+	sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sp.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	sp.offset_left = -26
+	sp.offset_top = 6
+	sp.offset_right = -10
+	sp.offset_bottom = 22
+	sp.modulate = Color(1, 1, 1, 0.0)
+	overlay.add_child(sp)
+	var tw := sp.create_tween()
+	tw.set_loops()
+	tw.tween_interval(0.7 + randf() * 1.2)
+	tw.tween_property(sp, "modulate:a", 1.0, 0.08)
+	tw.tween_property(sp, "modulate:a", 0.0, 0.30)
+
 func _ready() -> void:
+	get_viewport().canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 	UiSkin.apply_global_font()
 	# Force load save
 	var cm := get_node_or_null("/root/CollectionManager")
@@ -153,29 +355,37 @@ func _maybe_reroll_weapons_once(cm: Node) -> void:
 		f.store_string("done")
 
 func _apply_background_art() -> void:
-	if not USE_UI_MOCKUPS:
-		return
 	if has_node("BgArt"):
 		return
-	if not ResourceLoader.exists(COLLECTION_BG_PATH):
-		return
+
 	var bg := TextureRect.new()
 	bg.name = "BgArt"
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.texture = load(COLLECTION_BG_PATH) as Texture2D
+	bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	bg.modulate = Color(1, 1, 1, 0.95)
+	bg.z_index = -200
+	bg.texture = load(BG_FANTASY_PATH) as Texture2D if ResourceLoader.exists(BG_FANTASY_PATH) else null
 	add_child(bg)
 	move_child(bg, 0)
-	# Hide the old sci-fi backdrop layers if present.
+
+	# Kill purple overlay layers
 	var backdrop := get_node_or_null("Backdrop") as CanvasItem
 	if backdrop:
 		backdrop.visible = false
 	var backdrop_shader := get_node_or_null("BackdropShader") as CanvasItem
 	if backdrop_shader:
 		backdrop_shader.visible = false
+
+	# Subtle forest haze so UI pops
+	var haze := ColorRect.new()
+	haze.name = "ForestHaze"
+	haze.set_anchors_preset(Control.PRESET_FULL_RECT)
+	haze.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	haze.color = Color(0.04, 0.06, 0.05, 0.22)
+	add_child(haze)
+	move_child(haze, 1)
 
 func _open_settings() -> void:
 	if has_node("SettingsMenu"):
@@ -1106,13 +1316,18 @@ func _refresh_collection() -> void:
 		var card := PanelContainer.new()
 		card.mouse_filter = Control.MOUSE_FILTER_PASS
 		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		var rarity_col := UnitFactory.rarity_color(rarity)
-		card.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, false))
+		var selected_pid := String(_selected_unlock.get("pixellab_id", ""))
+		var is_selected := (selected_pid != "" and selected_pid == String(data.get("pixellab_id", "")))
+		card.add_theme_stylebox_override("panel", _sb_card(is_selected))
+		_add_rarity_sparkle(card, _rarity_rank(rarity))
 		collection_box.add_child(card)
-		
-		# Add hover glow effect
-		UiSkin.add_hover_glow(card, rarity_col)
-		
+
+		if is_selected:
+			var tw := card.create_tween()
+			tw.set_loops()
+			tw.tween_property(card, "scale", Vector2(1.01, 1.01), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			tw.tween_property(card, "scale", Vector2(1.0, 1.0), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
 		# Add subtle scale on hover
 		card.pivot_offset = Vector2(card.size.x * 0.5, card.size.y * 0.5) if card.size.x > 0 else Vector2.ZERO
 		card.mouse_entered.connect(func():
@@ -1158,13 +1373,16 @@ func _refresh_collection() -> void:
 
 		var name := Label.new()
 		var show_arch := (arch.strip_edges().to_lower() != cls_tag)
-		name.text = "%s • %s%s" % [
+		var name_base := "%s • %s%s" % [
 			UnitFactory.rarity_name(rarity),
 			cls_name,
 			(" • %s" % arch) if show_arch else ""
 		]
+		name.text = "● " + name_base
 		name.add_theme_font_size_override("font_size", 15)
-		name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
+		name.add_theme_color_override("font_color", INK)
+		name.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.22))
+		name.add_theme_constant_override("outline_size", 1)
 		mid.add_child(name)
 
 		var small := Label.new()
@@ -1175,7 +1393,7 @@ func _refresh_collection() -> void:
 			int(float(data.get("attack_range", 300.0)))
 		]
 		small.add_theme_font_size_override("font_size", 11)
-		small.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+		small.add_theme_color_override("font_color", INK_SOFT)
 		mid.add_child(small)
 
 		var btns := VBoxContainer.new()
@@ -1185,7 +1403,7 @@ func _refresh_collection() -> void:
 		var details := Button.new()
 		details.text = "Details"
 		details.custom_minimum_size = Vector2(92, 34)
-		UiSkin.style_secondary_button(details)
+		_style_btn(details, false)
 		btns.add_child(details)
 		details.pressed.connect(func(): _show_details(data))
 
@@ -1209,15 +1427,15 @@ func _refresh_collection() -> void:
 			add.text = "✓"
 			add.tooltip_text = "Already in squad"
 			add.disabled = true
-			UiSkin.style_secondary_button(add, UiSkin.ACCENT_GREEN)
+			_style_btn(add, false)
 		elif is_squad_full:
 			add.text = "Full"
 			add.tooltip_text = "Squad is full"
 			add.disabled = true
-			UiSkin.style_secondary_button(add, UiSkin.ACCENT_RED)
+			_style_btn(add, false)
 		else:
 			add.text = "Add"
-			UiSkin.style_primary_button(add)
+			_style_btn(add, true)
 			add.pressed.connect(func(): _add_unlock_to_roster(data))
 		btns.add_child(add)
 
@@ -1323,7 +1541,7 @@ func _refresh_roster() -> void:
 	var slot_label := Label.new()
 	slot_label.text = "Squad Slots"
 	slot_label.add_theme_font_size_override("font_size", 14)
-	slot_label.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+	slot_label.add_theme_color_override("font_color", INK_SOFT)
 	slot_header.add_child(slot_label)
 	
 	slot_header.add_spacer(true)
@@ -1333,15 +1551,20 @@ func _refresh_roster() -> void:
 	slot_count.text = "%d / %d" % [filled, cap]
 	slot_count.add_theme_font_size_override("font_size", 16)
 	if filled >= cap:
-		slot_count.add_theme_color_override("font_color", UiSkin.ACCENT_GREEN)
+		slot_count.add_theme_color_override("font_color", Color(0.35, 0.55, 0.35, 1.0))
 	else:
-		slot_count.add_theme_color_override("font_color", UiSkin.TEXT)
+		slot_count.add_theme_color_override("font_color", INK)
 	slot_header.add_child(slot_count)
 	
 	for i in range(cap):
 		var row_card := PanelContainer.new()
 		var is_filled := i < roster.size() and typeof(roster[i]) == TYPE_DICTIONARY
-		row_card.add_theme_stylebox_override("panel", UiSkin.card_style(UiSkin.ACCENT if is_filled else Color(0.4, 0.45, 0.5, 1.0), false))
+		var rarity := "common"
+		if is_filled and typeof(roster[i]) == TYPE_DICTIONARY:
+			rarity = String((roster[i] as Dictionary).get("rarity_id", "common"))
+		row_card.add_theme_stylebox_override("panel", _sb_card(is_filled))
+		if is_filled:
+			_add_rarity_sparkle(row_card, _rarity_rank(rarity))
 		roster_box.add_child(row_card)
 
 		var pad := MarginContainer.new()
@@ -1359,13 +1582,12 @@ func _refresh_roster() -> void:
 		var slot_num := Label.new()
 		slot_num.text = "%d" % (i + 1)
 		slot_num.add_theme_font_size_override("font_size", 14)
-		slot_num.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+		slot_num.add_theme_color_override("font_color", INK_SOFT)
 		slot_num.custom_minimum_size = Vector2(20, 0)
 		row.add_child(slot_num)
 
 		if is_filled:
 			var d: Dictionary = roster[i]
-			var rarity := String(d.get("rarity_id", "common"))
 			var arch := String(d.get("archetype_id", "bruiser"))
 			var cls := int(d.get("class_type", int(CharacterData.Class.WARRIOR)))
 			var cls_name := _class_name(cls)
@@ -1375,20 +1597,23 @@ func _refresh_roster() -> void:
 			var label := Label.new()
 			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var show_arch := (arch.strip_edges().to_lower() != cls_tag)
-			label.text = "%s • %s%s" % [
+			label.text = "● %s • %s%s" % [
 				UnitFactory.rarity_name(rarity),
 				cls_name,
 				(" • %s" % arch) if show_arch else ""
 			]
 			label.add_theme_font_size_override("font_size", 13)
-			label.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
+			label.add_theme_color_override("font_color", INK)
+			label.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.18))
+			label.add_theme_constant_override("outline_size", 1)
 			row.add_child(label)
 			
 			var remove := Button.new()
 			remove.text = "✕"
 			remove.tooltip_text = "Remove from squad"
 			remove.custom_minimum_size = Vector2(36, 36)
-			UiSkin.style_secondary_button(remove, UiSkin.ACCENT_RED)
+			_style_btn(remove, false)
+			remove.add_theme_color_override("font_color", Color(0.7, 0.25, 0.2, 1.0))
 			row.add_child(remove)
 			remove.pressed.connect(func():
 				cm.remove_from_roster(i)
@@ -1399,7 +1624,7 @@ func _refresh_roster() -> void:
 			empty_label.text = "Empty slot"
 			empty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			empty_label.add_theme_font_size_override("font_size", 13)
-			empty_label.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+			empty_label.add_theme_color_override("font_color", INK_SOFT)
 			row.add_child(empty_label)
 	
 	# Show unlock hint if not at max slots
@@ -1415,7 +1640,7 @@ func _refresh_roster() -> void:
 			var hint := Label.new()
 			hint.text = "↳ Unlock more slots via Protocol Grid"
 			hint.add_theme_font_size_override("font_size", 11)
-			hint.add_theme_color_override("font_color", UiSkin.ACCENT_PURPLE)
+			hint.add_theme_color_override("font_color", Color(0.4, 0.5, 0.4, 1.0))
 			hint_box.add_child(hint)
 
 func _add_unlock_to_roster(data: Dictionary) -> void:
@@ -1472,9 +1697,11 @@ func _refresh_inspector() -> void:
 	var cls_name := _class_name(cls)
 	var cls_tag := _class_tag(cls)
 	var show_arch := (arch.strip_edges().to_lower() != cls_tag)
-	# Compact name line
-	_inspector_name.text = "%s • %s%s" % [UnitFactory.rarity_name(rarity), cls_name, (" • %s" % arch) if show_arch else ""]
-	_inspector_name.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
+	# Compact name line (INK for readability, dot as rarity accent)
+	_inspector_name.text = "● %s • %s%s" % [UnitFactory.rarity_name(rarity), cls_name, (" • %s" % arch) if show_arch else ""]
+	_inspector_name.add_theme_color_override("font_color", INK)
+	_inspector_name.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.18))
+	_inspector_name.add_theme_constant_override("outline_size", 1)
 	
 	# Weapon and stats on one compact line
 	var weapon_id := String(_selected_unlock.get("weapon_id", "standard_bolt"))
@@ -1517,15 +1744,15 @@ func _refresh_inspector() -> void:
 	if in_roster:
 		_inspector_primary_btn.text = "In Squad ✓"
 		_inspector_primary_btn.disabled = true
-		UiSkin.style_secondary_button(_inspector_primary_btn, UiSkin.ACCENT_GREEN)
+		_style_btn(_inspector_primary_btn, false)
 	elif squad_full:
 		_inspector_primary_btn.text = "Squad Full"
 		_inspector_primary_btn.disabled = true
-		UiSkin.style_secondary_button(_inspector_primary_btn, UiSkin.ACCENT_RED)
+		_style_btn(_inspector_primary_btn, false)
 	else:
 		_inspector_primary_btn.text = "Add to Squad"
 		_inspector_primary_btn.disabled = false
-		UiSkin.style_primary_button(_inspector_primary_btn)
+		_style_btn(_inspector_primary_btn, true)
 
 func _matches_query(data: Dictionary, q: String) -> bool:
 	if q == "":
@@ -1548,49 +1775,68 @@ func _matches_query(data: Dictionary, q: String) -> bool:
 	return true
 
 func _apply_skin() -> void:
-	# Apply dramatic Neon Protocol look
 	var left_panel := get_node_or_null("Root/Left") as PanelContainer
 	var right_panel := get_node_or_null("Root/Right") as PanelContainer
 	if left_panel:
-		left_panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT))
+		left_panel.add_theme_stylebox_override("panel", _sb_panel())
 	if right_panel:
-		right_panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT_PURPLE))
+		right_panel.add_theme_stylebox_override("panel", _sb_panel())
 
-	# Style the title
+	# Kill scroll container frames (no extra UI-in-UI)
+	_strip_scroll_frames(get_node_or_null("Root/Left/LeftPad/LeftVBox/CollectionScroll") as ScrollContainer)
+	_strip_scroll_frames(get_node_or_null("Root/Right/RightPad/RightScroll") as ScrollContainer)
+
+	# Inner wash: soft parchment over mossstone so content is readable
+	_add_inner_wash(get_node_or_null("Root/Left"), 20)
+	_add_inner_wash(get_node_or_null("Root/Right"), 18)
+
+	# InspectorCard = light card, not mossstone (no double frame)
+	if _inspector_card:
+		_inspector_card.add_theme_stylebox_override("panel", _sb_card(false))
+
+	# Title
 	var title_lbl := get_node_or_null("Root/Left/LeftPad/LeftVBox/Title") as Label
 	if title_lbl:
-		UiSkin.style_page_title(title_lbl, UiSkin.ACCENT)
+		title_lbl.add_theme_font_size_override("font_size", 28)
+		title_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.62, 1.0))
+		title_lbl.add_theme_color_override("font_outline_color", Color(0.18, 0.12, 0.08, 1.0))
+		title_lbl.add_theme_constant_override("outline_size", 4)
 
-	# Inspector card panel with glow
-	if _inspector_card:
-		_inspector_card.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT))
-		# Add subtle neon material
-		var neon := ShaderMaterial.new()
-		neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
-		neon.set_shader_parameter("base_color", Color(0.06, 0.07, 0.09, 0.98))
-		neon.set_shader_parameter("glow_color", Color(0.4, 0.85, 1.0, 0.4))
-		neon.set_shader_parameter("glow_width", 0.015)
-		neon.set_shader_parameter("pulse_speed", 0.8)
-		_inspector_card.material = neon
+	# Inputs
+	_style_line_edit(_search)
 
-	# Style buttons with hover effects
-	UiSkin.style_primary_button(start_btn, UiSkin.ACCENT_GREEN)
-	if start_btn:
-		UiSkin.add_hover_scale(start_btn, 1.02)
-	UiSkin.style_secondary_button(resume_btn, UiSkin.ACCENT_GOLD)
-	if resume_btn:
-		UiSkin.add_hover_scale(resume_btn, 1.02)
-	UiSkin.style_secondary_button(settings_btn)
-	UiSkin.style_secondary_button(back_btn, UiSkin.ACCENT_RED)
-	UiSkin.style_secondary_button(_search_clear)
-	UiSkin.style_secondary_button(_inspector_details_btn)
-	UiSkin.style_primary_button(_inspector_primary_btn)
-	if _inspector_primary_btn:
-		UiSkin.add_hover_scale(_inspector_primary_btn, 1.02)
+	# Buttons
+	_style_btn(start_btn, true)
+	_style_btn(resume_btn, false)
+	_style_btn(settings_btn, false)
+	_style_btn(back_btn, false)
+	_style_btn(_search_clear, false)
+	_style_btn(_inspector_details_btn, false)
+	_style_btn(_inspector_primary_btn, true)
 
-	# OptionButton styling (inherits Button)
 	if map_select:
-		UiSkin.style_secondary_button(map_select as Button)
+		_style_btn(map_select as Button, false)
+
+	# Text colors (readable, consistent INK palette)
+	if _inspector_name:
+		_inspector_name.add_theme_color_override("font_color", INK)
+	if _inspector_stats:
+		_inspector_stats.add_theme_color_override("font_color", INK_SOFT)
+	if _inspector_passives:
+		_inspector_passives.add_theme_color_override("font_color", INK_SOFT)
+	if _inspector_synergies_title:
+		_inspector_synergies_title.add_theme_color_override("font_color", INK)
+	var roster_title := get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/RosterTitle") as Label
+	if roster_title:
+		roster_title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.62, 1.0))
+		roster_title.add_theme_color_override("font_outline_color", Color(0.18, 0.12, 0.08, 1.0))
+		roster_title.add_theme_constant_override("outline_size", 2)
+	var map_lbl := get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/MapLabel") as Label
+	if map_lbl:
+		map_lbl.add_theme_color_override("font_color", INK)
+	var inspector_title := get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorTitle") as Label
+	if inspector_title:
+		inspector_title.add_theme_color_override("font_color", INK_SOFT)
 
 func _on_start_run() -> void:
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")

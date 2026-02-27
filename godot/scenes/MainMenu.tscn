@@ -1,39 +1,30 @@
-[gd_scene load_steps=8 format=3 uid="uid://cfyhmplnp517l"]
+[gd_scene load_steps=6 format=3 uid="uid://cfyhmplnp517l"]
 
 [ext_resource type="Script" uid="uid://hy2hhm57kdmd" path="res://scripts/MainMenu.gd" id="1"]
 [ext_resource type="Shader" uid="uid://dsbfwr56fqd6k" path="res://shaders/ui_arcane_scifi_backdrop.gdshader" id="2"]
-[ext_resource type="Shader" uid="uid://m3pjsfyeitk6" path="res://shaders/ui_neon_frame.gdshader" id="3"]
-[ext_resource type="Shader" path="res://shaders/ui_squad_protocol_frame.gdshader" id="4"]
+[ext_resource type="Shader" path="res://shaders/ui_squad_protocol_frame.gdshader" id="3"]
 
 [sub_resource type="ShaderMaterial" id="1"]
 shader = ExtResource("2")
-shader_parameter/base_a = Color(0.08, 0.09, 0.11, 1)
-shader_parameter/base_b = Color(0.12, 0.14, 0.18, 1)
-shader_parameter/glow_color = Color(0.35, 0.85, 1, 1)
-shader_parameter/scanline_strength = 0.1
-shader_parameter/noise_strength = 0.07
-shader_parameter/band_strength = 0.2
-shader_parameter/band_speed = 0.4
-
-[sub_resource type="ShaderMaterial" id="3"]
-shader = ExtResource("4")
-shader_parameter/space_a = Color(0.03, 0.05, 0.08, 1)
-shader_parameter/space_b = Color(0.08, 0.1, 0.14, 1)
-shader_parameter/accent = Color(0.35, 0.85, 1, 1)
-shader_parameter/vignette = 0.55
-shader_parameter/grain = 0.06
-shader_parameter/frame_thickness = 0.05
-shader_parameter/inner_thickness = 0.01
-shader_parameter/corner_size = 0.16
-shader_parameter/glow = 1.0
+shader_parameter/base_a = Color(0.14, 0.1, 0.18, 1)
+shader_parameter/base_b = Color(0.22, 0.14, 0.28, 1)
+shader_parameter/glow_color = Color(1, 0.65, 0.35, 1)
+shader_parameter/scanline_strength = 0.04
+shader_parameter/noise_strength = 0.05
+shader_parameter/band_strength = 0.15
+shader_parameter/band_speed = 0.3
 
 [sub_resource type="ShaderMaterial" id="2"]
 shader = ExtResource("3")
-shader_parameter/base_color = Color(0.07, 0.08, 0.1, 0.96)
-shader_parameter/glow_color = Color(0.4, 0.8, 1, 0.5)
-shader_parameter/glow_width = 0.02
-shader_parameter/glow_strength = 1.0
-shader_parameter/pulse_speed = 1.1
+shader_parameter/space_a = Color(0.08, 0.06, 0.12, 1)
+shader_parameter/space_b = Color(0.14, 0.1, 0.2, 1)
+shader_parameter/accent = Color(1, 0.7, 0.4, 1)
+shader_parameter/vignette = 0.5
+shader_parameter/grain = 0.04
+shader_parameter/frame_thickness = 0.06
+shader_parameter/inner_thickness = 0.02
+shader_parameter/corner_size = 0.2
+shader_parameter/glow = 1.0
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -44,17 +35,11 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
 
-[node name="BgArt" type="TextureRect" parent="."]
-layout_mode = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-
 [node name="Backdrop" type="ColorRect" parent="."]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.92)
+color = Color(0.12, 0.08, 0.16, 0.88)
 
 [node name="BackdropShader" type="ColorRect" parent="."]
 material = SubResource("1")
@@ -65,245 +50,16 @@ mouse_filter = 2
 color = Color(0, 0, 0, 0)
 
 [node name="FrameShader" type="ColorRect" parent="."]
-material = SubResource("3")
+material = SubResource("2")
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0, 0, 0, 0)
 
-[node name="Root" type="Control" parent="."]
+[node name="MenuRoot" type="Control" parent="."]
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-
-[node name="Card" type="PanelContainer" parent="Root"]
-material = SubResource("2")
-layout_mode = 0
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -420.0
-offset_top = -280.0
-offset_right = 420.0
-offset_bottom = 280.0
-
-[node name="Pad" type="MarginContainer" parent="Root/Card"]
-layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 18
-
-[node name="VBox" type="VBoxContainer" parent="Root/Card/Pad"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="TitleStack" type="Control" parent="Root/Card/Pad/VBox"]
-custom_minimum_size = Vector2(0, 78)
-layout_mode = 2
-
-[node name="Glow" type="Label" parent="Root/Card/Pad/VBox/TitleStack"]
-layout_mode = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-theme_override_font_sizes/font_size = 56
-text = "SQUAD PROTOCOL"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Bevel" type="Label" parent="Root/Card/Pad/VBox/TitleStack"]
-layout_mode = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-theme_override_font_sizes/font_size = 56
-text = "SQUAD PROTOCOL"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Title" type="Label" parent="Root/Card/Pad/VBox/TitleStack"]
-layout_mode = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-theme_override_font_sizes/font_size = 56
-text = "SQUAD PROTOCOL"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Subtitle" type="Label" parent="Root/Card/Pad/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.82, 0.9, 1, 0.92)
-theme_override_font_sizes/font_size = 16
-text = "Infinite Horde Tactics"
-horizontal_alignment = 1
-
-[node name="Spacer" type="Control" parent="Root/Card/Pad/VBox"]
-custom_minimum_size = Vector2(0, 8)
-layout_mode = 2
-
-[node name="Resume" type="Button" parent="Root/Card/Pad/VBox"]
-visible = false
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "Resume Run"
-
-[node name="Play" type="Button" parent="Root/Card/Pad/VBox"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "Start"
-
-[node name="Armory" type="Button" parent="Root/Card/Pad/VBox"]
-custom_minimum_size = Vector2(0, 46)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Armory / Run Setup"
-
-[node name="Protocol" type="Button" parent="Root/Card/Pad/VBox"]
-custom_minimum_size = Vector2(0, 46)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "⬡ PROTOCOL GRID"
-
-[node name="Settings" type="Button" parent="Root/Card/Pad/VBox"]
-custom_minimum_size = Vector2(0, 46)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Settings"
-
-[node name="Quit" type="Button" parent="Root/Card/Pad/VBox"]
-custom_minimum_size = Vector2(0, 46)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Quit"
-
-[node name="MapOverlay" type="Control" parent="."]
-visible = false
-anchors_preset = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-
-[node name="Dim" type="ColorRect" parent="MapOverlay"]
-layout_mode = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.72)
-
-[node name="Panel" type="PanelContainer" parent="MapOverlay"]
-material = SubResource("2")
-layout_mode = 0
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -440.0
-offset_top = -310.0
-offset_right = 440.0
-offset_bottom = 310.0
-
-[node name="Pad" type="MarginContainer" parent="MapOverlay/Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 16
-
-[node name="VBox" type="VBoxContainer" parent="MapOverlay/Panel/Pad"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="MapOverlay/Panel/Pad/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.92, 1, 1)
-theme_override_font_sizes/font_size = 32
-text = "SELECT MAP"
-horizontal_alignment = 1
-
-[node name="HBox" type="HBoxContainer" parent="MapOverlay/Panel/Pad/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 16
-
-[node name="LeftPanel" type="VBoxContainer" parent="MapOverlay/Panel/Pad/VBox/HBox"]
-custom_minimum_size = Vector2(200, 0)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_constants/separation = 8
-
-[node name="MapListLabel" type="Label" parent="MapOverlay/Panel/Pad/VBox/HBox/LeftPanel"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.7, 0.8, 1)
-theme_override_font_sizes/font_size = 14
-text = "Zones"
-horizontal_alignment = 1
-
-[node name="MapList" type="ItemList" parent="MapOverlay/Panel/Pad/VBox/HBox/LeftPanel"]
-layout_mode = 2
-size_flags_vertical = 3
-allow_reselect = true
-
-[node name="RightPanel" type="VBoxContainer" parent="MapOverlay/Panel/Pad/VBox/HBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 10
-
-[node name="MapPreviewFrame" type="PanelContainer" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel"]
-custom_minimum_size = Vector2(0, 220)
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="Pad" type="MarginContainer" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame"]
-layout_mode = 2
-theme_override_constants/margin_left = 4
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 4
-theme_override_constants/margin_bottom = 4
-
-[node name="Preview" type="SubViewportContainer" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame/Pad"]
-layout_mode = 2
-stretch = true
-
-[node name="VP" type="SubViewport" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame/Pad/Preview"]
-handle_input_locally = false
-size = Vector2i(2, 2)
-render_target_update_mode = 0
-
-[node name="MapTagline" type="Label" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 0.9)
-theme_override_font_sizes/font_size = 14
-horizontal_alignment = 1
-autowrap_mode = 3
-
-[node name="MapDetails" type="RichTextLabel" parent="MapOverlay/Panel/Pad/VBox/HBox/RightPanel"]
-custom_minimum_size = Vector2(0, 60)
-layout_mode = 2
-theme_override_font_sizes/normal_font_size = 13
-bbcode_enabled = true
-fit_content = true
-scroll_active = false
-
-[node name="Buttons" type="HBoxContainer" parent="MapOverlay/Panel/Pad/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 16
-alignment = 1
-
-[node name="Back" type="Button" parent="MapOverlay/Panel/Pad/VBox/Buttons"]
-custom_minimum_size = Vector2(180, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Back"
-
-[node name="Start" type="Button" parent="MapOverlay/Panel/Pad/VBox/Buttons"]
-custom_minimum_size = Vector2(180, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Start Run"
-
-[node name="FrameArt" type="TextureRect" parent="."]
-layout_mode = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
+grow_horizontal = 2
+grow_vertical = 2

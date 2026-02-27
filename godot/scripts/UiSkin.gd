@@ -4,19 +4,19 @@ extends Node
 # Fun Arcade UI skin: centralized colors + reusable style helpers.
 # Goal: keep all menus consistent without duplicating StyleBox setup per screen.
 
-const ACCENT: Color = Color(0.18, 0.82, 0.72, 1.0) # teal
-const ACCENT_PURPLE: Color = Color(0.82, 0.52, 0.95, 1.0)
-const ACCENT_GOLD: Color = Color(1.0, 0.82, 0.35, 1.0)
-const ACCENT_GREEN: Color = Color(0.45, 1.0, 0.70, 1.0)
-const ACCENT_RED: Color = Color(1.0, 0.45, 0.45, 1.0)
-const BG_PANEL: Color = Color(0.10, 0.11, 0.16, 0.98)
-const BG_PANEL_SOFT: Color = Color(0.12, 0.13, 0.18, 0.95)
-const BG_CARD: Color = Color(0.14, 0.15, 0.20, 0.92)
+const ACCENT: Color = Color(0.20, 0.78, 0.82, 1.0) # teal
+const ACCENT_PURPLE: Color = Color(0.78, 0.56, 0.95, 1.0)
+const ACCENT_GOLD: Color = Color(1.0, 0.78, 0.35, 1.0)
+const ACCENT_GREEN: Color = Color(0.45, 0.92, 0.65, 1.0)
+const ACCENT_RED: Color = Color(1.0, 0.55, 0.50, 1.0)
+const BG_PANEL: Color = Color(0.12, 0.17, 0.21, 0.98)
+const BG_PANEL_SOFT: Color = Color(0.15, 0.20, 0.24, 0.96)
+const BG_CARD: Color = Color(0.17, 0.22, 0.27, 0.94)
 const TEXT: Color = Color(0.98, 0.99, 1.0, 1.0)
-const TEXT_SOFT: Color = Color(0.86, 0.90, 0.96, 0.95)
-const TEXT_DIM: Color = Color(0.65, 0.72, 0.82, 0.85)
-const BORDER_SOFT: Color = Color(1, 1, 1, 0.10)
-const BORDER_GLOW: Color = Color(0.18, 0.82, 0.72, 0.25)
+const TEXT_SOFT: Color = Color(0.88, 0.92, 0.97, 0.95)
+const TEXT_DIM: Color = Color(0.70, 0.78, 0.88, 0.85)
+const BORDER_SOFT: Color = Color(1, 1, 1, 0.12)
+const BORDER_GLOW: Color = Color(0.20, 0.78, 0.82, 0.30)
 
 const PANEL_FRAME_PATH: String = "res://assets/ui/kit/panel_frame.webp"
 const BUTTON_PRIMARY_PATH: String = "res://assets/ui/kit/button_primary.webp"
@@ -77,17 +77,17 @@ static func panel_style(accent: Color = ACCENT, strong: bool = false) -> StyleBo
 		return tex
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = BG_PANEL if strong else BG_PANEL_SOFT
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.18)
-	sb.corner_radius_top_left = 16
-	sb.corner_radius_top_right = 16
-	sb.corner_radius_bottom_left = 16
-	sb.corner_radius_bottom_right = 16
+	sb.border_width_left = 3
+	sb.border_width_right = 3
+	sb.border_width_top = 3
+	sb.border_width_bottom = 3
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.30)
+	sb.corner_radius_top_left = 18
+	sb.corner_radius_top_right = 18
+	sb.corner_radius_bottom_left = 18
+	sb.corner_radius_bottom_right = 18
 	sb.shadow_color = Color(0, 0, 0, 0.6)
-	sb.shadow_size = 16
+	sb.shadow_size = 18
 	return sb
 
 static func chip_style(accent: Color) -> StyleBox:
@@ -95,16 +95,16 @@ static func chip_style(accent: Color) -> StyleBox:
 	if tex != null:
 		return tex
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.09, 0.80)
-	sb.border_width_left = 1
-	sb.border_width_right = 1
-	sb.border_width_top = 1
-	sb.border_width_bottom = 1
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.55)
-	sb.corner_radius_top_left = 10
-	sb.corner_radius_top_right = 10
-	sb.corner_radius_bottom_left = 10
-	sb.corner_radius_bottom_right = 10
+	sb.bg_color = Color(0.08, 0.12, 0.14, 0.90)
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.60)
+	sb.corner_radius_top_left = 12
+	sb.corner_radius_top_right = 12
+	sb.corner_radius_bottom_left = 12
+	sb.corner_radius_bottom_right = 12
 	return sb
 
 static func style_primary_button(btn: Button, accent: Color = ACCENT) -> void:
@@ -129,28 +129,28 @@ static func style_primary_button(btn: Button, accent: Color = ACCENT) -> void:
 	normal.corner_radius_top_right = 12
 	normal.corner_radius_bottom_left = 12
 	normal.corner_radius_bottom_right = 12
-	normal.bg_color = Color(accent.r, accent.g, accent.b, 0.18)
-	normal.border_width_left = 2
-	normal.border_width_right = 2
-	normal.border_width_top = 2
-	normal.border_width_bottom = 2
-	normal.border_color = Color(accent.r, accent.g, accent.b, 0.65)
+	normal.bg_color = Color(accent.r, accent.g, accent.b, 0.45)
+	normal.border_width_left = 3
+	normal.border_width_right = 3
+	normal.border_width_top = 3
+	normal.border_width_bottom = 3
+	normal.border_color = Color(accent.r, accent.g, accent.b, 0.85)
 
 	var hover := normal.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(accent.r, accent.g, accent.b, 0.24)
-	hover.border_color = Color(accent.r, accent.g, accent.b, 0.90)
+	hover.bg_color = Color(accent.r, accent.g, accent.b, 0.55)
+	hover.border_color = Color(accent.r, accent.g, accent.b, 0.98)
 
 	var pressed := normal.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(accent.r, accent.g, accent.b, 0.30)
-	pressed.border_color = Color(accent.r, accent.g, accent.b, 0.98)
+	pressed.bg_color = Color(accent.r, accent.g, accent.b, 0.68)
+	pressed.border_color = Color(accent.r, accent.g, accent.b, 1.0)
 
 	btn.add_theme_stylebox_override("normal", normal)
 	btn.add_theme_stylebox_override("hover", hover)
 	btn.add_theme_stylebox_override("pressed", pressed)
 	btn.add_theme_stylebox_override("focus", hover)
-	btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
-	btn.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 1))
+	btn.add_theme_color_override("font_color", Color(0.08, 0.10, 0.12, 1))
+	btn.add_theme_color_override("font_hover_color", Color(0.08, 0.10, 0.12, 1))
+	btn.add_theme_color_override("font_pressed_color", Color(0.08, 0.10, 0.12, 1))
 
 static func style_secondary_button(btn: Button, accent: Color = ACCENT) -> void:
 	if btn == null:
@@ -174,28 +174,28 @@ static func style_secondary_button(btn: Button, accent: Color = ACCENT) -> void:
 	normal.corner_radius_top_right = 12
 	normal.corner_radius_bottom_left = 12
 	normal.corner_radius_bottom_right = 12
-	normal.bg_color = Color(0.08, 0.09, 0.11, 0.70)
+	normal.bg_color = Color(0.12, 0.16, 0.20, 0.85)
 	normal.border_width_left = 2
 	normal.border_width_right = 2
 	normal.border_width_top = 2
 	normal.border_width_bottom = 2
-	normal.border_color = BORDER_SOFT
+	normal.border_color = Color(accent.r, accent.g, accent.b, 0.35)
 
 	var hover := normal.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(0.10, 0.11, 0.13, 0.78)
-	hover.border_color = Color(accent.r, accent.g, accent.b, 0.70)
+	hover.bg_color = Color(0.16, 0.20, 0.24, 0.90)
+	hover.border_color = Color(accent.r, accent.g, accent.b, 0.65)
 
 	var pressed := normal.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(0.12, 0.13, 0.16, 0.85)
+	pressed.bg_color = Color(0.20, 0.24, 0.28, 0.95)
 	pressed.border_color = Color(accent.r, accent.g, accent.b, 0.85)
 
 	btn.add_theme_stylebox_override("normal", normal)
 	btn.add_theme_stylebox_override("hover", hover)
 	btn.add_theme_stylebox_override("pressed", pressed)
 	btn.add_theme_stylebox_override("focus", hover)
-	btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
-	btn.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 1))
+	btn.add_theme_color_override("font_color", TEXT)
+	btn.add_theme_color_override("font_hover_color", TEXT)
+	btn.add_theme_color_override("font_pressed_color", TEXT)
 
 # === ENHANCED CARD STYLES ===
 
@@ -205,21 +205,21 @@ static func card_style(accent: Color, glow: bool = false) -> StyleBox:
 		return tex
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = BG_CARD
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.35)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
+	sb.border_width_left = 3
+	sb.border_width_right = 3
+	sb.border_width_top = 3
+	sb.border_width_bottom = 3
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.45)
+	sb.corner_radius_top_left = 16
+	sb.corner_radius_top_right = 16
+	sb.corner_radius_bottom_left = 16
+	sb.corner_radius_bottom_right = 16
 	if glow:
-		sb.shadow_size = 20
-		sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.15)
+		sb.shadow_size = 26
+		sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.22)
 	else:
-		sb.shadow_size = 12
-		sb.shadow_color = Color(0, 0, 0, 0.4)
+		sb.shadow_size = 16
+		sb.shadow_color = Color(0, 0, 0, 0.45)
 	return sb
 
 static func card_style_hover(accent: Color) -> StyleBox:
@@ -238,18 +238,18 @@ static func glowing_panel_style(accent: Color) -> StyleBox:
 	if tex != null:
 		return tex
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.04, 0.05, 0.07, 0.98)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.45)
-	sb.corner_radius_top_left = 18
-	sb.corner_radius_top_right = 18
-	sb.corner_radius_bottom_left = 18
-	sb.corner_radius_bottom_right = 18
-	sb.shadow_size = 32
-	sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.18)
+	sb.bg_color = Color(0.10, 0.14, 0.18, 0.98)
+	sb.border_width_left = 3
+	sb.border_width_right = 3
+	sb.border_width_top = 3
+	sb.border_width_bottom = 3
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.55)
+	sb.corner_radius_top_left = 20
+	sb.corner_radius_top_right = 20
+	sb.corner_radius_bottom_left = 20
+	sb.corner_radius_bottom_right = 20
+	sb.shadow_size = 34
+	sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.22)
 	return sb
 
 static func node_button_style(accent: Color, owned: bool, available: bool, is_keystone: bool) -> StyleBoxFlat:
@@ -354,6 +354,27 @@ static func style_progress_bar(bar: ProgressBar) -> void:
 		bar.add_theme_stylebox_override("background", frame)
 	if fill != null:
 		bar.add_theme_stylebox_override("fill", fill)
+	if frame == null:
+		var bg := StyleBoxFlat.new()
+		bg.bg_color = Color(0.08, 0.12, 0.15, 0.95)
+		bg.border_width_left = 2
+		bg.border_width_right = 2
+		bg.border_width_top = 2
+		bg.border_width_bottom = 2
+		bg.border_color = BORDER_SOFT
+		bg.corner_radius_top_left = 8
+		bg.corner_radius_top_right = 8
+		bg.corner_radius_bottom_left = 8
+		bg.corner_radius_bottom_right = 8
+		bar.add_theme_stylebox_override("background", bg)
+	if fill == null:
+		var fg := StyleBoxFlat.new()
+		fg.bg_color = Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.85)
+		fg.corner_radius_top_left = 8
+		fg.corner_radius_top_right = 8
+		fg.corner_radius_bottom_left = 8
+		fg.corner_radius_bottom_right = 8
+		bar.add_theme_stylebox_override("fill", fg)
 
 static func style_toggle(btn: CheckButton) -> void:
 	if btn == null:
@@ -365,6 +386,13 @@ static func style_toggle(btn: CheckButton) -> void:
 	if off_tex != null:
 		btn.add_theme_icon_override("unchecked", off_tex)
 	btn.add_theme_constant_override("h_separation", 8)
+	if on_tex == null or off_tex == null:
+		var normal := chip_style(ACCENT)
+		var hover := chip_style(ACCENT_GOLD)
+		btn.add_theme_stylebox_override("normal", normal)
+		btn.add_theme_stylebox_override("hover", hover)
+		btn.add_theme_stylebox_override("pressed", hover)
+		btn.add_theme_color_override("font_color", TEXT)
 
 static func style_slider(slider: HSlider) -> void:
 	if slider == null:
@@ -380,24 +408,40 @@ static func style_slider(slider: HSlider) -> void:
 		slider.add_theme_icon_override("grabber", knob)
 		slider.add_theme_icon_override("grabber_highlight", knob)
 	slider.add_theme_constant_override("grabber_offset", 0)
+	if track == null:
+		var t := StyleBoxFlat.new()
+		t.bg_color = Color(0.10, 0.14, 0.18, 0.95)
+		t.corner_radius_top_left = 6
+		t.corner_radius_top_right = 6
+		t.corner_radius_bottom_left = 6
+		t.corner_radius_bottom_right = 6
+		slider.add_theme_stylebox_override("slider", t)
+	if fill == null:
+		var f := StyleBoxFlat.new()
+		f.bg_color = Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.85)
+		f.corner_radius_top_left = 6
+		f.corner_radius_top_right = 6
+		f.corner_radius_bottom_left = 6
+		f.corner_radius_bottom_right = 6
+		slider.add_theme_stylebox_override("grabber_area", f)
 
 static func tooltip_style(accent: Color = ACCENT) -> StyleBox:
 	var tex := _maybe_stylebox_texture(TOOLTIP_PATH, 18, 12)
 	if tex != null:
 		return tex
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.06, 0.08, 0.96)
+	sb.bg_color = Color(0.10, 0.14, 0.18, 0.96)
 	sb.border_width_left = 2
 	sb.border_width_right = 2
 	sb.border_width_top = 2
 	sb.border_width_bottom = 2
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.55)
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.60)
 	sb.corner_radius_top_left = 12
 	sb.corner_radius_top_right = 12
 	sb.corner_radius_bottom_left = 12
 	sb.corner_radius_bottom_right = 12
-	sb.shadow_size = 14
-	sb.shadow_color = Color(0, 0, 0, 0.65)
+	sb.shadow_size = 16
+	sb.shadow_color = Color(0, 0, 0, 0.55)
 	return sb
 
 static func _maybe_texture(path: String) -> Texture2D:
