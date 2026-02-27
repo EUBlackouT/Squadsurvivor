@@ -32,6 +32,8 @@ const SLIDER_TRACK_PATH: String = "res://assets/ui/kit/slider_track.webp"
 const SLIDER_FILL_PATH: String = "res://assets/ui/kit/slider_fill.webp"
 const SLIDER_KNOB_PATH: String = "res://assets/ui/kit/slider_knob.webp"
 
+const USE_TEXTURE_KIT: bool = false
+
 static var _global_font_applied: bool = false
 static var _cached_font: Font = null
 
@@ -69,7 +71,7 @@ static func style_label(lbl: Label, size: int = 14, color: Color = TEXT) -> void
 	if _cached_font != null:
 		lbl.add_theme_font_override("font", _cached_font)
 
-static func panel_style(accent: Color = ACCENT, strong: bool = false) -> StyleBoxFlat:
+static func panel_style(accent: Color = ACCENT, strong: bool = false) -> StyleBox:
 	var tex := _maybe_stylebox_texture(PANEL_FRAME_PATH, 30, 20)
 	if tex != null:
 		return tex
@@ -88,7 +90,7 @@ static func panel_style(accent: Color = ACCENT, strong: bool = false) -> StyleBo
 	sb.shadow_size = 16
 	return sb
 
-static func chip_style(accent: Color) -> StyleBoxFlat:
+static func chip_style(accent: Color) -> StyleBox:
 	var tex := _maybe_stylebox_texture(CHIP_PATH, 12, 6)
 	if tex != null:
 		return tex
@@ -197,7 +199,7 @@ static func style_secondary_button(btn: Button, accent: Color = ACCENT) -> void:
 
 # === ENHANCED CARD STYLES ===
 
-static func card_style(accent: Color, glow: bool = false) -> StyleBoxFlat:
+static func card_style(accent: Color, glow: bool = false) -> StyleBox:
 	var tex := _maybe_stylebox_texture(CARD_FRAME_PATH, 22, 12)
 	if tex != null:
 		return tex
@@ -220,15 +222,18 @@ static func card_style(accent: Color, glow: bool = false) -> StyleBoxFlat:
 		sb.shadow_color = Color(0, 0, 0, 0.4)
 	return sb
 
-static func card_style_hover(accent: Color) -> StyleBoxFlat:
+static func card_style_hover(accent: Color) -> StyleBox:
 	var sb := card_style(accent, true)
-	sb.bg_color = Color(BG_CARD.r + 0.02, BG_CARD.g + 0.02, BG_CARD.b + 0.03, 0.96)
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.65)
-	sb.shadow_size = 28
-	sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.22)
+	if sb is StyleBoxFlat:
+		var flat := sb as StyleBoxFlat
+		flat.bg_color = Color(BG_CARD.r + 0.02, BG_CARD.g + 0.02, BG_CARD.b + 0.03, 0.96)
+		flat.border_color = Color(accent.r, accent.g, accent.b, 0.65)
+		flat.shadow_size = 28
+		flat.shadow_color = Color(accent.r, accent.g, accent.b, 0.22)
+		return flat
 	return sb
 
-static func glowing_panel_style(accent: Color) -> StyleBoxFlat:
+static func glowing_panel_style(accent: Color) -> StyleBox:
 	var tex := _maybe_stylebox_texture(PANEL_FRAME_PATH, 30, 20)
 	if tex != null:
 		return tex
@@ -396,12 +401,16 @@ static func tooltip_style(accent: Color = ACCENT) -> StyleBox:
 	return sb
 
 static func _maybe_texture(path: String) -> Texture2D:
+	if not USE_TEXTURE_KIT:
+		return null
 	if path == "" or not ResourceLoader.exists(path):
 		return null
 	var tex := load(path) as Texture2D
 	return tex
 
 static func _maybe_stylebox_texture(path: String, tex_margin: int, content_margin: int) -> StyleBoxTexture:
+	if not USE_TEXTURE_KIT:
+		return null
 	if path == "" or not ResourceLoader.exists(path):
 		return null
 	var tex := load(path) as Texture2D

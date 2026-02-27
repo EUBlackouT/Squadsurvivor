@@ -15,6 +15,7 @@ var _shake_toggle: CheckButton = null
 var _shake_slider: HSlider = null
 
 const SETTINGS_BG_PATH: String = "res://assets/ui/mockups/main_menu.webp"
+const USE_UI_MOCKUPS: bool = false
 
 func _ready() -> void:
 	UiSkin.apply_global_font()
@@ -42,7 +43,7 @@ func _build_ui() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(root)
 
-	if ResourceLoader.exists(SETTINGS_BG_PATH):
+	if USE_UI_MOCKUPS and ResourceLoader.exists(SETTINGS_BG_PATH):
 		var art := TextureRect.new()
 		art.name = "SettingsBgArt"
 		art.set_anchors_preset(Control.PRESET_FULL_RECT)

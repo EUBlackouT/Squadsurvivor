@@ -5,9 +5,10 @@ extends Node
 
 const TRACKS := {
 	"menu": "res://assets/audio/Squad Survivors.mp3",
-	"combat": "res://assets/audio/combat.mp3",
-	"victory": "res://assets/audio/victory.mp3",
-	"defeat": "res://assets/audio/defeat.mp3",
+	# Use existing music files; if empty, procedural fallback will play.
+	"combat": "res://assets/audio/Squad Survivors.mp3",
+	"victory": "",
+	"defeat": "",
 	# Map-specific combat tracks
 	"combat_graveyard": "res://assets/audio/Graveyard High Score.mp3",
 }

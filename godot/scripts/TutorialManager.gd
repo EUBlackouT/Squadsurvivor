@@ -91,19 +91,7 @@ func _build_ui() -> void:
 	_panel.offset_top = -150
 	_panel.offset_bottom = -24
 	root.add_child(_panel)
-
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.09, 0.92)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(0.4, 0.8, 1.0, 0.18)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
-	_panel.add_theme_stylebox_override("panel", sb)
+	_panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
 
 	var pad := MarginContainer.new()
 	pad.add_theme_constant_override("margin_left", 14)

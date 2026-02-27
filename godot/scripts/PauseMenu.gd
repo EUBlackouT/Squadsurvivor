@@ -4,6 +4,7 @@ extends CanvasLayer
 
 var _panel: PanelContainer = null
 const PAUSE_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
+const USE_UI_MOCKUPS: bool = false
 
 func _ready() -> void:
 	UiSkin.apply_global_font()
@@ -22,7 +23,7 @@ func _build_ui() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(root)
 
-	if ResourceLoader.exists(PAUSE_BG_PATH):
+	if USE_UI_MOCKUPS and ResourceLoader.exists(PAUSE_BG_PATH):
 		var art := TextureRect.new()
 		art.name = "PauseBgArt"
 		art.set_anchors_preset(Control.PRESET_FULL_RECT)

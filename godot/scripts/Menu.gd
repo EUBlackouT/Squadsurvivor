@@ -33,6 +33,7 @@ var _last_run_label: RichTextLabel = null
 var _last_unlocked_map_id: String = "graveyard"
 
 const COLLECTION_BG_PATH: String = "res://assets/ui/mockups/collection.webp"
+const USE_UI_MOCKUPS: bool = false
 
 func _ready() -> void:
 	UiSkin.apply_global_font()
@@ -152,6 +153,8 @@ func _maybe_reroll_weapons_once(cm: Node) -> void:
 		f.store_string("done")
 
 func _apply_background_art() -> void:
+	if not USE_UI_MOCKUPS:
+		return
 	if has_node("BgArt"):
 		return
 	if not ResourceLoader.exists(COLLECTION_BG_PATH):
@@ -372,17 +375,11 @@ func _open_meta_tree() -> void:
 	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	search.add_theme_font_size_override("font_size", 14)
 	# Style the search box
-	var search_sb := StyleBoxFlat.new()
-	search_sb.bg_color = Color(0.06, 0.07, 0.09, 0.9)
-	search_sb.border_width_left = 1
-	search_sb.border_width_right = 1
-	search_sb.border_width_top = 1
-	search_sb.border_width_bottom = 1
-	search_sb.border_color = Color(0.55, 0.40, 1.0, 0.35)
-	search_sb.corner_radius_top_left = 8
-	search_sb.corner_radius_top_right = 8
-	search_sb.corner_radius_bottom_left = 8
-	search_sb.corner_radius_bottom_right = 8
+	var search_sb := UiSkin.card_style(UiSkin.ACCENT_PURPLE, false)
+	search_sb.content_margin_left = 10
+	search_sb.content_margin_right = 10
+	search_sb.content_margin_top = 6
+	search_sb.content_margin_bottom = 6
 	search.add_theme_stylebox_override("normal", search_sb)
 	header.add_child(search)
 
@@ -431,18 +428,7 @@ func _open_meta_tree() -> void:
 	graph_frame.custom_minimum_size = Vector2(780, 0)
 	graph_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	graph_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var graph_sb := StyleBoxFlat.new()
-	graph_sb.bg_color = Color(0.02, 0.025, 0.04, 0.98)
-	graph_sb.border_width_left = 2
-	graph_sb.border_width_right = 2
-	graph_sb.border_width_top = 2
-	graph_sb.border_width_bottom = 2
-	graph_sb.border_color = Color(0.55, 0.40, 1.0, 0.25)
-	graph_sb.corner_radius_top_left = 12
-	graph_sb.corner_radius_top_right = 12
-	graph_sb.corner_radius_bottom_left = 12
-	graph_sb.corner_radius_bottom_right = 12
-	graph_frame.add_theme_stylebox_override("panel", graph_sb)
+	graph_frame.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT_PURPLE, true))
 	body.add_child(graph_frame)
 
 	# Animated backdrop with deeper colors
@@ -480,17 +466,7 @@ func _open_meta_tree() -> void:
 	legend_panel.offset_left = 12
 	legend_panel.offset_bottom = -12
 	legend_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var legend_sb := StyleBoxFlat.new()
-	legend_sb.bg_color = Color(0.02, 0.025, 0.04, 0.85)
-	legend_sb.border_width_left = 1
-	legend_sb.border_width_right = 1
-	legend_sb.border_width_top = 1
-	legend_sb.border_width_bottom = 1
-	legend_sb.border_color = Color(0.4, 0.5, 0.6, 0.25)
-	legend_sb.corner_radius_top_left = 8
-	legend_sb.corner_radius_top_right = 8
-	legend_sb.corner_radius_bottom_left = 8
-	legend_sb.corner_radius_bottom_right = 8
+	var legend_sb := UiSkin.card_style(UiSkin.ACCENT_PURPLE, false)
 	legend_sb.content_margin_left = 12
 	legend_sb.content_margin_right = 12
 	legend_sb.content_margin_top = 8
@@ -529,20 +505,7 @@ func _open_meta_tree() -> void:
 	var side := PanelContainer.new()
 	side.custom_minimum_size = Vector2(280, 0)
 	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var side_sb := StyleBoxFlat.new()
-	side_sb.bg_color = Color(0.04, 0.045, 0.06, 0.98)
-	side_sb.border_width_left = 2
-	side_sb.border_width_right = 2
-	side_sb.border_width_top = 2
-	side_sb.border_width_bottom = 2
-	side_sb.border_color = Color(0.40, 0.85, 1.0, 0.30)
-	side_sb.corner_radius_top_left = 14
-	side_sb.corner_radius_top_right = 14
-	side_sb.corner_radius_bottom_left = 14
-	side_sb.corner_radius_bottom_right = 14
-	side_sb.shadow_size = 20
-	side_sb.shadow_color = Color(0.40, 0.85, 1.0, 0.08)
-	side.add_theme_stylebox_override("panel", side_sb)
+	side.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT))
 	body.add_child(side)
 
 	var spad := MarginContainer.new()
@@ -1657,6 +1620,7 @@ func _show_details(data: Dictionary) -> void:
 	layer.add_child(panel)
 
 	var rarity := String(data.get("rarity_id", "common"))
+	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UnitFactory.rarity_color(rarity), true))
 	var neon := ShaderMaterial.new()
 	neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
 	neon.set_shader_parameter("base_color", Color(0.08, 0.09, 0.11, 0.96))
@@ -1776,6 +1740,7 @@ func _show_details(data: Dictionary) -> void:
 
 	var close := Button.new()
 	close.text = "Close"
+	UiSkin.style_secondary_button(close)
 	close.pressed.connect(func(): layer.queue_free())
 	v.add_child(close)
 
@@ -1785,19 +1750,7 @@ func _make_detail_portrait(data: Dictionary) -> Control:
 	var frame := PanelContainer.new()
 	frame.custom_minimum_size = Vector2(110, 110)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.11, 0.92)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = UnitFactory.rarity_color(rarity)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
-	frame.add_theme_stylebox_override("panel", sb)
+	frame.add_theme_stylebox_override("panel", UiSkin.card_style(UnitFactory.rarity_color(rarity), false))
 
 	var pad := MarginContainer.new()
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1867,17 +1820,7 @@ func _make_detail_portrait(data: Dictionary) -> Control:
 func _add_stat_chip(parent: Control, label: String, value: String, tint: Color) -> void:
 	var chip := PanelContainer.new()
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.09, 0.92)
-	sb.border_width_left = 1
-	sb.border_width_right = 1
-	sb.border_width_top = 1
-	sb.border_width_bottom = 1
-	sb.border_color = tint * Color(1, 1, 1, 0.55)
-	sb.corner_radius_top_left = 10
-	sb.corner_radius_top_right = 10
-	sb.corner_radius_bottom_left = 10
-	sb.corner_radius_bottom_right = 10
+	var sb := UiSkin.chip_style(tint)
 	chip.add_theme_stylebox_override("panel", sb)
 
 	var pad := MarginContainer.new()
@@ -1984,17 +1927,7 @@ func _make_synergy_chip(state: Dictionary) -> Control:
 	# Styling: compact "pill" chip with subtle glow when active.
 	var active: bool = tier_n > 0
 	var accent: Color = (Color(0.65, 0.85, 1.0, 1.0) if active else Color(0.75, 0.80, 0.86, 1.0))
-	var sb: StyleBoxFlat = StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.09, 0.92) if active else Color(0.06, 0.07, 0.09, 0.78)
-	sb.border_width_left = 1
-	sb.border_width_right = 1
-	sb.border_width_top = 1
-	sb.border_width_bottom = 1
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.65 if active else 0.25)
-	sb.corner_radius_top_left = 10
-	sb.corner_radius_top_right = 10
-	sb.corner_radius_bottom_left = 10
-	sb.corner_radius_bottom_right = 10
+	var sb: StyleBoxFlat = UiSkin.chip_style(accent)
 	sb.content_margin_left = 6
 	sb.content_margin_right = 6
 	sb.content_margin_top = 2
@@ -2018,17 +1951,7 @@ func _make_passive_row(pid: String) -> Control:
 	var row := PanelContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.09, 0.92)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = PassiveSystem.passive_color(pid) * Color(1, 1, 1, 0.55)
-	sb.corner_radius_top_left = 12
-	sb.corner_radius_top_right = 12
-	sb.corner_radius_bottom_left = 12
-	sb.corner_radius_bottom_right = 12
+	var sb := UiSkin.card_style(PassiveSystem.passive_color(pid), false)
 	row.add_theme_stylebox_override("panel", sb)
 
 	var pad := MarginContainer.new()
@@ -2071,17 +1994,7 @@ func _make_passive_row(pid: String) -> Control:
 func _make_tag_pill(tag: String) -> Control:
 	var pill := PanelContainer.new()
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.10, 0.11, 0.13, 0.95)
-	sb.border_width_left = 1
-	sb.border_width_right = 1
-	sb.border_width_top = 1
-	sb.border_width_bottom = 1
-	sb.border_color = Color(0.4, 0.8, 1.0, 0.18)
-	sb.corner_radius_top_left = 10
-	sb.corner_radius_top_right = 10
-	sb.corner_radius_bottom_left = 10
-	sb.corner_radius_bottom_right = 10
+	var sb := UiSkin.chip_style(UiSkin.ACCENT)
 	pill.add_theme_stylebox_override("panel", sb)
 
 	var pad := MarginContainer.new()

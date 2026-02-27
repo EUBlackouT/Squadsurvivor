@@ -43,17 +43,7 @@ func show_toast(text: String, color: Color = Color(0.9, 0.95, 1.0, 1.0)) -> void
 	l.add_theme_color_override("font_color", color)
 
 	# Make sure it stays readable regardless of theme.
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.06, 0.08, 0.78)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(color.r, color.g, color.b, 0.55)
-	sb.corner_radius_top_left = 10
-	sb.corner_radius_top_right = 10
-	sb.corner_radius_bottom_left = 10
-	sb.corner_radius_bottom_right = 10
+	var sb := UiSkin.card_style(color, false)
 	l.add_theme_stylebox_override("normal", sb)
 	l.add_theme_constant_override("margin_left", 10)
 	l.add_theme_constant_override("margin_right", 10)

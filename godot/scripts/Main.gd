@@ -46,6 +46,7 @@ const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
 const TILE_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TileMapWorld.gd")
 const HUD_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
 const DRAFT_BG_PATH: String = "res://assets/ui/mockups/draft_picks.webp"
+const USE_UI_MOCKUPS: bool = false
 
 var damage_numbers: Node = null
 var toast_layer: ToastLayer
@@ -1085,8 +1086,8 @@ func _show_recruit_draft() -> void:
 	draft_ui.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	add_child(draft_ui)
 
-	# Background art for the draft screen (fun, not sci-fi).
-	if ResourceLoader.exists(DRAFT_BG_PATH):
+	# Background art for the draft screen (optional mockup).
+	if USE_UI_MOCKUPS and ResourceLoader.exists(DRAFT_BG_PATH):
 		var draft_bg := TextureRect.new()
 		draft_bg.name = "DraftBgArt"
 		draft_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1116,21 +1117,7 @@ func _show_recruit_draft() -> void:
 	modal.offset_bottom = 330
 	modal.mouse_filter = Control.MOUSE_FILTER_STOP
 	draft_ui.add_child(modal)
-
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.10, 0.11, 0.13, 0.98)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(1, 1, 1, 0.10)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
-	sb.shadow_color = Color(0, 0, 0, 0.55)
-	sb.shadow_size = 18
-	modal.add_theme_stylebox_override("panel", sb)
+	modal.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
 
 	var neon_shader_mat := ShaderMaterial.new()
 	neon_shader_mat.shader = preload("res://shaders/ui_neon_frame.gdshader")
@@ -1190,6 +1177,8 @@ func _show_recruit_draft() -> void:
 	reroll_btn.add_theme_font_size_override("font_size", 18)
 	reroll_btn.custom_minimum_size = Vector2(180, 46)
 	btns.add_child(reroll_btn)
+	UiSkin.style_secondary_button(reroll_btn, UiSkin.ACCENT_GOLD)
+	UiSkin.add_hover_scale(reroll_btn, 1.02)
 
 	reroll_btn.pressed.connect(func():
 		if essence < reroll_cost_essence:
@@ -1213,6 +1202,8 @@ func _show_recruit_draft() -> void:
 	close_btn.text = "Close (Select Later)"
 	close_btn.add_theme_font_size_override("font_size", 18)
 	close_btn.custom_minimum_size = Vector2(220, 46)
+	UiSkin.style_secondary_button(close_btn, UiSkin.ACCENT_RED)
+	UiSkin.add_hover_scale(close_btn, 1.02)
 	close_btn.pressed.connect(func():
 		var s := get_node_or_null("/root/SfxSystem")
 		if s and is_instance_valid(s) and s.has_method("play_ui"):
@@ -1252,41 +1243,10 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	card.custom_minimum_size = Vector2(330, 310)
 	card.focus_mode = Control.FOCUS_ALL
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.11, 0.92)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
 	var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
-	sb.border_color = rarity_col
-	sb.corner_radius_top_left = 12
-	sb.corner_radius_top_right = 12
-	sb.corner_radius_bottom_left = 12
-	sb.corner_radius_bottom_right = 12
-	sb.shadow_color = Color(0, 0, 0, 0.55)
-	sb.shadow_size = 12
-	card.add_theme_stylebox_override("panel", sb)
-
-	# Subtle hover/focus feedback (keeps input simple).
-	card.pivot_offset = card.custom_minimum_size * 0.5
-	card.mouse_entered.connect(func():
-		var tw := card.create_tween()
-		tw.set_trans(Tween.TRANS_SINE)
-		tw.set_ease(Tween.EASE_OUT)
-		tw.tween_property(card, "scale", Vector2(1.02, 1.02), 0.10)
-		sb.border_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.95)
-		sb.shadow_size = 18
-	)
-	card.mouse_exited.connect(func():
-		var tw := card.create_tween()
-		tw.set_trans(Tween.TRANS_SINE)
-		tw.set_ease(Tween.EASE_OUT)
-		tw.tween_property(card, "scale", Vector2.ONE, 0.12)
-		sb.border_color = rarity_col
-		sb.shadow_size = 12
-	)
+	card.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, false))
+	UiSkin.add_hover_glow(card, rarity_col)
+	UiSkin.add_hover_scale(card, 1.02, 0.10)
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1321,18 +1281,7 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 
 	# Portrait (PixelLab south rotation)
 	var portrait_frame := PanelContainer.new()
-	var psb := StyleBoxFlat.new()
-	psb.bg_color = Color(0.06, 0.07, 0.09, 0.65)
-	psb.border_width_left = 1
-	psb.border_width_right = 1
-	psb.border_width_top = 1
-	psb.border_width_bottom = 1
-	psb.border_color = Color(1, 1, 1, 0.08)
-	psb.corner_radius_top_left = 10
-	psb.corner_radius_top_right = 10
-	psb.corner_radius_bottom_left = 10
-	psb.corner_radius_bottom_right = 10
-	portrait_frame.add_theme_stylebox_override("panel", psb)
+	portrait_frame.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, false))
 	portrait_frame.custom_minimum_size = Vector2(0, 104)
 	v.add_child(portrait_frame)
 
@@ -1426,18 +1375,8 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		if shown >= 3:
 			break
 		var chip := PanelContainer.new()
-		var csb := StyleBoxFlat.new()
-		csb.bg_color = Color(0.06, 0.07, 0.09, 0.80)
-		csb.border_width_left = 1
-		csb.border_width_right = 1
-		csb.border_width_top = 1
-		csb.border_width_bottom = 1
 		var pc := PassiveSystem.passive_color(pid)
-		csb.border_color = Color(pc.r, pc.g, pc.b, 0.55)
-		csb.corner_radius_top_left = 10
-		csb.corner_radius_top_right = 10
-		csb.corner_radius_bottom_left = 10
-		csb.corner_radius_bottom_right = 10
+		var csb := UiSkin.chip_style(pc)
 		chip.add_theme_stylebox_override("panel", csb)
 		chip.tooltip_text = "%s\n%s" % [PassiveSystem.passive_name(pid), PassiveSystem.passive_description(pid)]
 		chips.add_child(chip)
@@ -1472,24 +1411,14 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	details.custom_minimum_size = Vector2(92, 40)
 	details.add_theme_font_size_override("font_size", 16)
 	btn_row.add_child(details)
+	UiSkin.style_secondary_button(details)
 	details.pressed.connect(func(): _show_character_details(cd, ui))
 
 	var unlock := Button.new()
 	unlock.text = "Unlock"
 	unlock.custom_minimum_size = Vector2(110, 40)
 	unlock.add_theme_font_size_override("font_size", 16)
-	var usb := StyleBoxFlat.new()
-	usb.bg_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.18)
-	usb.border_width_left = 2
-	usb.border_width_right = 2
-	usb.border_width_top = 2
-	usb.border_width_bottom = 2
-	usb.border_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.65)
-	usb.corner_radius_top_left = 10
-	usb.corner_radius_top_right = 10
-	usb.corner_radius_bottom_left = 10
-	usb.corner_radius_bottom_right = 10
-	unlock.add_theme_stylebox_override("normal", usb)
+	UiSkin.style_primary_button(unlock, rarity_col)
 	btn_row.add_child(unlock)
 	unlock.pressed.connect(func(): _select_character(cd, ui))
 
@@ -1511,18 +1440,7 @@ func _show_character_details(cd: CharacterData, ui: CanvasLayer) -> void:
 	panel.offset_right = 360
 	panel.offset_bottom = 240
 	layer.add_child(panel)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.11, 0.95)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = UnitFactory.rarity_color(cd.rarity_id)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UnitFactory.rarity_color(cd.rarity_id)))
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1564,6 +1482,7 @@ func _show_character_details(cd: CharacterData, ui: CanvasLayer) -> void:
 
 	var close := Button.new()
 	close.text = "Close"
+	UiSkin.style_secondary_button(close)
 	close.pressed.connect(func(): layer.queue_free())
 	v.add_child(close)
 
@@ -1622,8 +1541,8 @@ func _setup_hud() -> void:
 	hud.layer = 10
 	add_child(hud)
 
-	# HUD art overlay (low opacity so gameplay stays readable).
-	if ResourceLoader.exists(HUD_BG_PATH):
+	# HUD art overlay (optional mockup).
+	if USE_UI_MOCKUPS and ResourceLoader.exists(HUD_BG_PATH):
 		var hud_bg := TextureRect.new()
 		hud_bg.name = "HudArt"
 		hud_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1651,23 +1570,37 @@ func _setup_hud() -> void:
 	hud.add_child(autosave_lbl)
 
 	var container := VBoxContainer.new()
+	var panel := PanelContainer.new()
+	panel.name = "HUDPanel"
+	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	panel.offset_left = 12
+	panel.offset_top = 12
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block game input
+	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
+	hud.add_child(panel)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 10)
+	pad.add_theme_constant_override("margin_right", 10)
+	pad.add_theme_constant_override("margin_top", 8)
+	pad.add_theme_constant_override("margin_bottom", 8)
+	panel.add_child(pad)
+
 	container.name = "HUDVBox"
-	container.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	container.offset_left = 18
-	container.offset_top = 18
 	container.add_theme_constant_override("separation", 6)
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block game input
-	hud.add_child(container)
+	pad.add_child(container)
 
-	var timer := Label.new()
-	timer.name = "RunTimerLabel"
-	timer.text = "Time: 0:00"
-	container.add_child(timer)
+	var top_row := HBoxContainer.new()
+	top_row.name = "TopRow"
+	top_row.add_theme_constant_override("separation", 8)
+	container.add_child(top_row)
 
-	var formation := Label.new()
-	formation.name = "FormationLabel"
-	formation.text = "Formation: TIGHT   Tactics: NEAREST"
-	container.add_child(formation)
+	var timer_chip := _make_hud_chip("RunTimerLabel", "Time: 0:00   Essence: 0", UiSkin.ACCENT_GOLD, 12)
+	top_row.add_child(timer_chip)
+
+	var formation_chip := _make_hud_chip("FormationLabel", "Formation: TIGHT   Tactics: NEAREST", UiSkin.ACCENT, 12)
+	top_row.add_child(formation_chip)
 
 	var cmd := Label.new()
 	cmd.name = "CommandLabel"
@@ -1676,28 +1609,18 @@ func _setup_hud() -> void:
 	cmd.add_theme_color_override("font_color", Color(0.70, 0.85, 0.95, 0.85))
 	container.add_child(cmd)
 
-	var syn := Label.new()
-	syn.name = "SynergyLabel"
-	syn.text = "Synergies: —"
-	syn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	syn.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
-	container.add_child(syn)
+	var syn_chip := _make_hud_chip("SynergyLabel", "Synergies: —", UiSkin.ACCENT_PURPLE, 12)
+	container.add_child(syn_chip)
 
-	var boss := Label.new()
-	boss.name = "BossLabel"
-	boss.text = ""
-	container.add_child(boss)
+	var boss_chip := _make_hud_chip("BossLabel", "", UiSkin.ACCENT_RED, 12)
+	container.add_child(boss_chip)
 
 	# Debug label to identify what is drawing the "orbs"
-	var dbg := Label.new()
-	dbg.name = "DebugLabel"
-	dbg.text = ""
-	container.add_child(dbg)
+	var dbg_chip := _make_hud_chip("DebugLabel", "", UiSkin.TEXT_DIM, 11)
+	container.add_child(dbg_chip)
 
-	var perf := Label.new()
-	perf.name = "PerfLabel"
-	perf.text = ""
-	container.add_child(perf)
+	var perf_chip := _make_hud_chip("PerfLabel", "", UiSkin.TEXT_DIM, 11)
+	container.add_child(perf_chip)
 	
 	# Passive overlay panel (shown when holding TAB)
 	_create_passive_overlay(hud)
@@ -1714,21 +1637,7 @@ func _create_passive_overlay(hud: CanvasLayer) -> void:
 	_passive_overlay.offset_right = 380
 	_passive_overlay.offset_top = -280
 	_passive_overlay.offset_bottom = 280
-	
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.03, 0.04, 0.06, 0.96)
-	sb.border_width_left = 3
-	sb.border_width_right = 3
-	sb.border_width_top = 3
-	sb.border_width_bottom = 3
-	sb.border_color = Color(0.35, 0.75, 1.0, 0.8)
-	sb.corner_radius_top_left = 16
-	sb.corner_radius_top_right = 16
-	sb.corner_radius_bottom_left = 16
-	sb.corner_radius_bottom_right = 16
-	sb.shadow_color = Color(0.2, 0.5, 0.8, 0.3)
-	sb.shadow_size = 8
-	_passive_overlay.add_theme_stylebox_override("panel", sb)
+	_passive_overlay.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT))
 	hud.add_child(_passive_overlay)
 	
 	var scroll := ScrollContainer.new()
@@ -1812,14 +1721,8 @@ func _update_passive_overlay() -> void:
 		
 		# Unit card container with styled background
 		var card := PanelContainer.new()
-		var card_sb := StyleBoxFlat.new()
-		card_sb.bg_color = Color(0.08, 0.10, 0.14, 0.85)
-		card_sb.border_width_left = 3
-		card_sb.border_color = UnitFactory.rarity_color(cd.rarity_id)
-		card_sb.corner_radius_top_left = 6
-		card_sb.corner_radius_bottom_left = 6
-		card_sb.corner_radius_top_right = 6
-		card_sb.corner_radius_bottom_right = 6
+		var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
+		var card_sb := UiSkin.card_style(rarity_col, false)
 		card_sb.content_margin_left = 12
 		card_sb.content_margin_right = 12
 		card_sb.content_margin_top = 10
@@ -1838,7 +1741,6 @@ func _update_passive_overlay() -> void:
 		header.add_theme_constant_override("separation", 10)
 		unit_section.add_child(header)
 		
-		var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
 		var name_lbl := Label.new()
 		var stars := " ★".repeat(cd.tier) if cd.tier > 1 else ""
 		name_lbl.text = "%s %s%s" % [UnitFactory.rarity_name(cd.rarity_id).to_upper(), cd.archetype_id.capitalize(), stars]
@@ -1961,14 +1863,8 @@ func _add_synergies_to_overlay(content: VBoxContainer) -> void:
 		
 		# Synergy card
 		var syn_card := PanelContainer.new()
-		var syn_sb := StyleBoxFlat.new()
-		syn_sb.bg_color = Color(0.12, 0.10, 0.06, 0.9)
-		syn_sb.border_width_left = 3
-		syn_sb.border_color = _synergy_tier_color(tier)
-		syn_sb.corner_radius_top_left = 6
-		syn_sb.corner_radius_bottom_left = 6
-		syn_sb.corner_radius_top_right = 6
-		syn_sb.corner_radius_bottom_right = 6
+		var syn_col := _synergy_tier_color(tier)
+		var syn_sb := UiSkin.card_style(syn_col, false)
 		syn_sb.content_margin_left = 12
 		syn_sb.content_margin_right = 12
 		syn_sb.content_margin_top = 8
@@ -2030,18 +1926,18 @@ func _synergy_tier_color(tier: int) -> Color:
 		_: return Color(0.8, 0.8, 0.8, 1.0)
 
 func _update_hud_labels() -> void:
-	var hud := get_node_or_null("HUD/HUDVBox") as VBoxContainer
+	var hud := get_node_or_null("HUD/HUDPanel/HUDVBox") as VBoxContainer
 	if hud == null:
 		return
 
-	var t := get_node_or_null("HUD/HUDVBox/RunTimerLabel") as Label
+	var t := get_node_or_null("HUD/HUDPanel/HUDVBox/TopRow/RunTimerLabel") as Label
 	if t:
 		var secs := int(round(((Time.get_ticks_msec() / 1000.0) - run_start_time)))
 		var mm := int(secs / 60)
 		var ss := int(secs % 60)
 		t.text = "Time: %d:%02d   Essence: %d" % [mm, ss, essence]
 
-	var b := get_node_or_null("HUD/HUDVBox/BossLabel") as Label
+	var b := get_node_or_null("HUD/HUDPanel/HUDVBox/BossLabel") as Label
 	if b:
 		if _boss_node and is_instance_valid(_boss_node) and _boss_node.has_method("get_hp_ratio"):
 			var r := float(_boss_node.get_hp_ratio())
@@ -2049,11 +1945,11 @@ func _update_hud_labels() -> void:
 		else:
 			b.text = ""
 
-	var s := get_node_or_null("HUD/HUDVBox/SynergyLabel") as Label
+	var s := get_node_or_null("HUD/HUDPanel/HUDVBox/SynergyLabel") as Label
 	if s:
 		s.text = SynergySystem.summary_text()
 
-	var cmd := get_node_or_null("HUD/HUDVBox/CommandLabel") as Label
+	var cmd := get_node_or_null("HUD/HUDPanel/HUDVBox/CommandLabel") as Label
 	if cmd:
 		var focus_txt := "Focus: —"
 		var ft := get_focus_target()
@@ -2077,7 +1973,7 @@ func _update_hud_labels() -> void:
 		cmd.text = "Commands: LMB Focus • RMB Rally • Shift Dash%s   |   %s   %s   %s   %s%s" % [oc_txt, focus_txt, rally_txt, dash_txt, callout_txt, active_txt]
 
 	# Debug: count collision shapes / particles to confirm source of circles.
-	var dbg := get_node_or_null("HUD/HUDVBox/DebugLabel") as Label
+	var dbg := get_node_or_null("HUD/HUDPanel/HUDVBox/DebugLabel") as Label
 	if dbg:
 		if not debug_hud_enabled:
 			dbg.text = ""
@@ -2103,12 +1999,31 @@ func _update_hud_labels() -> void:
 					_dbg_text += "\nCircleSrc: " + " || ".join(details)
 			dbg.text = _dbg_text
 
-	var perf := get_node_or_null("HUD/HUDVBox/PerfLabel") as Label
+	var perf := get_node_or_null("HUD/HUDPanel/HUDVBox/PerfLabel") as Label
 	if perf:
 		if not debug_perf_overlay_enabled:
 			perf.text = ""
 		else:
 			perf.text = _perf_text
+
+func _make_hud_chip(label_name: String, text: String, accent: Color, font_size: int = 12) -> PanelContainer:
+	var chip := PanelContainer.new()
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := UiSkin.chip_style(accent if accent != null else UiSkin.ACCENT)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	chip.add_theme_stylebox_override("panel", sb)
+
+	var lbl := Label.new()
+	lbl.name = label_name
+	lbl.text = text
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.add_theme_font_size_override("font_size", font_size)
+	lbl.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+	chip.add_child(lbl)
+	return chip
 
 func _collect_debug_counts(root: Node) -> Dictionary:
 	var cshape2d: int = 0
@@ -2356,24 +2271,11 @@ func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> vo
 	card.process_mode = Node.PROCESS_MODE_ALWAYS
 	ui.add_child(card)
 
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.06, 0.09, 0.98)
-	sb.border_width_left = 3
-	sb.border_width_right = 3
-	sb.border_width_top = 3
-	sb.border_width_bottom = 3
-	sb.border_color = accent_dim
-	sb.corner_radius_top_left = 20
-	sb.corner_radius_top_right = 20
-	sb.corner_radius_bottom_left = 20
-	sb.corner_radius_bottom_right = 20
-	sb.shadow_color = Color(0, 0, 0, 0.7)
-	sb.shadow_size = 25
-	card.add_theme_stylebox_override("panel", sb)
+	card.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(accent))
 
 	var neon := ShaderMaterial.new()
 	neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
-	neon.set_shader_parameter("base_color", sb.bg_color)
+	neon.set_shader_parameter("base_color", Color(0.05, 0.06, 0.09, 0.98))
 	neon.set_shader_parameter("glow_color", accent * 0.65)
 	neon.set_shader_parameter("glow_width", 0.025)
 	neon.set_shader_parameter("pulse_speed", 0.8 if victory else 1.5)
@@ -2507,27 +2409,7 @@ func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> vo
 	btn.custom_minimum_size = Vector2(260, 52)
 	btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	btn.add_theme_font_size_override("font_size", 18)
-	var btn_sb := StyleBoxFlat.new()
-	btn_sb.bg_color = accent_dim * 0.5
-	btn_sb.border_width_left = 2
-	btn_sb.border_width_right = 2
-	btn_sb.border_width_top = 2
-	btn_sb.border_width_bottom = 2
-	btn_sb.border_color = accent * 0.7
-	btn_sb.corner_radius_top_left = 10
-	btn_sb.corner_radius_top_right = 10
-	btn_sb.corner_radius_bottom_left = 10
-	btn_sb.corner_radius_bottom_right = 10
-	btn.add_theme_stylebox_override("normal", btn_sb)
-	var btn_hover := btn_sb.duplicate()
-	btn_hover.bg_color = accent_dim * 0.7
-	btn_hover.border_color = accent
-	btn.add_theme_stylebox_override("hover", btn_hover)
-	var btn_pressed := btn_sb.duplicate()
-	btn_pressed.bg_color = accent_dim * 0.9
-	btn.add_theme_stylebox_override("pressed", btn_pressed)
-	btn.add_theme_color_override("font_color", Color.WHITE)
-	btn.add_theme_color_override("font_hover_color", Color.WHITE)
+	UiSkin.style_primary_button(btn, accent)
 	btn.pressed.connect(_return_to_menu_from_end_screen)
 	btn_row.add_child(btn)
 

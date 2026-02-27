@@ -20,6 +20,7 @@ extends Control
 @onready var subtitle_lbl: Label = get_node_or_null("Root/Card/Pad/VBox/Subtitle") as Label
 
 @onready var map_overlay: Control = get_node_or_null("MapOverlay") as Control
+@onready var map_panel: PanelContainer = get_node_or_null("MapOverlay/Panel") as PanelContainer
 @onready var map_list: ItemList = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/LeftPanel/MapList") as ItemList
 @onready var map_preview_vp: SubViewport = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapPreviewFrame/Pad/Preview/VP") as SubViewport
 @onready var map_tagline: Label = get_node_or_null("MapOverlay/Panel/Pad/VBox/HBox/RightPanel/MapTagline") as Label
@@ -37,7 +38,7 @@ var _selected_map_locked: bool = false
 @export var show_footer: bool = true
 @export var footer_text: String = "v4.2 • Draft a squad • Survive the swarm"
 
-@export var use_menu_art: bool = true
+@export var use_menu_art: bool = false
 @export var bg_art_path: String = "res://assets/ui/mockups/main_menu.webp"
 @export var frame_art_path: String = ""
 @export var use_crowd_when_menu_art: bool = true
@@ -48,6 +49,7 @@ var _selected_map_locked: bool = false
 
 const PROTOCOL_BG_PATH: String = "res://assets/ui/mockups/protocol_grid.webp"
 const INTRO_BG_PATH: String = "res://assets/ui/mockups/intro.webp"
+const USE_UI_MOCKUPS: bool = false
 
 func _ready() -> void:
 	UiSkin.apply_global_font(title_font_path, 14)
@@ -123,6 +125,14 @@ func _setup_map_select_overlay() -> void:
 
 	# Style the map list
 	_style_map_list()
+	if map_panel:
+		map_panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
+	if map_start_btn:
+		UiSkin.style_primary_button(map_start_btn, UiSkin.ACCENT_GREEN)
+		UiSkin.add_hover_scale(map_start_btn, 1.02)
+	if map_back_btn:
+		UiSkin.style_secondary_button(map_back_btn, UiSkin.ACCENT_RED)
+		UiSkin.add_hover_scale(map_back_btn, 1.02)
 
 	map_list.clear()
 	_map_ids.clear()
@@ -271,27 +281,12 @@ func _style_map_list() -> void:
 	map_list.add_theme_color_override("font_hovered_color", Color(0.9, 0.95, 1.0, 1.0))
 	
 	# Selection style
-	var selected_sb := StyleBoxFlat.new()
-	selected_sb.bg_color = Color(0.3, 0.5, 0.8, 0.4)
-	selected_sb.corner_radius_top_left = 6
-	selected_sb.corner_radius_top_right = 6
-	selected_sb.corner_radius_bottom_left = 6
-	selected_sb.corner_radius_bottom_right = 6
-	selected_sb.border_width_left = 2
-	selected_sb.border_width_right = 2
-	selected_sb.border_width_top = 2
-	selected_sb.border_width_bottom = 2
-	selected_sb.border_color = Color(0.4, 0.7, 1.0, 0.8)
+	var selected_sb := UiSkin.card_style(UiSkin.ACCENT, true)
 	map_list.add_theme_stylebox_override("selected", selected_sb)
 	map_list.add_theme_stylebox_override("selected_focus", selected_sb)
 	
 	# Hover style
-	var hover_sb := StyleBoxFlat.new()
-	hover_sb.bg_color = Color(0.25, 0.4, 0.6, 0.25)
-	hover_sb.corner_radius_top_left = 6
-	hover_sb.corner_radius_top_right = 6
-	hover_sb.corner_radius_bottom_left = 6
-	hover_sb.corner_radius_bottom_right = 6
+	var hover_sb := UiSkin.card_style_hover(UiSkin.ACCENT)
 	map_list.add_theme_stylebox_override("hovered", hover_sb)
 
 func _hash32(s: String) -> int:
@@ -488,7 +483,7 @@ func _apply_menu_art() -> void:
 	if frame_shader: frame_shader.visible = not loaded
 
 func _play_intro_splash() -> void:
-	if not ResourceLoader.exists(INTRO_BG_PATH):
+	if (not USE_UI_MOCKUPS) or (not ResourceLoader.exists(INTRO_BG_PATH)):
 		return
 	var splash := TextureRect.new()
 	splash.name = "IntroSplash"
@@ -561,36 +556,11 @@ func _polish_menu_ui() -> void:
 func _style_button(btn: Button, is_primary: bool, primary: Color, secondary: Color) -> void:
 	if btn == null:
 		return
-	btn.focus_mode = Control.FOCUS_ALL
-	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-
-	var normal := StyleBoxFlat.new()
-	normal.corner_radius_top_left = 12
-	normal.corner_radius_top_right = 12
-	normal.corner_radius_bottom_left = 12
-	normal.corner_radius_bottom_right = 12
-	normal.bg_color = Color(primary.r, primary.g, primary.b, 0.16) if is_primary else Color(0.08, 0.09, 0.11, 0.70)
-	normal.border_width_left = 2
-	normal.border_width_right = 2
-	normal.border_width_top = 2
-	normal.border_width_bottom = 2
-	normal.border_color = Color(primary.r, primary.g, primary.b, 0.55) if is_primary else secondary
-
-	var hover := normal.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(primary.r, primary.g, primary.b, 0.22) if is_primary else Color(0.10, 0.11, 0.13, 0.78)
-	hover.border_color = Color(primary.r, primary.g, primary.b, 0.85)
-
-	var pressed := normal.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(primary.r, primary.g, primary.b, 0.28) if is_primary else Color(0.12, 0.13, 0.16, 0.85)
-	pressed.border_color = Color(primary.r, primary.g, primary.b, 0.95)
-
-	btn.add_theme_stylebox_override("normal", normal)
-	btn.add_theme_stylebox_override("hover", hover)
-	btn.add_theme_stylebox_override("pressed", pressed)
-	btn.add_theme_stylebox_override("focus", hover)
-	btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
-	btn.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 1))
+	if is_primary:
+		UiSkin.style_primary_button(btn, primary)
+	else:
+		UiSkin.style_secondary_button(btn, primary)
+	UiSkin.add_hover_scale(btn, 1.02)
 
 func _apply_title_fx() -> void:
 	# The "cool" look on the reference comes mostly from:
@@ -735,8 +705,8 @@ func _create_protocol_overlay() -> void:
 	_protocol_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_protocol_overlay)
 
-	# Background art for the protocol grid screen.
-	if ResourceLoader.exists(PROTOCOL_BG_PATH):
+	# Background art for the protocol grid screen (optional mockup).
+	if USE_UI_MOCKUPS and ResourceLoader.exists(PROTOCOL_BG_PATH):
 		var art := TextureRect.new()
 		art.name = "ProtocolBgArt"
 		art.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -758,21 +728,7 @@ func _create_protocol_overlay() -> void:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(900, 650)
 	panel.position = Vector2(-450, -325)
-	
-	var panel_sb := StyleBoxFlat.new()
-	panel_sb.bg_color = Color(0.06, 0.07, 0.12, 0.98)
-	panel_sb.corner_radius_top_left = 16
-	panel_sb.corner_radius_top_right = 16
-	panel_sb.corner_radius_bottom_left = 16
-	panel_sb.corner_radius_bottom_right = 16
-	panel_sb.border_width_left = 3
-	panel_sb.border_width_right = 3
-	panel_sb.border_width_top = 3
-	panel_sb.border_width_bottom = 3
-	panel_sb.border_color = Color(0.6, 0.4, 0.9, 0.6)
-	panel_sb.shadow_color = Color(0.5, 0.3, 0.8, 0.3)
-	panel_sb.shadow_size = 12
-	panel.add_theme_stylebox_override("panel", panel_sb)
+	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT_PURPLE, true))
 	_protocol_overlay.add_child(panel)
 	
 	var vbox := VBoxContainer.new()
@@ -854,18 +810,7 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	var y := 20.0 + float(row) * 100.0
 	panel.position = Vector2(x, y)
 	
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.14, 0.95)
-	sb.corner_radius_top_left = 10
-	sb.corner_radius_top_right = 10
-	sb.corner_radius_bottom_left = 10
-	sb.corner_radius_bottom_right = 10
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(node_color.r, node_color.g, node_color.b, 0.5)
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", UiSkin.card_style(node_color, false))
 	
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 2)
@@ -915,7 +860,6 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	return {
 		"id": upgrade_id,
 		"panel": panel,
-		"stylebox": sb,
 		"color": node_color,
 		"upgrade": upgrade
 	}
@@ -981,11 +925,10 @@ func _update_protocol_grid() -> void:
 	for node in _protocol_nodes:
 		var id := String(node.get("id", ""))
 		var panel: PanelContainer = node.get("panel")
-		var sb: StyleBoxFlat = node.get("stylebox")
 		var color: Color = node.get("color", Color.WHITE)
 		var upgrade: Dictionary = node.get("upgrade", {})
 		
-		if panel == null or sb == null:
+		if panel == null:
 			continue
 		
 		var is_unlocked := id in unlocked
@@ -1001,12 +944,7 @@ func _update_protocol_grid() -> void:
 		
 		if is_unlocked:
 			# Unlocked - bright and glowing
-			sb.bg_color = Color(color.r * 0.25, color.g * 0.25, color.b * 0.25, 0.95)
-			sb.border_color = color
-			sb.border_width_left = 3
-			sb.border_width_right = 3
-			sb.border_width_top = 3
-			sb.border_width_bottom = 3
+			panel.add_theme_stylebox_override("panel", UiSkin.card_style(color, true))
 			panel.modulate = Color(1, 1, 1, 1)
 			# Update cost to show "OWNED"
 			var cost_lbl := panel.get_node_or_null("VBoxContainer/Cost") as Label
@@ -1015,22 +953,15 @@ func _update_protocol_grid() -> void:
 				cost_lbl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5, 1.0))
 		elif prereqs_met and can_afford:
 			# Available - normal
-			sb.bg_color = Color(0.1, 0.11, 0.16, 0.95)
-			sb.border_color = Color(color.r, color.g, color.b, 0.7)
-			sb.border_width_left = 2
-			sb.border_width_right = 2
-			sb.border_width_top = 2
-			sb.border_width_bottom = 2
+			panel.add_theme_stylebox_override("panel", UiSkin.card_style(color, false))
 			panel.modulate = Color(1, 1, 1, 1)
 		elif prereqs_met:
 			# Prereqs met but can't afford - dimmed
-			sb.bg_color = Color(0.08, 0.09, 0.12, 0.95)
-			sb.border_color = Color(color.r * 0.5, color.g * 0.5, color.b * 0.5, 0.5)
+			panel.add_theme_stylebox_override("panel", UiSkin.card_style(color, false))
 			panel.modulate = Color(0.7, 0.7, 0.7, 1)
 		else:
 			# Locked - very dim
-			sb.bg_color = Color(0.05, 0.05, 0.08, 0.95)
-			sb.border_color = Color(0.3, 0.3, 0.35, 0.3)
+			panel.add_theme_stylebox_override("panel", UiSkin.card_style(color, false))
 			panel.modulate = Color(0.4, 0.4, 0.4, 0.7)
 
 func _on_protocol_node_clicked(upgrade_id: String) -> void:
