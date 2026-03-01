@@ -1,25 +1,25 @@
 extends Control
 
-@onready var start_btn: Button = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/StartRun") as Button
-@onready var resume_btn: Button = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/ResumeRun") as Button
-@onready var settings_btn: Button = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/SettingsBtn") as Button
-@onready var back_btn: Button = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/BackBtn") as Button
-@onready var roster_box: VBoxContainer = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/RosterBox") as VBoxContainer
-@onready var collection_box: VBoxContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/CollectionScroll/CollectionBox") as VBoxContainer
-@onready var map_select: OptionButton = get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/MapSelect") as OptionButton
+@onready var start_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/StartRun") as Button
+@onready var resume_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/ResumeRun") as Button
+@onready var settings_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/BottomRow/SettingsBtn") as Button
+@onready var back_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/BottomRow/BackBtn") as Button
+@onready var roster_box: VBoxContainer = get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/RosterScroll/RosterVBox") as VBoxContainer
+@onready var collection_box: VBoxContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/CollectionScroll/CollectionBox") as VBoxContainer
+@onready var map_select: OptionButton = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/MapSelect") as OptionButton
 
 @onready var _search: LineEdit = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Search") as LineEdit
 @onready var _search_clear: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Clear") as Button
 
-@onready var _inspector_card: PanelContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard") as PanelContainer
-@onready var _inspector_portrait: Control = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorPortrait") as Control
-@onready var _inspector_name: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorName") as Label
-@onready var _inspector_stats: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorStats") as Label
-@onready var _inspector_passives: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorPassives") as Label
-@onready var _inspector_synergies_title: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorSynergiesTitle") as Label
-@onready var _inspector_synergy_chips: FlowContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorSynergyChips") as FlowContainer
-@onready var _inspector_details_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorDetails") as Button
-@onready var _inspector_primary_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorPrimary") as Button
+@onready var _inspector_card: PanelContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard") as PanelContainer
+@onready var _inspector_portrait: Control = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorPortrait") as Control
+@onready var _inspector_name: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorName") as Label
+@onready var _inspector_stats: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorStats") as Label
+@onready var _inspector_passives: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorPassives") as Label
+@onready var _inspector_synergies_title: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorSynergiesTitle") as Label
+@onready var _inspector_synergy_chips: FlowContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorSynergyChips") as FlowContainer
+@onready var _inspector_details_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorDetails") as Button
+@onready var _inspector_primary_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorPrimary") as Button
 
 var _selected_unlock: Dictionary = {}
 var _toast: ToastLayer = null
@@ -88,7 +88,37 @@ func _sb_panel() -> StyleBox:
 	f.shadow_color = Color(0, 0, 0, 0.25)
 	return f
 
-func _sb_card(selected: bool) -> StyleBox:
+## Flat fill for right-side cards (no texture - readable text)
+func _sb_card_flat() -> StyleBox:
+	var f := StyleBoxFlat.new()
+	f.bg_color = Color(0.06, 0.055, 0.05, 0.92)
+	f.border_width_left = 1
+	f.border_width_right = 1
+	f.border_width_top = 1
+	f.border_width_bottom = 1
+	f.border_color = Color(0.18, 0.16, 0.14, 0.25)
+	f.corner_radius_top_left = 12
+	f.corner_radius_top_right = 12
+	f.corner_radius_bottom_left = 12
+	f.corner_radius_bottom_right = 12
+	return f
+
+## Roster row: dark translucent, readable
+func _sb_row_flat() -> StyleBox:
+	var f := StyleBoxFlat.new()
+	f.bg_color = Color(0.08, 0.07, 0.06, 0.88)
+	f.border_width_left = 0
+	f.border_width_right = 0
+	f.border_width_top = 0
+	f.border_width_bottom = 1
+	f.border_color = Color(0.2, 0.18, 0.16, 0.35)
+	f.corner_radius_top_left = 6
+	f.corner_radius_top_right = 6
+	f.corner_radius_bottom_left = 6
+	f.corner_radius_bottom_right = 6
+	return f
+
+func _sb_card(selected: bool, accent_color: Color = Color(0.45, 0.55, 0.35, 0.7)) -> StyleBox:
 	var sb := _sb_tex_9(TEX_CARD, 26, 26, 26, 26, 14, 10)
 	if sb != null:
 		return sb
@@ -104,9 +134,13 @@ func _sb_card(selected: bool) -> StyleBox:
 	f.corner_radius_bottom_left = 10
 	f.corner_radius_bottom_right = 10
 	if selected:
-		f.border_color = Color(0.45, 0.55, 0.35, 0.45)
-		f.shadow_size = 6
-		f.shadow_color = Color(0.2, 0.35, 0.2, 0.08)
+		f.border_width_left = 2
+		f.border_width_right = 2
+		f.border_width_top = 2
+		f.border_width_bottom = 2
+		f.border_color = accent_color
+		f.shadow_size = 8
+		f.shadow_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.15)
 	return f
 
 func _strip_scroll_frames(sc: ScrollContainer) -> void:
@@ -137,7 +171,7 @@ func _add_inner_wash(panel: Control, inset := 18) -> void:
 	var wash := ColorRect.new()
 	wash.name = "InnerWash"
 	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wash.color = Color(0.94, 0.92, 0.86, 0.72)
+	wash.color = Color(0.88, 0.84, 0.76, 0.58)
 	wash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wash.offset_left = inset
 	wash.offset_top = inset
@@ -209,6 +243,32 @@ func _rarity_rank(r: String) -> int:
 		"legendary": return 4
 		_: return 1
 
+func _apply_layout_fixes() -> void:
+	var root := get_node_or_null("Root") as HBoxContainer
+	if root:
+		root.add_theme_constant_override("separation", 24)
+	var left := get_node_or_null("Root/Left") as Control
+	var right := get_node_or_null("Root/Right") as Control
+	if left:
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		left.size_flags_stretch_ratio = 2.4
+	if right:
+		right.custom_minimum_size.x = 460  # Critical: give right side width
+		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right.size_flags_stretch_ratio = 1.0
+	var right_vbox := get_node_or_null("Root/Right/RightPad/RightVBox") as VBoxContainer
+	if right_vbox:
+		right_vbox.add_theme_constant_override("separation", 10)
+
+func _apply_left_balance() -> void:
+	var cs := get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/CollectionScroll") as Control
+	if cs:
+		cs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if _inspector_card:
+		_inspector_card.custom_minimum_size.x = 320
+		_inspector_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
 func _add_rarity_sparkle(parent: Control, rank: int) -> void:
 	if parent == null or rank < 2:
 		return
@@ -239,6 +299,8 @@ func _add_rarity_sparkle(parent: Control, rank: int) -> void:
 func _ready() -> void:
 	get_viewport().canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 	UiSkin.apply_global_font()
+	_apply_layout_fixes()
+	_apply_left_balance()
 	# Force load save
 	var cm := get_node_or_null("/root/CollectionManager")
 	if cm and is_instance_valid(cm) and cm.has_method("load_save"):
@@ -395,7 +457,7 @@ func _open_settings() -> void:
 	add_child(sm)
 
 func _setup_meta_ui() -> void:
-	var right := get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox") as VBoxContainer
+	var right := get_node_or_null("Root/Right/RightPad/RightVBox") as VBoxContainer
 	if right == null:
 		return
 	# Meta card
@@ -403,10 +465,10 @@ func _setup_meta_ui() -> void:
 	_meta_card.name = "MetaCard"
 	_meta_card.custom_minimum_size = Vector2(0, 210)
 	right.add_child(_meta_card)
-	# Ensure it stays visible: place it above the Map section instead of at the very bottom.
-	var map_label := right.get_node_or_null("MapLabel")
-	if map_label != null:
-		var idx := right.get_children().find(map_label)
+	# Place above RunCard
+	var run_card := right.get_node_or_null("RunCard")
+	if run_card != null:
+		var idx := right.get_children().find(run_card)
 		if idx >= 0:
 			right.move_child(_meta_card, idx)
 
@@ -1318,7 +1380,7 @@ func _refresh_collection() -> void:
 		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var selected_pid := String(_selected_unlock.get("pixellab_id", ""))
 		var is_selected := (selected_pid != "" and selected_pid == String(data.get("pixellab_id", "")))
-		card.add_theme_stylebox_override("panel", _sb_card(is_selected))
+		card.add_theme_stylebox_override("panel", _sb_card(is_selected, UnitFactory.rarity_color(rarity) if is_selected else Color(0.45, 0.55, 0.35, 0.7)))
 		_add_rarity_sparkle(card, _rarity_rank(rarity))
 		collection_box.add_child(card)
 
@@ -1395,49 +1457,6 @@ func _refresh_collection() -> void:
 		small.add_theme_font_size_override("font_size", 11)
 		small.add_theme_color_override("font_color", INK_SOFT)
 		mid.add_child(small)
-
-		var btns := VBoxContainer.new()
-		btns.add_theme_constant_override("separation", 6)
-		row.add_child(btns)
-
-		var details := Button.new()
-		details.text = "Details"
-		details.custom_minimum_size = Vector2(92, 34)
-		_style_btn(details, false)
-		btns.add_child(details)
-		details.pressed.connect(func(): _show_details(data))
-
-		var add := Button.new()
-		add.custom_minimum_size = Vector2(92, 34)
-		
-		# Check if already in roster or squad is full
-		var cm2 := get_node_or_null("/root/CollectionManager")
-		var is_in_roster := false
-		var is_squad_full := false
-		if cm2 and is_instance_valid(cm2):
-			is_squad_full = cm2.active_roster.size() >= _squad_slots()
-			for r in cm2.active_roster:
-				if typeof(r) == TYPE_DICTIONARY:
-					var rd := r as Dictionary
-					if String(rd.get("pixellab_id", "")) == String(data.get("pixellab_id", "")) and String(data.get("pixellab_id", "")) != "":
-						is_in_roster = true
-						break
-		
-		if is_in_roster:
-			add.text = "✓"
-			add.tooltip_text = "Already in squad"
-			add.disabled = true
-			_style_btn(add, false)
-		elif is_squad_full:
-			add.text = "Full"
-			add.tooltip_text = "Squad is full"
-			add.disabled = true
-			_style_btn(add, false)
-		else:
-			add.text = "Add"
-			_style_btn(add, true)
-			add.pressed.connect(func(): _add_unlock_to_roster(data))
-		btns.add_child(add)
 
 func _make_collection_preview(data: Dictionary) -> Control:
 	var rarity := String(data.get("rarity_id", "common"))
@@ -1532,39 +1551,35 @@ func _refresh_roster() -> void:
 
 	var roster: Array = cm.active_roster
 	var cap := _squad_slots()
-	
-	# Show slot counter header
-	var slot_header := HBoxContainer.new()
-	slot_header.add_theme_constant_override("separation", 8)
-	roster_box.add_child(slot_header)
-	
-	var slot_label := Label.new()
-	slot_label.text = "Squad Slots"
-	slot_label.add_theme_font_size_override("font_size", 14)
-	slot_label.add_theme_color_override("font_color", INK_SOFT)
-	slot_header.add_child(slot_label)
-	
-	slot_header.add_spacer(true)
-	
-	var slot_count := Label.new()
-	var filled := mini(roster.size(), cap)
-	slot_count.text = "%d / %d" % [filled, cap]
-	slot_count.add_theme_font_size_override("font_size", 16)
-	if filled >= cap:
-		slot_count.add_theme_color_override("font_color", Color(0.35, 0.55, 0.35, 1.0))
-	else:
-		slot_count.add_theme_color_override("font_color", INK)
-	slot_header.add_child(slot_count)
+
+	# Update squad header counter (in scene)
+	var squad_count := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/HeaderRow/SquadCount") as Label
+	if squad_count:
+		var filled := mini(roster.size(), cap)
+		squad_count.text = "%d / %d" % [filled, cap]
+		if filled >= cap:
+			squad_count.add_theme_color_override("font_color", Color(0.35, 0.55, 0.35, 1.0))
+		else:
+			squad_count.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78, 1.0))
+
+	# Unlock hint visibility
+	var unlock_hint := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/UnlockHint") as Label
+	if unlock_hint:
+		var mp := get_node_or_null("/root/MetaProgression")
+		var show_hint := false
+		if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
+			var cur_slots := int(mp.get_squad_slots())
+			var max_slots := int(mp.max_squad_slots_cap) if "max_squad_slots_cap" in mp else 8
+			show_hint = cur_slots < max_slots
+		unlock_hint.visible = show_hint
+		if show_hint:
+			unlock_hint.add_theme_color_override("font_color", Color(0.4, 0.5, 0.4, 1.0))
 	
 	for i in range(cap):
 		var row_card := PanelContainer.new()
-		var is_filled := i < roster.size() and typeof(roster[i]) == TYPE_DICTIONARY
-		var rarity := "common"
-		if is_filled and typeof(roster[i]) == TYPE_DICTIONARY:
-			rarity = String((roster[i] as Dictionary).get("rarity_id", "common"))
-		row_card.add_theme_stylebox_override("panel", _sb_card(is_filled))
-		if is_filled:
-			_add_rarity_sparkle(row_card, _rarity_rank(rarity))
+		row_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row_card.custom_minimum_size.y = 56
+		row_card.add_theme_stylebox_override("panel", _sb_row_flat())
 		roster_box.add_child(row_card)
 
 		var pad := MarginContainer.new()
@@ -1574,74 +1589,82 @@ func _refresh_roster() -> void:
 		pad.add_theme_constant_override("margin_bottom", 6)
 		row_card.add_child(pad)
 
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		pad.add_child(row)
+		var hbox := HBoxContainer.new()
+		hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_theme_constant_override("separation", 8)
+		pad.add_child(hbox)
 
-		# Slot number indicator
-		var slot_num := Label.new()
-		slot_num.text = "%d" % (i + 1)
-		slot_num.add_theme_font_size_override("font_size", 14)
-		slot_num.add_theme_color_override("font_color", INK_SOFT)
-		slot_num.custom_minimum_size = Vector2(20, 0)
-		row.add_child(slot_num)
+		# Slot label (24px)
+		var slot_lbl := Label.new()
+		slot_lbl.text = "%d" % (i + 1)
+		slot_lbl.add_theme_font_size_override("font_size", 13)
+		slot_lbl.add_theme_color_override("font_color", Color(0.55, 0.52, 0.48, 1.0))
+		slot_lbl.custom_minimum_size = Vector2(24, 0)
+		hbox.add_child(slot_lbl)
 
+		var is_filled := i < roster.size() and typeof(roster[i]) == TYPE_DICTIONARY
 		if is_filled:
 			var d: Dictionary = roster[i]
 			var arch := String(d.get("archetype_id", "bruiser"))
 			var cls := int(d.get("class_type", int(CharacterData.Class.WARRIOR)))
 			var cls_name := _class_name(cls)
 			var cls_tag := _class_tag(cls)
-			# Portrait
-			row.add_child(_make_collection_preview(d))
-			var label := Label.new()
-			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			var show_arch := (arch.strip_edges().to_lower() != cls_tag)
-			label.text = "● %s • %s%s" % [
-				UnitFactory.rarity_name(rarity),
-				cls_name,
-				(" • %s" % arch) if show_arch else ""
+			var arch_display := arch if arch.strip_edges().to_lower() != cls_tag else ""
+
+			# Portrait (40-44)
+			var portrait := _make_collection_preview(d)
+			portrait.custom_minimum_size = Vector2(44, 44)
+			hbox.add_child(portrait)
+
+			# InfoVBox: 2 labels (name + subline)
+			var info_vbox := VBoxContainer.new()
+			info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			info_vbox.add_theme_constant_override("separation", 2)
+			hbox.add_child(info_vbox)
+
+			var name_lbl := Label.new()
+			name_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+			name_lbl.clip_text = true
+			name_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			name_lbl.text = "%s • %s" % [UnitFactory.rarity_name(String(d.get("rarity_id", "common"))), cls_name]
+			name_lbl.add_theme_font_size_override("font_size", 13)
+			name_lbl.add_theme_color_override("font_color", Color(0.95, 0.92, 0.88, 1.0))
+			info_vbox.add_child(name_lbl)
+
+			var sub_lbl := Label.new()
+			sub_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+			sub_lbl.clip_text = true
+			sub_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			sub_lbl.text = "%s HP %d DMG %d" % [
+				arch_display if arch_display != "" else "—",
+				int(d.get("max_hp", 100)),
+				int(d.get("attack_damage", 10))
 			]
-			label.add_theme_font_size_override("font_size", 13)
-			label.add_theme_color_override("font_color", INK)
-			label.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.18))
-			label.add_theme_constant_override("outline_size", 1)
-			row.add_child(label)
-			
+			sub_lbl.add_theme_font_size_override("font_size", 11)
+			sub_lbl.add_theme_color_override("font_color", Color(0.7, 0.68, 0.62, 1.0))
+			info_vbox.add_child(sub_lbl)
+
+			# Remove button (30x30)
 			var remove := Button.new()
 			remove.text = "✕"
 			remove.tooltip_text = "Remove from squad"
-			remove.custom_minimum_size = Vector2(36, 36)
+			remove.custom_minimum_size = Vector2(30, 30)
 			_style_btn(remove, false)
-			remove.add_theme_color_override("font_color", Color(0.7, 0.25, 0.2, 1.0))
-			row.add_child(remove)
+			remove.add_theme_color_override("font_color", Color(0.9, 0.4, 0.35, 1.0))
+			hbox.add_child(remove)
 			remove.pressed.connect(func():
 				cm.remove_from_roster(i)
 				_refresh()
 			)
 		else:
-			var empty_label := Label.new()
-			empty_label.text = "Empty slot"
-			empty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			empty_label.add_theme_font_size_override("font_size", 13)
-			empty_label.add_theme_color_override("font_color", INK_SOFT)
-			row.add_child(empty_label)
-	
-	# Show unlock hint if not at max slots
-	var mp := get_node_or_null("/root/MetaProgression")
-	if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
-		var cur_slots := int(mp.get_squad_slots())
-		var max_slots := int(mp.max_squad_slots_cap) if "max_squad_slots_cap" in mp else 8
-		if cur_slots < max_slots:
-			var hint_box := HBoxContainer.new()
-			hint_box.add_theme_constant_override("separation", 6)
-			roster_box.add_child(hint_box)
-			
-			var hint := Label.new()
-			hint.text = "↳ Unlock more slots via Protocol Grid"
-			hint.add_theme_font_size_override("font_size", 11)
-			hint.add_theme_color_override("font_color", Color(0.4, 0.5, 0.4, 1.0))
-			hint_box.add_child(hint)
+			var info_vbox := VBoxContainer.new()
+			info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			hbox.add_child(info_vbox)
+			var empty_lbl := Label.new()
+			empty_lbl.text = "Empty slot"
+			empty_lbl.add_theme_font_size_override("font_size", 13)
+			empty_lbl.add_theme_color_override("font_color", Color(0.5, 0.48, 0.44, 1.0))
+			info_vbox.add_child(empty_lbl)
 
 func _add_unlock_to_roster(data: Dictionary) -> void:
 	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
@@ -1783,8 +1806,8 @@ func _apply_skin() -> void:
 		right_panel.add_theme_stylebox_override("panel", _sb_panel())
 
 	# Kill scroll container frames (no extra UI-in-UI)
-	_strip_scroll_frames(get_node_or_null("Root/Left/LeftPad/LeftVBox/CollectionScroll") as ScrollContainer)
-	_strip_scroll_frames(get_node_or_null("Root/Right/RightPad/RightScroll") as ScrollContainer)
+	_strip_scroll_frames(get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/CollectionScroll") as ScrollContainer)
+	_strip_scroll_frames(get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/RosterScroll") as ScrollContainer)
 
 	# Inner wash: soft parchment over mossstone so content is readable
 	_add_inner_wash(get_node_or_null("Root/Left"), 20)
@@ -1794,12 +1817,27 @@ func _apply_skin() -> void:
 	if _inspector_card:
 		_inspector_card.add_theme_stylebox_override("panel", _sb_card(false))
 
-	# Title
+	# Right cards: flat fill (no texture behind text)
+	var squad_card := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard") as PanelContainer
+	if squad_card:
+		squad_card.add_theme_stylebox_override("panel", _sb_card_flat())
+	var run_card := get_node_or_null("Root/Right/RightPad/RightVBox/RunCard") as PanelContainer
+	if run_card:
+		run_card.add_theme_stylebox_override("panel", _sb_card_flat())
+
+	# Squad header styling
+	var squad_title := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/HeaderRow/SquadTitle") as Label
+	if squad_title:
+		squad_title.add_theme_color_override("font_color", Color(0.95, 0.88, 0.62, 1.0))
+		squad_title.add_theme_color_override("font_outline_color", Color(0.18, 0.12, 0.08, 1.0))
+		squad_title.add_theme_constant_override("outline_size", 2)
+
+	# Title (darker/stronger header)
 	var title_lbl := get_node_or_null("Root/Left/LeftPad/LeftVBox/Title") as Label
 	if title_lbl:
 		title_lbl.add_theme_font_size_override("font_size", 28)
-		title_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.62, 1.0))
-		title_lbl.add_theme_color_override("font_outline_color", Color(0.18, 0.12, 0.08, 1.0))
+		title_lbl.add_theme_color_override("font_color", Color(0.92, 0.78, 0.48, 1.0))
+		title_lbl.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04, 1.0))
 		title_lbl.add_theme_constant_override("outline_size", 4)
 
 	# Inputs
@@ -1826,15 +1864,10 @@ func _apply_skin() -> void:
 		_inspector_passives.add_theme_color_override("font_color", INK_SOFT)
 	if _inspector_synergies_title:
 		_inspector_synergies_title.add_theme_color_override("font_color", INK)
-	var roster_title := get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/RosterTitle") as Label
-	if roster_title:
-		roster_title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.62, 1.0))
-		roster_title.add_theme_color_override("font_outline_color", Color(0.18, 0.12, 0.08, 1.0))
-		roster_title.add_theme_constant_override("outline_size", 2)
-	var map_lbl := get_node_or_null("Root/Right/RightPad/RightScroll/RightVBox/MapLabel") as Label
+	var map_lbl := get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/MapLabel") as Label
 	if map_lbl:
 		map_lbl.add_theme_color_override("font_color", INK)
-	var inspector_title := get_node_or_null("Root/Left/LeftPad/LeftVBox/InspectorCard/InspectorPad/InspectorVBox/InspectorTitle") as Label
+	var inspector_title := get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorTitle") as Label
 	if inspector_title:
 		inspector_title.add_theme_color_override("font_color", INK_SOFT)
 
