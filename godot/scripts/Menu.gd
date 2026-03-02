@@ -45,8 +45,58 @@ const TEX_CARD := KIT_DIR + "card_moss_9slice.png"
 const TEX_CHIP := KIT_DIR + "chip_leaf_9slice.png"
 const TEX_SPARKLE := KIT_DIR + "sparkle_leaf_16.png"
 const TEX_DIVIDER := KIT_DIR + "divider_vine.png"
-const INK := Color(0.14, 0.11, 0.08, 1.0)
-const INK_SOFT := Color(0.22, 0.17, 0.12, 0.92)
+
+# === Readability palette (dark UI content over fantasy background) ===
+const TEXT_LIGHT := Color(0.95, 0.93, 0.88, 1.0)
+const TEXT_SOFT := Color(0.78, 0.76, 0.70, 0.92)
+const TEXT_DIM := Color(0.58, 0.56, 0.52, 0.90)
+const TITLE_GOLD := Color(0.92, 0.78, 0.48, 1.0)
+const BORDER_SUBTLE := Color(0.18, 0.16, 0.14, 0.25)
+const SURFACE_INSET := Color(0.04, 0.04, 0.035, 0.70)
+const SURFACE_CARD := Color(0.06, 0.055, 0.05, 0.84)
+const SURFACE_CARD_OPAQUE := Color(0.06, 0.055, 0.05, 0.92)
+# Dark ink for inputs (light textbox)
+const INK_DARK := Color(0.14, 0.11, 0.08, 1.0)
+const INK_DARK_SOFT := Color(0.22, 0.17, 0.12, 0.92)
+const PLACEHOLDER := Color(0.35, 0.30, 0.25, 0.85)
+# Accents (status / actions)
+const ACCENT_FULL := Color(0.35, 0.55, 0.35, 1.0)      # squad full ok
+const ACCENT_REMOVE := Color(0.9, 0.4, 0.35, 1.0)     # remove button
+const OUTLINE_DARK := Color(0, 0, 0, 0.35)            # label outline on dark bg
+# Labels on dark surfaces use light text
+const INK := TEXT_LIGHT
+const INK_SOFT := TEXT_SOFT
+
+# -------------------------
+# PATCH HELPERS (safe props + autoload access)
+# -------------------------
+func _get_collection_manager() -> Node:
+	return get_node_or_null("/root/CollectionManager")
+
+func _obj_has_prop(o: Object, prop: String) -> bool:
+	if o == null or not is_instance_valid(o):
+		return false
+	for p in o.get_property_list():
+		if typeof(p) == TYPE_DICTIONARY:
+			var d := p as Dictionary
+			if String(d.get("name", "")) == prop:
+				return true
+	return false
+
+func _obj_get(o: Object, prop: String, default_val: Variant) -> Variant:
+	if _obj_has_prop(o, prop):
+		return o.get(prop)
+	return default_val
+
+func _obj_get_int(o: Object, prop: String, default_val: int = 0) -> int:
+	return int(_obj_get(o, prop, default_val))
+
+func _obj_get_str(o: Object, prop: String, default_val: String = "") -> String:
+	return String(_obj_get(o, prop, default_val))
+
+func _obj_get_dict(o: Object, prop: String) -> Dictionary:
+	var v: Variant = _obj_get(o, prop, {})
+	return (v as Dictionary) if typeof(v) == TYPE_DICTIONARY else {}
 
 func _load_tex(p: String) -> Texture2D:
 	if p.is_empty() or not ResourceLoader.exists(p):
@@ -91,12 +141,12 @@ func _sb_panel() -> StyleBox:
 ## Flat fill for right-side cards (no texture - readable text)
 func _sb_card_flat() -> StyleBox:
 	var f := StyleBoxFlat.new()
-	f.bg_color = Color(0.06, 0.055, 0.05, 0.92)
+	f.bg_color = SURFACE_CARD_OPAQUE
 	f.border_width_left = 1
 	f.border_width_right = 1
 	f.border_width_top = 1
 	f.border_width_bottom = 1
-	f.border_color = Color(0.18, 0.16, 0.14, 0.25)
+	f.border_color = BORDER_SUBTLE
 	f.corner_radius_top_left = 12
 	f.corner_radius_top_right = 12
 	f.corner_radius_bottom_left = 12
@@ -118,29 +168,49 @@ func _sb_row_flat() -> StyleBox:
 	f.corner_radius_bottom_right = 6
 	return f
 
-func _sb_card(selected: bool, accent_color: Color = Color(0.45, 0.55, 0.35, 0.7)) -> StyleBox:
-	var sb := _sb_tex_9(TEX_CARD, 26, 26, 26, 26, 14, 10)
-	if sb != null:
-		return sb
+## Dark inset for scroll/content areas (readable, one consistent style)
+func _sb_inset() -> StyleBox:
 	var f := StyleBoxFlat.new()
-	f.bg_color = Color(0.92, 0.84, 0.68, 0.92)
+	f.bg_color = SURFACE_INSET
 	f.border_width_left = 1
 	f.border_width_right = 1
 	f.border_width_top = 1
 	f.border_width_bottom = 1
-	f.border_color = Color(0.28, 0.22, 0.16, 0.22)
-	f.corner_radius_top_left = 10
-	f.corner_radius_top_right = 10
-	f.corner_radius_bottom_left = 10
-	f.corner_radius_bottom_right = 10
+	f.border_color = BORDER_SUBTLE
+	f.corner_radius_top_left = 14
+	f.corner_radius_top_right = 14
+	f.corner_radius_bottom_left = 14
+	f.corner_radius_bottom_right = 14
+	f.content_margin_left = 10
+	f.content_margin_right = 10
+	f.content_margin_top = 10
+	f.content_margin_bottom = 10
+	return f
+
+func _sb_card(selected: bool, accent_color: Color = Color(0.45, 0.55, 0.35, 0.7)) -> StyleBox:
+	# Texture cards are noisy; use dark flat for readability
+	# var sb := _sb_tex_9(TEX_CARD, 26, 26, 26, 26, 14, 10)
+	# if sb != null:
+	# 	return sb
+	var f := StyleBoxFlat.new()
+	f.bg_color = SURFACE_CARD
+	f.border_width_left = 1
+	f.border_width_right = 1
+	f.border_width_top = 1
+	f.border_width_bottom = 1
+	f.border_color = BORDER_SUBTLE
+	f.corner_radius_top_left = 12
+	f.corner_radius_top_right = 12
+	f.corner_radius_bottom_left = 12
+	f.corner_radius_bottom_right = 12
 	if selected:
 		f.border_width_left = 2
 		f.border_width_right = 2
 		f.border_width_top = 2
 		f.border_width_bottom = 2
 		f.border_color = accent_color
-		f.shadow_size = 8
-		f.shadow_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.15)
+		f.shadow_size = 10
+		f.shadow_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.18)
 	return f
 
 func _strip_scroll_frames(sc: ScrollContainer) -> void:
@@ -224,15 +294,29 @@ func _style_btn(b: Button, primary: bool) -> void:
 	b.add_theme_stylebox_override("focus", sb)
 	b.add_theme_font_size_override("font_size", 16)
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	b.add_theme_color_override("font_color", INK if primary else Color(0.96, 0.93, 0.88, 1))
-	b.add_theme_color_override("font_hover_color", b.get_theme_color("font_color"))
+	var fc := INK_DARK if primary else TEXT_LIGHT
+	b.add_theme_color_override("font_color", fc)
+	b.add_theme_color_override("font_hover_color", fc)
+	b.add_theme_color_override("font_pressed_color", fc)
+	b.add_theme_color_override("font_disabled_color", TEXT_DIM)
 
 func _style_line_edit(le: LineEdit) -> void:
 	if le == null:
 		return
 	le.add_theme_stylebox_override("normal", _sb_input())
-	le.add_theme_color_override("font_color", INK)
-	le.add_theme_color_override("font_placeholder_color", Color(0.35, 0.30, 0.25, 0.85))
+	le.add_theme_stylebox_override("focus", _sb_input())
+	le.add_theme_color_override("font_color", INK_DARK)
+	le.add_theme_color_override("font_placeholder_color", PLACEHOLDER)
+
+func _style_option_button(ob: OptionButton) -> void:
+	if ob == null:
+		return
+	ob.add_theme_stylebox_override("normal", _sb_input())
+	ob.add_theme_stylebox_override("focus", _sb_input())
+	ob.add_theme_stylebox_override("hover", _sb_input())
+	ob.add_theme_font_size_override("font_size", 14)
+	ob.add_theme_color_override("font_color", INK_DARK)
+	ob.add_theme_color_override("font_hover_color", INK_DARK)
 
 func _rarity_rank(r: String) -> int:
 	match r:
@@ -297,15 +381,15 @@ func _add_rarity_sparkle(parent: Control, rank: int) -> void:
 	tw.tween_property(sp, "modulate:a", 0.0, 0.30)
 
 func _ready() -> void:
-	get_viewport().canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	get_viewport().canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR
 	UiSkin.apply_global_font()
 	_apply_layout_fixes()
 	_apply_left_balance()
 	# Force load save
-	var cm := get_node_or_null("/root/CollectionManager")
+	var cm := _get_collection_manager()
 	if cm and is_instance_valid(cm) and cm.has_method("load_save"):
 		cm.load_save()
-	
+
 	# One-time weapon re-roll for existing characters (uses flag in save)
 	_maybe_reroll_weapons_once(cm)
 
@@ -424,7 +508,7 @@ func _apply_background_art() -> void:
 	bg.name = "BgArt"
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	bg.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.z_index = -200
@@ -608,7 +692,7 @@ func _open_meta_tree() -> void:
 	panel_mat.set_shader_parameter("pulse_speed", 0.6)
 	panel.material = panel_mat
 	layer.add_child(panel)
-	
+
 	# Entrance animation
 	panel.modulate = Color(1, 1, 1, 0)
 	panel.scale = Vector2(0.95, 0.95)
@@ -661,13 +745,13 @@ func _open_meta_tree() -> void:
 	var sig_container := HBoxContainer.new()
 	sig_container.add_theme_constant_override("separation", 6)
 	header.add_child(sig_container)
-	
+
 	var sig_icon := Label.new()
 	sig_icon.text = "✦"
 	sig_icon.add_theme_font_size_override("font_size", 18)
 	sig_icon.add_theme_color_override("font_color", UiSkin.ACCENT_GOLD)
 	sig_container.add_child(sig_icon)
-	
+
 	var sig_lbl := Label.new()
 	sig_lbl.name = "SigilsLabel"
 	sig_lbl.add_theme_font_size_override("font_size", 16)
@@ -679,7 +763,7 @@ func _open_meta_tree() -> void:
 	close.custom_minimum_size = Vector2(120, 42)
 	UiSkin.style_secondary_button(close, UiSkin.ACCENT_RED)
 	UiSkin.add_hover_scale(close, 1.03)
-	close.pressed.connect(func(): 
+	close.pressed.connect(func():
 		# Exit animation
 		var exit_tw := panel.create_tween()
 		exit_tw.set_trans(Tween.TRANS_SINE)
@@ -745,7 +829,7 @@ func _open_meta_tree() -> void:
 	legend_sb.content_margin_bottom = 8
 	legend_panel.add_theme_stylebox_override("panel", legend_sb)
 	graph_frame.add_child(legend_panel)
-	
+
 	var legend := RichTextLabel.new()
 	legend.bbcode_enabled = true
 	legend.scroll_active = false
@@ -864,7 +948,7 @@ func _build_meta_tree_graph(layer: CanvasLayer, graph: Control, graph_scroll: Sc
 	var nodes: Array = data.get("nodes", [])
 	var edges: Array = data.get("edges", [])
 
-	sig_lbl.text = "Sigils: %d" % int(mp.sigils)
+	sig_lbl.text = "Sigils: %d" % _obj_get_int(mp, "sigils", 0)
 
 	# Layout
 	var graph_size := graph.size
@@ -953,53 +1037,57 @@ func _build_meta_tree_graph(layer: CanvasLayer, graph: Control, graph_scroll: Sc
 		var nd: Dictionary = node_by_id[id] as Dictionary
 		var p2: Vector2 = pos_by_id[id]
 		var b := Button.new()
+		var btn := b # PATCH: avoid loop-capture weirdness
+		var node_id := String(id) # PATCH: avoid loop-capture weirdness
+
 		var is_key := false
 		var tags: Array = nd.get("tags", [])
 		for t in tags:
 			if String(t) == "keystone":
 				is_key = true
 		var prefix := "✦ " if is_key else "• "
-		if String(id) == "core_0":
+		if node_id == "core_0":
 			prefix = "◆ "
-		b.text = prefix + String(nd.get("name", id))
-		b.tooltip_text = "%s\nCost: %d" % [String(nd.get("desc", "")), int(nd.get("cost", 0))]
-		b.custom_minimum_size = Vector2(182, 40) if is_key else Vector2(150, 36)
-		b.position = p2 - b.custom_minimum_size * 0.5
-		b.add_theme_font_size_override("font_size", 12)
-		b.add_theme_color_override("font_color", UiSkin.TEXT)
-		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		b.pivot_offset = b.custom_minimum_size * 0.5
-		b.set_meta("_node_id", String(id))
-		b.set_meta("_is_key", is_key)
-		b.set_meta("_is_core", String(id) == "core_0")
+		btn.text = prefix + String(nd.get("name", node_id))
+		btn.tooltip_text = "%s\nCost: %d" % [String(nd.get("desc", "")), int(nd.get("cost", 0))]
+		btn.custom_minimum_size = Vector2(182, 40) if is_key else Vector2(150, 36)
+		btn.position = p2 - btn.custom_minimum_size * 0.5
+		btn.add_theme_font_size_override("font_size", 12)
+		btn.add_theme_color_override("font_color", UiSkin.TEXT)
+		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		btn.pivot_offset = btn.custom_minimum_size * 0.5
+		btn.set_meta("_node_id", node_id)
+		btn.set_meta("_is_key", is_key)
+		btn.set_meta("_is_core", node_id == "core_0")
 
 		# Fun hover feedback
-		b.mouse_entered.connect(func():
-			var tw: Tween = b.get_meta("_hover_tw", null) as Tween
+		btn.mouse_entered.connect(func():
+			var tw: Tween = btn.get_meta("_hover_tw", null) as Tween
 			if tw != null:
 				tw.kill()
-			var t2 := b.create_tween()
-			b.set_meta("_hover_tw", t2)
+			var t2 := btn.create_tween()
+			btn.set_meta("_hover_tw", t2)
 			t2.set_trans(Tween.TRANS_SINE)
 			t2.set_ease(Tween.EASE_OUT)
-			t2.tween_property(b, "scale", Vector2(1.035, 1.035), 0.10)
+			t2.tween_property(btn, "scale", Vector2(1.035, 1.035), 0.10)
 		)
-		b.mouse_exited.connect(func():
-			var tw: Tween = b.get_meta("_hover_tw", null) as Tween
+		btn.mouse_exited.connect(func():
+			var tw: Tween = btn.get_meta("_hover_tw", null) as Tween
 			if tw != null:
 				tw.kill()
-			var t2 := b.create_tween()
-			b.set_meta("_hover_tw", t2)
+			var t2 := btn.create_tween()
+			btn.set_meta("_hover_tw", t2)
 			t2.set_trans(Tween.TRANS_SINE)
 			t2.set_ease(Tween.EASE_OUT)
-			t2.tween_property(b, "scale", Vector2.ONE, 0.12)
+			t2.tween_property(btn, "scale", Vector2.ONE, 0.12)
 		)
 
-		graph.add_child(b)
-		state["buttons"][id] = b
-		b.pressed.connect(func():
+		graph.add_child(btn)
+		state["buttons"][node_id] = btn
+
+		btn.pressed.connect(func():
 			var st: Dictionary = layer.get_meta("_meta_tree_state", {}) as Dictionary
-			st["selected_id"] = id
+			st["selected_id"] = node_id
 			layer.set_meta("_meta_tree_state", st)
 			_meta_tree_refresh(layer)
 		)
@@ -1082,7 +1170,7 @@ func _meta_tree_refresh(layer: CanvasLayer) -> void:
 	var q := String(st.get("search_q", "")).to_lower()
 
 	if sig_lbl:
-		sig_lbl.text = "Sigils: %d" % int(mp.sigils) if ("sigils" in mp) else "Sigils: —"
+		sig_lbl.text = "Sigils: %d" % _obj_get_int(mp, "sigils", 0)
 
 	for id in buttons.keys():
 		var b: Button = buttons[id]
@@ -1110,7 +1198,7 @@ func _meta_tree_refresh(layer: CanvasLayer) -> void:
 
 		var sb := UiSkin.node_button_style(accent, owned, can_buy, is_key)
 		b.add_theme_stylebox_override("normal", sb)
-		
+
 		# Create hover style with enhanced glow
 		var hover := sb.duplicate() as StyleBoxFlat
 		hover.bg_color = Color(sb.bg_color.r + 0.03, sb.bg_color.g + 0.03, sb.bg_color.b + 0.04, minf(0.45, sb.bg_color.a + 0.12))
@@ -1120,7 +1208,7 @@ func _meta_tree_refresh(layer: CanvasLayer) -> void:
 		b.add_theme_stylebox_override("hover", hover)
 		b.add_theme_stylebox_override("focus", hover)
 		b.add_theme_stylebox_override("pressed", hover)
-		
+
 		# State-based appearance
 		if owned:
 			b.disabled = false
@@ -1228,7 +1316,7 @@ func _refresh_meta_ui() -> void:
 		return
 	var slots := int(mp.get_squad_slots()) if mp.has_method("get_squad_slots") else 3
 	var roster_cap := int(mp.get_roster_cap()) if mp.has_method("get_roster_cap") else 6
-	var sig := int(mp.sigils) if "sigils" in mp else 0
+	var sig := _obj_get_int(mp, "sigils", 0)
 	var cost := int(mp.get_next_slot_cost()) if mp.has_method("get_next_slot_cost") else -1
 	_meta_label_top.text = "Sigils: %d    Squad Slots: %d    Roster Cap: %d" % [sig, slots, roster_cap]
 
@@ -1254,7 +1342,7 @@ func _refresh_meta_ui() -> void:
 
 	# Last run summary
 	if _last_run_label:
-		var lr: Dictionary = mp.last_run if "last_run" in mp else {}
+		var lr: Dictionary = _obj_get_dict(mp, "last_run")
 		if lr.is_empty():
 			_last_run_label.text = "[b]Last Run:[/b] —"
 		else:
@@ -1294,7 +1382,7 @@ func _setup_map_select() -> void:
 		map_select.set_item_disabled(i, locked)
 
 	# Select current
-	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
+	var cur := _obj_get_str(rc, "selected_map_id", "graveyard")
 	for i in range(map_select.item_count):
 		if String(map_select.get_item_metadata(i)) == cur:
 			map_select.select(i)
@@ -1345,11 +1433,10 @@ func _refresh_collection() -> void:
 	for c in collection_box.get_children():
 		c.queue_free()
 
-	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
-	if cm == null:
-		cm = get_node_or_null("/root/CollectionManager")
-	if cm == null:
+	var cm := _get_collection_manager()
+	if cm == null or not is_instance_valid(cm):
 		return
+
 	var unlocked: Array = cm.unlocked
 	if unlocked.is_empty():
 		var l := Label.new()
@@ -1376,38 +1463,41 @@ func _refresh_collection() -> void:
 
 		# Card row with glow and hover effects
 		var card := PanelContainer.new()
-		card.mouse_filter = Control.MOUSE_FILTER_PASS
-		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var card_ref := card # PATCH: avoid loop-capture weirdness
+		var data_ref := data.duplicate(true) # PATCH: stable per-card reference
+
+		card_ref.mouse_filter = Control.MOUSE_FILTER_PASS
+		card_ref.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var selected_pid := String(_selected_unlock.get("pixellab_id", ""))
-		var is_selected := (selected_pid != "" and selected_pid == String(data.get("pixellab_id", "")))
-		card.add_theme_stylebox_override("panel", _sb_card(is_selected, UnitFactory.rarity_color(rarity) if is_selected else Color(0.45, 0.55, 0.35, 0.7)))
-		_add_rarity_sparkle(card, _rarity_rank(rarity))
-		collection_box.add_child(card)
+		var is_selected := (selected_pid != "" and selected_pid == String(data_ref.get("pixellab_id", "")))
+		card_ref.add_theme_stylebox_override("panel", _sb_card(is_selected, UnitFactory.rarity_color(rarity) if is_selected else Color(0.45, 0.55, 0.35, 0.7)))
+		_add_rarity_sparkle(card_ref, _rarity_rank(rarity))
+		collection_box.add_child(card_ref)
 
 		if is_selected:
-			var tw := card.create_tween()
-			tw.set_loops()
-			tw.tween_property(card, "scale", Vector2(1.01, 1.01), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-			tw.tween_property(card, "scale", Vector2(1.0, 1.0), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			var tws := card_ref.create_tween()
+			tws.set_loops()
+			tws.tween_property(card_ref, "scale", Vector2(1.01, 1.01), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			tws.tween_property(card_ref, "scale", Vector2(1.0, 1.0), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 		# Add subtle scale on hover
-		card.pivot_offset = Vector2(card.size.x * 0.5, card.size.y * 0.5) if card.size.x > 0 else Vector2.ZERO
-		card.mouse_entered.connect(func():
-			var tw := card.create_tween()
+		card_ref.pivot_offset = Vector2(card_ref.size.x * 0.5, card_ref.size.y * 0.5) if card_ref.size.x > 0 else Vector2.ZERO
+		card_ref.mouse_entered.connect(func():
+			var tw := card_ref.create_tween()
 			tw.set_trans(Tween.TRANS_BACK)
 			tw.set_ease(Tween.EASE_OUT)
-			tw.tween_property(card, "scale", Vector2(1.01, 1.01), 0.1)
+			tw.tween_property(card_ref, "scale", Vector2(1.01, 1.01), 0.1)
 		)
-		card.mouse_exited.connect(func():
-			var tw := card.create_tween()
+		card_ref.mouse_exited.connect(func():
+			var tw := card_ref.create_tween()
 			tw.set_trans(Tween.TRANS_SINE)
 			tw.set_ease(Tween.EASE_OUT)
-			tw.tween_property(card, "scale", Vector2.ONE, 0.08)
+			tw.tween_property(card_ref, "scale", Vector2.ONE, 0.08)
 		)
 
-		card.gui_input.connect(func(ev: InputEvent):
+		card_ref.gui_input.connect(func(ev: InputEvent):
 			if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-				_select_unlock(data)
+				_select_unlock(data_ref)
 				# Click feedback
 				var s := get_node_or_null("/root/SfxSystem")
 				if s and s.has_method("play_ui"):
@@ -1419,14 +1509,14 @@ func _refresh_collection() -> void:
 		pad.add_theme_constant_override("margin_right", 10)
 		pad.add_theme_constant_override("margin_top", 8)
 		pad.add_theme_constant_override("margin_bottom", 8)
-		card.add_child(pad)
+		card_ref.add_child(pad)
 
 		var row := HBoxContainer.new()
 		row.mouse_filter = Control.MOUSE_FILTER_PASS
 		row.add_theme_constant_override("separation", 10)
 		pad.add_child(row)
 
-		row.add_child(_make_collection_preview(data))
+		row.add_child(_make_collection_preview(data_ref))
 
 		var mid := VBoxContainer.new()
 		mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1442,20 +1532,20 @@ func _refresh_collection() -> void:
 		]
 		name.text = "● " + name_base
 		name.add_theme_font_size_override("font_size", 15)
-		name.add_theme_color_override("font_color", INK)
-		name.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.22))
-		name.add_theme_constant_override("outline_size", 1)
+		name.add_theme_color_override("font_color", TEXT_LIGHT)
+		name.add_theme_color_override("font_outline_color", OUTLINE_DARK)
+		name.add_theme_constant_override("outline_size", 2)
 		mid.add_child(name)
 
 		var small := Label.new()
 		small.text = "HP %d  DMG %d  CD %.2f  RNG %d" % [
-			int(data.get("max_hp", 100)),
-			int(data.get("attack_damage", 10)),
-			float(data.get("attack_cooldown", 1.0)),
-			int(float(data.get("attack_range", 300.0)))
+			int(data_ref.get("max_hp", 100)),
+			int(data_ref.get("attack_damage", 10)),
+			float(data_ref.get("attack_cooldown", 1.0)),
+			int(float(data_ref.get("attack_range", 300.0)))
 		]
 		small.add_theme_font_size_override("font_size", 11)
-		small.add_theme_color_override("font_color", INK_SOFT)
+		small.add_theme_color_override("font_color", TEXT_SOFT)
 		mid.add_child(small)
 
 func _make_collection_preview(data: Dictionary) -> Control:
@@ -1490,12 +1580,14 @@ func _make_collection_preview(data: Dictionary) -> Control:
 		vp.size = Vector2i(48, 48)
 		vp.transparent_bg = true
 		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 		svc.add_child(vp)
 
 		var spr := AnimatedSprite2D.new()
 		spr.sprite_frames = frames
 		spr.animation = "walk_south"
 		spr.centered = true
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		# Framing: keep head visible while showing more body.
 		spr.position = Vector2(24, 30)
 		var scale := PixellabUtil.scale_for_target_height(frames, 32.0, 0.40, 0.80)
@@ -1522,11 +1614,13 @@ func _make_collection_preview(data: Dictionary) -> Control:
 		vp2.size = Vector2i(48, 48)
 		vp2.transparent_bg = true
 		vp2.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp2.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 		svc2.add_child(vp2)
 
 		var spr2 := Sprite2D.new()
 		spr2.texture = tex
 		spr2.centered = true
+		spr2.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		# Match animated framing: keep head visible while showing more body.
 		spr2.position = Vector2(24, 30)
 		# Scale to fit nicely in the box.
@@ -1543,10 +1637,8 @@ func _refresh_roster() -> void:
 	for c in roster_box.get_children():
 		c.queue_free()
 
-	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
-	if cm == null:
-		cm = get_node_or_null("/root/CollectionManager")
-	if cm == null:
+	var cm := _get_collection_manager()
+	if cm == null or not is_instance_valid(cm):
 		return
 
 	var roster: Array = cm.active_roster
@@ -1558,9 +1650,9 @@ func _refresh_roster() -> void:
 		var filled := mini(roster.size(), cap)
 		squad_count.text = "%d / %d" % [filled, cap]
 		if filled >= cap:
-			squad_count.add_theme_color_override("font_color", Color(0.35, 0.55, 0.35, 1.0))
+			squad_count.add_theme_color_override("font_color", ACCENT_FULL)
 		else:
-			squad_count.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78, 1.0))
+			squad_count.add_theme_color_override("font_color", TEXT_SOFT)
 
 	# Unlock hint visibility
 	var unlock_hint := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/UnlockHint") as Label
@@ -1569,12 +1661,12 @@ func _refresh_roster() -> void:
 		var show_hint := false
 		if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
 			var cur_slots := int(mp.get_squad_slots())
-			var max_slots := int(mp.max_squad_slots_cap) if "max_squad_slots_cap" in mp else 8
+			var max_slots := _obj_get_int(mp, "max_squad_slots_cap", 8)
 			show_hint = cur_slots < max_slots
 		unlock_hint.visible = show_hint
 		if show_hint:
-			unlock_hint.add_theme_color_override("font_color", Color(0.4, 0.5, 0.4, 1.0))
-	
+			unlock_hint.add_theme_color_override("font_color", ACCENT_FULL)
+
 	for i in range(cap):
 		var row_card := PanelContainer.new()
 		row_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1598,7 +1690,7 @@ func _refresh_roster() -> void:
 		var slot_lbl := Label.new()
 		slot_lbl.text = "%d" % (i + 1)
 		slot_lbl.add_theme_font_size_override("font_size", 13)
-		slot_lbl.add_theme_color_override("font_color", Color(0.55, 0.52, 0.48, 1.0))
+		slot_lbl.add_theme_color_override("font_color", TEXT_DIM)
 		slot_lbl.custom_minimum_size = Vector2(24, 0)
 		hbox.add_child(slot_lbl)
 
@@ -1628,7 +1720,7 @@ func _refresh_roster() -> void:
 			name_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			name_lbl.text = "%s • %s" % [UnitFactory.rarity_name(String(d.get("rarity_id", "common"))), cls_name]
 			name_lbl.add_theme_font_size_override("font_size", 13)
-			name_lbl.add_theme_color_override("font_color", Color(0.95, 0.92, 0.88, 1.0))
+			name_lbl.add_theme_color_override("font_color", TEXT_LIGHT)
 			info_vbox.add_child(name_lbl)
 
 			var sub_lbl := Label.new()
@@ -1641,7 +1733,7 @@ func _refresh_roster() -> void:
 				int(d.get("attack_damage", 10))
 			]
 			sub_lbl.add_theme_font_size_override("font_size", 11)
-			sub_lbl.add_theme_color_override("font_color", Color(0.7, 0.68, 0.62, 1.0))
+			sub_lbl.add_theme_color_override("font_color", TEXT_SOFT)
 			info_vbox.add_child(sub_lbl)
 
 			# Remove button (30x30)
@@ -1650,10 +1742,12 @@ func _refresh_roster() -> void:
 			remove.tooltip_text = "Remove from squad"
 			remove.custom_minimum_size = Vector2(30, 30)
 			_style_btn(remove, false)
-			remove.add_theme_color_override("font_color", Color(0.9, 0.4, 0.35, 1.0))
+			remove.add_theme_color_override("font_color", ACCENT_REMOVE)
 			hbox.add_child(remove)
+
+			var slot_index := i # PATCH: avoid loop-capture weirdness
 			remove.pressed.connect(func():
-				cm.remove_from_roster(i)
+				cm.remove_from_roster(slot_index)
 				_refresh()
 			)
 		else:
@@ -1663,14 +1757,12 @@ func _refresh_roster() -> void:
 			var empty_lbl := Label.new()
 			empty_lbl.text = "Empty slot"
 			empty_lbl.add_theme_font_size_override("font_size", 13)
-			empty_lbl.add_theme_color_override("font_color", Color(0.5, 0.48, 0.44, 1.0))
+			empty_lbl.add_theme_color_override("font_color", TEXT_DIM)
 			info_vbox.add_child(empty_lbl)
 
 func _add_unlock_to_roster(data: Dictionary) -> void:
-	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
-	if cm == null:
-		cm = get_node_or_null("/root/CollectionManager")
-	if cm == null:
+	var cm := _get_collection_manager()
+	if cm == null or not is_instance_valid(cm):
 		return
 	var cap := _squad_slots()
 	if cm.active_roster.size() >= cap:
@@ -1720,12 +1812,12 @@ func _refresh_inspector() -> void:
 	var cls_name := _class_name(cls)
 	var cls_tag := _class_tag(cls)
 	var show_arch := (arch.strip_edges().to_lower() != cls_tag)
-	# Compact name line (INK for readability, dot as rarity accent)
+	# Compact name line (light text on dark card)
 	_inspector_name.text = "● %s • %s%s" % [UnitFactory.rarity_name(rarity), cls_name, (" • %s" % arch) if show_arch else ""]
-	_inspector_name.add_theme_color_override("font_color", INK)
-	_inspector_name.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.18))
-	_inspector_name.add_theme_constant_override("outline_size", 1)
-	
+	_inspector_name.add_theme_color_override("font_color", TEXT_LIGHT)
+	_inspector_name.add_theme_color_override("font_outline_color", OUTLINE_DARK)
+	_inspector_name.add_theme_constant_override("outline_size", 2)
+
 	# Weapon and stats on one compact line
 	var weapon_id := String(_selected_unlock.get("weapon_id", "standard_bolt"))
 	var weapon_name := WeaponSystem.weapon_name(weapon_id) if weapon_id != "" else ("Melee" if int(_selected_unlock.get("attack_style", 1)) == 0 else "Ranged")
@@ -1750,7 +1842,7 @@ func _refresh_inspector() -> void:
 		_inspector_portrait.add_child(p)
 
 	# Determine primary action: Add if not in roster, else show hint.
-	var cm := get_node_or_null("/root/CollectionManager")
+	var cm := _get_collection_manager()
 	var in_roster := false
 	var squad_full := false
 	if cm and is_instance_valid(cm):
@@ -1805,19 +1897,21 @@ func _apply_skin() -> void:
 	if right_panel:
 		right_panel.add_theme_stylebox_override("panel", _sb_panel())
 
-	# Kill scroll container frames (no extra UI-in-UI)
-	_strip_scroll_frames(get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/CollectionScroll") as ScrollContainer)
-	_strip_scroll_frames(get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/RosterScroll") as ScrollContainer)
+	# Scroll containers: strip scrollbar chrome but give content a readable dark inset
+	var col_sc := get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/CollectionScroll") as ScrollContainer
+	_strip_scroll_frames(col_sc)
+	if col_sc:
+		col_sc.add_theme_stylebox_override("panel", _sb_inset())
+	var ros_sc := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/RosterScroll") as ScrollContainer
+	_strip_scroll_frames(ros_sc)
+	if ros_sc:
+		ros_sc.add_theme_stylebox_override("panel", _sb_inset())
 
-	# Inner wash: soft parchment over mossstone so content is readable
-	_add_inner_wash(get_node_or_null("Root/Left"), 20)
-	_add_inner_wash(get_node_or_null("Root/Right"), 18)
-
-	# InspectorCard = light card, not mossstone (no double frame)
+	# InspectorCard: dark like the rest (no light wood panel)
 	if _inspector_card:
 		_inspector_card.add_theme_stylebox_override("panel", _sb_card(false))
 
-	# Right cards: flat fill (no texture behind text)
+	# Right cards: flat readable
 	var squad_card := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard") as PanelContainer
 	if squad_card:
 		squad_card.add_theme_stylebox_override("panel", _sb_card_flat())
@@ -1825,25 +1919,21 @@ func _apply_skin() -> void:
 	if run_card:
 		run_card.add_theme_stylebox_override("panel", _sb_card_flat())
 
-	# Squad header styling
-	var squad_title := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/HeaderRow/SquadTitle") as Label
-	if squad_title:
-		squad_title.add_theme_color_override("font_color", Color(0.95, 0.88, 0.62, 1.0))
-		squad_title.add_theme_color_override("font_outline_color", Color(0.18, 0.12, 0.08, 1.0))
-		squad_title.add_theme_constant_override("outline_size", 2)
-
-	# Title (darker/stronger header)
+	# Titles: gold accent on dark
 	var title_lbl := get_node_or_null("Root/Left/LeftPad/LeftVBox/Title") as Label
 	if title_lbl:
 		title_lbl.add_theme_font_size_override("font_size", 28)
-		title_lbl.add_theme_color_override("font_color", Color(0.92, 0.78, 0.48, 1.0))
+		title_lbl.add_theme_color_override("font_color", TITLE_GOLD)
 		title_lbl.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04, 1.0))
 		title_lbl.add_theme_constant_override("outline_size", 4)
+	var squad_title := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/HeaderRow/SquadTitle") as Label
+	if squad_title:
+		squad_title.add_theme_font_size_override("font_size", 18)
+		squad_title.add_theme_color_override("font_color", TITLE_GOLD)
+		squad_title.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04, 1.0))
+		squad_title.add_theme_constant_override("outline_size", 2)
 
-	# Inputs
 	_style_line_edit(_search)
-
-	# Buttons
 	_style_btn(start_btn, true)
 	_style_btn(resume_btn, false)
 	_style_btn(settings_btn, false)
@@ -1851,25 +1941,24 @@ func _apply_skin() -> void:
 	_style_btn(_search_clear, false)
 	_style_btn(_inspector_details_btn, false)
 	_style_btn(_inspector_primary_btn, true)
-
 	if map_select:
-		_style_btn(map_select as Button, false)
+		_style_option_button(map_select)
 
-	# Text colors (readable, consistent INK palette)
+	# Inspector labels: light text
 	if _inspector_name:
-		_inspector_name.add_theme_color_override("font_color", INK)
+		_inspector_name.add_theme_color_override("font_color", TEXT_LIGHT)
 	if _inspector_stats:
-		_inspector_stats.add_theme_color_override("font_color", INK_SOFT)
+		_inspector_stats.add_theme_color_override("font_color", TEXT_SOFT)
 	if _inspector_passives:
-		_inspector_passives.add_theme_color_override("font_color", INK_SOFT)
+		_inspector_passives.add_theme_color_override("font_color", TEXT_SOFT)
 	if _inspector_synergies_title:
-		_inspector_synergies_title.add_theme_color_override("font_color", INK)
+		_inspector_synergies_title.add_theme_color_override("font_color", TEXT_LIGHT)
 	var map_lbl := get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/MapLabel") as Label
 	if map_lbl:
-		map_lbl.add_theme_color_override("font_color", INK)
+		map_lbl.add_theme_color_override("font_color", TEXT_LIGHT)
 	var inspector_title := get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorTitle") as Label
 	if inspector_title:
-		inspector_title.add_theme_color_override("font_color", INK_SOFT)
+		inspector_title.add_theme_color_override("font_color", TEXT_SOFT)
 
 func _on_start_run() -> void:
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
@@ -1978,7 +2067,7 @@ func _show_details(data: Dictionary) -> void:
 	var stitle := Label.new()
 	stitle.text = "Synergies"
 	stitle.add_theme_font_size_override("font_size", 16)
-	stitle.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
+	stitle.add_theme_color_override("font_color", TEXT_LIGHT)
 	v.add_child(stitle)
 
 	var syn_flow := FlowContainer.new()
@@ -1994,7 +2083,7 @@ func _show_details(data: Dictionary) -> void:
 	var ptitle := Label.new()
 	ptitle.text = "Passives"
 	ptitle.add_theme_font_size_override("font_size", 16)
-	ptitle.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
+	ptitle.add_theme_color_override("font_color", TEXT_LIGHT)
 	v.add_child(ptitle)
 
 	var scroll := ScrollContainer.new()
@@ -2011,7 +2100,7 @@ func _show_details(data: Dictionary) -> void:
 	if pids.is_empty():
 		var none := Label.new()
 		none.text = "(No passives)"
-		none.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.9))
+		none.add_theme_color_override("font_color", TEXT_SOFT)
 		pbox.add_child(none)
 	else:
 		for pid in pids:
@@ -2052,12 +2141,14 @@ func _make_detail_portrait(data: Dictionary) -> Control:
 		vp.size = Vector2i(96, 96)
 		vp.transparent_bg = true
 		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 		svc.add_child(vp)
 
 		var spr := AnimatedSprite2D.new()
 		spr.sprite_frames = frames
 		spr.animation = "walk_south"
 		spr.centered = true
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		# Framing: keep head visible while reducing overall zoom.
 		spr.position = Vector2(48, 60)
 		var scale3 := PixellabUtil.scale_for_target_height(frames, 64.0, 0.45, 0.85)
@@ -2083,11 +2174,13 @@ func _make_detail_portrait(data: Dictionary) -> Control:
 		vp2.size = Vector2i(96, 96)
 		vp2.transparent_bg = true
 		vp2.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp2.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 		svc2.add_child(vp2)
 
 		var spr2 := Sprite2D.new()
 		spr2.texture = tex
 		spr2.centered = true
+		spr2.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		spr2.position = Vector2(48, 64)
 		var ts := tex.get_size()
 		var max_dim := maxf(1.0, maxf(ts.x, ts.y))
@@ -2116,7 +2209,7 @@ func _add_stat_chip(parent: Control, label: String, value: String, tint: Color) 
 	var l := Label.new()
 	l.text = label
 	l.add_theme_font_size_override("font_size", 11)
-	l.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.95))
+	l.add_theme_color_override("font_color", TEXT_SOFT)
 	v.add_child(l)
 
 	var val := Label.new()
@@ -2130,9 +2223,7 @@ func _add_stat_chip(parent: Control, label: String, value: String, tint: Color) 
 func _sync_synergy_system() -> void:
 	# Keep SynergySystem roster in sync with the Armory roster so chip counts are correct.
 	SynergySystem.ensure_loaded()
-	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
-	if cm == null:
-		cm = get_node_or_null("/root/CollectionManager")
+	var cm := _get_collection_manager()
 	if cm != null and is_instance_valid(cm) and cm.has_method("get_active_roster_character_data"):
 		var cds: Array = cm.get_active_roster_character_data()
 		SynergySystem.set_roster(cds)
@@ -2168,9 +2259,7 @@ func _refresh_synergy_ui_for_unlock(unlock_data: Dictionary) -> void:
 func _populate_synergy_chips_for_unlock(parent: Control, unlock_data: Dictionary) -> void:
 	if parent == null:
 		return
-	var cm := Engine.get_singleton("CollectionManager") if Engine.has_singleton("CollectionManager") else null
-	if cm == null:
-		cm = get_node_or_null("/root/CollectionManager")
+	var cm := _get_collection_manager()
 	var cd: CharacterData = (cm._dict_to_cd(unlock_data) as CharacterData) if (cm != null and is_instance_valid(cm) and cm.has_method("_dict_to_cd")) else null
 	if cd == null:
 		return
@@ -2266,7 +2355,7 @@ func _make_passive_row(pid: String) -> Control:
 	desc.text = PassiveSystem.passive_description(pid)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.add_theme_font_size_override("font_size", 12)
-	desc.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
+	desc.add_theme_color_override("font_color", TEXT_SOFT)
 	v.add_child(desc)
 	return row
 
@@ -2286,7 +2375,7 @@ func _make_tag_pill(tag: String) -> Control:
 	var l := Label.new()
 	l.text = tag.to_upper()
 	l.add_theme_font_size_override("font_size", 10)
-	l.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.9))
+	l.add_theme_color_override("font_color", TEXT_SOFT)
 	pad.add_child(l)
 	return pill
 

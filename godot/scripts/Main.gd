@@ -372,6 +372,7 @@ func _physics_process(delta: float) -> void:
 	var em := _elapsed_minutes()
 	if enable_bosses and (not _boss_spawned) and em >= boss_spawn_time_minutes:
 		_spawn_boss()
+	_tick_end_of_run_timer()
 	_update_hud_labels()
 
 	if debug_perf_overlay_enabled:
@@ -2115,22 +2116,23 @@ func _hide_collision_debug_visuals() -> void:
 			if ch is Node:
 				stack.append(ch)
 
-	# End-of-run timer
-	if not _victory and not _game_over:
-		var now_m := _elapsed_minutes()
-		if enable_bosses:
-			# Boss-at-end: reaching the timer triggers the boss; victory requires killing it.
-			if (not _boss_spawned) and now_m >= run_timer_max_minutes:
-				_spawn_boss()
-			# Boss time limit: fail if you can't kill it in time.
-			if _boss_fight_active and _boss_deadline_s > 0.0:
-				var now_s := float(Time.get_ticks_msec()) / 1000.0
-				if now_s >= _boss_deadline_s:
-					_show_game_over()
-		else:
-			# Survival mode
-			if now_m >= run_timer_max_minutes:
-				_show_victory()
+func _tick_end_of_run_timer() -> void:
+	if _victory or _game_over:
+		return
+	var now_m := _elapsed_minutes()
+	if enable_bosses:
+		# Boss-at-end: reaching the timer triggers the boss; victory requires killing it.
+		if (not _boss_spawned) and now_m >= run_timer_max_minutes:
+			_spawn_boss()
+		# Boss time limit: fail if you can't kill it in time.
+		if _boss_fight_active and _boss_deadline_s > 0.0:
+			var now_s := float(Time.get_ticks_msec()) / 1000.0
+			if now_s >= _boss_deadline_s:
+				_show_game_over()
+	else:
+		# Survival mode
+		if now_m >= run_timer_max_minutes:
+			_show_victory()
 
 func _show_game_over() -> void:
 	_game_over = true

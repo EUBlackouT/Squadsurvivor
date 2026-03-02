@@ -21,10 +21,18 @@ var _map_back_btn: Button
 var _map_start_btn: Button
 var _map_panel: PanelContainer
 
+# Map overlay extra refs
+var _map_preview_lock_lbl: Label = null
+var _map_list_frame: PanelContainer = null
+var _map_details_frame: PanelContainer = null
+
 var _map_ids: Array[String] = []
 var _crowd: Node2D = null
 var _preview_root: Node = null
 var _selected_map_locked: bool = false
+
+var _crowd_prev_visible: bool = true
+var _crowd_prev_process_mode: int = Node.PROCESS_MODE_INHERIT
 
 @export var game_title: String = "Character Collection"
 @export var game_tagline: String = "Collect • Upgrade • Build your dream team"
@@ -62,6 +70,13 @@ const TEXT_DARK: Color = Color(0.12, 0.08, 0.06, 1.0)
 const ACCENT_LEAF: Color = Color(0.42, 0.86, 0.52, 1.0)
 const ACCENT_SUN: Color = Color(1.0, 0.83, 0.44, 1.0)
 const ACCENT_BERRY: Color = Color(0.86, 0.55, 0.88, 1.0)
+
+# Readability surfaces for map overlay
+const SURFACE_BG := Color(0.07, 0.06, 0.05, 0.90)
+const SURFACE_BG_SOFT := Color(0.06, 0.05, 0.04, 0.82)
+const SURFACE_BORDER := Color(1, 1, 1, 0.12)
+const LOCKED_FG := Color(0.90, 0.86, 0.76, 0.45)
+const NORMAL_FG := Color(0.98, 0.96, 0.90, 1.0)
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -377,27 +392,89 @@ func _apply_font(c: Control) -> void:
 			(c as RichTextLabel).add_theme_font_override("normal_font", f)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MAP OVERLAY (same behavior, wood styling)
+# MAP OVERLAY (readable surfaces, vignette, crowd tempering)
 # ─────────────────────────────────────────────────────────────────────────────
+
+func _sb_inset(radius: int = 12, alpha: float = 0.86) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(SURFACE_BG.r, SURFACE_BG.g, SURFACE_BG.b, alpha)
+	sb.border_width_left = 1
+	sb.border_width_right = 1
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.border_color = SURFACE_BORDER
+	sb.corner_radius_top_left = radius
+	sb.corner_radius_top_right = radius
+	sb.corner_radius_bottom_left = radius
+	sb.corner_radius_bottom_right = radius
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	return sb
+
+func _sb_list_selected() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.20, 0.34, 0.20, 0.92)
+	sb.corner_radius_top_left = 8
+	sb.corner_radius_top_right = 8
+	sb.corner_radius_bottom_left = 8
+	sb.corner_radius_bottom_right = 8
+	return sb
+
+func _make_vignette_material() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """
+shader_type canvas_item;
+uniform float strength : hint_range(0.0, 1.0) = 0.70;
+uniform float inner : hint_range(0.0, 1.0) = 0.45;
+uniform vec4 tint : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+
+void fragment(){
+	vec2 uv = SCREEN_UV;
+	vec2 p = uv * 2.0 - 1.0;
+	float r = length(p);
+	float v = smoothstep(inner, 1.25, r);
+	COLOR = vec4(tint.rgb, tint.a * v * strength);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("strength", 0.75)
+	m.set_shader_parameter("inner", 0.40)
+	m.set_shader_parameter("tint", Color(0, 0, 0, 1))
+	return m
 
 func _build_map_overlay() -> void:
 	_map_overlay = Control.new()
 	_map_overlay.name = "MapOverlay"
 	_map_overlay.visible = false
 	_map_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_map_overlay)
 
+	# Strong scrim + vignette so UI wins vs crowd/background
 	var dim := ColorRect.new()
-	dim.color = Color(0.05, 0.04, 0.03, 0.86)
+	dim.name = "Dim"
+	dim.color = Color(0.03, 0.025, 0.02, 0.78)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_map_overlay.add_child(dim)
+
+	var vign := ColorRect.new()
+	vign.name = "Vignette"
+	vign.color = Color(1, 1, 1, 1)
+	vign.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vign.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vign.material = _make_vignette_material()
+	_map_overlay.add_child(vign)
 
 	_map_panel = PanelContainer.new()
 	_map_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_map_panel.offset_left = -500
-	_map_panel.offset_top = -340
-	_map_panel.offset_right = 500
-	_map_panel.offset_bottom = 340
+	_map_panel.offset_left = -520
+	_map_panel.offset_top = -350
+	_map_panel.offset_right = 520
+	_map_panel.offset_bottom = 350
 	_map_panel.add_theme_stylebox_override("panel", _make_panel_style())
 	_map_overlay.add_child(_map_panel)
 
@@ -415,10 +492,10 @@ func _build_map_overlay() -> void:
 	var title := Label.new()
 	title.text = "Choose your zone"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", TITLE_COLOR)
 	title.add_theme_color_override("font_outline_color", Color(0.10, 0.07, 0.04, 1))
-	title.add_theme_constant_override("outline_size", 5)
+	title.add_theme_constant_override("outline_size", 6)
 	_apply_font(title)
 	vbox.add_child(title)
 
@@ -427,9 +504,9 @@ func _build_map_overlay() -> void:
 	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(hbox)
 
-	# Left: map list
+	# LEFT: Zones list wrapped in readable inset panel
 	var left := VBoxContainer.new()
-	left.custom_minimum_size.x = 240
+	left.custom_minimum_size.x = 280
 	left.add_theme_constant_override("separation", 8)
 	hbox.add_child(left)
 
@@ -441,48 +518,50 @@ func _build_map_overlay() -> void:
 	_apply_font(list_lbl)
 	left.add_child(list_lbl)
 
+	_map_list_frame = PanelContainer.new()
+	_map_list_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.86))
+	_map_list_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.add_child(_map_list_frame)
+
+	var lf_pad := MarginContainer.new()
+	lf_pad.add_theme_constant_override("margin_left", 6)
+	lf_pad.add_theme_constant_override("margin_right", 6)
+	lf_pad.add_theme_constant_override("margin_top", 6)
+	lf_pad.add_theme_constant_override("margin_bottom", 6)
+	_map_list_frame.add_child(lf_pad)
+
 	_map_list = ItemList.new()
-	_map_list.custom_minimum_size.y = 290
+	_map_list.custom_minimum_size.y = 320
 	_map_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_map_list.allow_reselect = true
-	_map_list.add_theme_font_size_override("font_size", 15)
-	_map_list.add_theme_color_override("font_color", Color(0.98, 0.96, 0.90, 1))
+	_map_list.add_theme_font_size_override("font_size", 16)
+	_map_list.add_theme_color_override("font_color", NORMAL_FG)
 	_map_list.add_theme_color_override("font_selected_color", Color(1, 1, 1, 1))
+	_map_list.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_apply_font(_map_list)
 
-	var sel_sb := StyleBoxFlat.new()
-	sel_sb.bg_color = Color(0.22, 0.44, 0.22, 0.85)
-	sel_sb.corner_radius_top_left = 8
-	sel_sb.corner_radius_top_right = 8
-	sel_sb.corner_radius_bottom_left = 8
-	sel_sb.corner_radius_bottom_right = 8
+	var sel_sb := _sb_list_selected()
 	_map_list.add_theme_stylebox_override("selected", sel_sb)
 	_map_list.add_theme_stylebox_override("selected_focus", sel_sb)
-	left.add_child(_map_list)
+	lf_pad.add_child(_map_list)
 
-	# Right: preview + details
+	# RIGHT: Preview + info cards (all on dark surfaces)
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_theme_constant_override("separation", 10)
 	hbox.add_child(right)
 
 	var preview_frame := PanelContainer.new()
-	preview_frame.custom_minimum_size.y = 210
+	preview_frame.custom_minimum_size.y = 280
 	preview_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var pf_sb := StyleBoxFlat.new()
-	pf_sb.bg_color = Color(0.10, 0.08, 0.06, 1)
-	pf_sb.corner_radius_top_left = 12
-	pf_sb.corner_radius_top_right = 12
-	pf_sb.corner_radius_bottom_left = 12
-	pf_sb.corner_radius_bottom_right = 12
-	preview_frame.add_theme_stylebox_override("panel", pf_sb)
+	preview_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.90))
 	right.add_child(preview_frame)
 
 	var prev_pad := MarginContainer.new()
-	prev_pad.add_theme_constant_override("margin_left", 4)
-	prev_pad.add_theme_constant_override("margin_right", 4)
-	prev_pad.add_theme_constant_override("margin_top", 4)
-	prev_pad.add_theme_constant_override("margin_bottom", 4)
+	prev_pad.add_theme_constant_override("margin_left", 6)
+	prev_pad.add_theme_constant_override("margin_right", 6)
+	prev_pad.add_theme_constant_override("margin_top", 6)
+	prev_pad.add_theme_constant_override("margin_bottom", 6)
 	preview_frame.add_child(prev_pad)
 
 	var prev_container := SubViewportContainer.new()
@@ -490,27 +569,58 @@ func _build_map_overlay() -> void:
 	prev_pad.add_child(prev_container)
 
 	_map_preview_vp = SubViewport.new()
-	_map_preview_vp.size = Vector2i(560, 280)
+	_map_preview_vp.size = Vector2i(720, 360)
 	_map_preview_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_map_preview_vp.transparent_bg = false
 	prev_container.add_child(_map_preview_vp)
+
+	# LOCK overlay on preview
+	_map_preview_lock_lbl = Label.new()
+	_map_preview_lock_lbl.name = "PreviewLocked"
+	_map_preview_lock_lbl.text = "LOCKED"
+	_map_preview_lock_lbl.visible = false
+	_map_preview_lock_lbl.set_anchors_preset(Control.PRESET_CENTER)
+	_map_preview_lock_lbl.add_theme_font_size_override("font_size", 34)
+	_map_preview_lock_lbl.add_theme_color_override("font_color", Color(1, 0.6, 0.5, 1))
+	_map_preview_lock_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_map_preview_lock_lbl.add_theme_constant_override("outline_size", 6)
+	_apply_font(_map_preview_lock_lbl)
+	preview_frame.add_child(_map_preview_lock_lbl)
+
+	_map_details_frame = PanelContainer.new()
+	_map_details_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.84))
+	right.add_child(_map_details_frame)
+
+	var df_pad := MarginContainer.new()
+	df_pad.add_theme_constant_override("margin_left", 10)
+	df_pad.add_theme_constant_override("margin_right", 10)
+	df_pad.add_theme_constant_override("margin_top", 8)
+	df_pad.add_theme_constant_override("margin_bottom", 8)
+	_map_details_frame.add_child(df_pad)
+
+	var info_v := VBoxContainer.new()
+	info_v.add_theme_constant_override("separation", 6)
+	df_pad.add_child(info_v)
 
 	_map_tagline = Label.new()
 	_map_tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_map_tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_map_tagline.add_theme_font_size_override("font_size", 14)
 	_map_tagline.add_theme_color_override("font_color", SUBTITLE_COLOR)
+	_map_tagline.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.35))
+	_map_tagline.add_theme_constant_override("outline_size", 3)
 	_apply_font(_map_tagline)
-	right.add_child(_map_tagline)
+	info_v.add_child(_map_tagline)
 
 	_map_details = RichTextLabel.new()
-	_map_details.custom_minimum_size.y = 72
+	_map_details.custom_minimum_size.y = 84
 	_map_details.bbcode_enabled = true
 	_map_details.fit_content = true
 	_map_details.scroll_active = false
 	_map_details.add_theme_font_size_override("normal_font_size", 13)
+	_map_details.add_theme_color_override("default_color", Color(0.92, 0.90, 0.86, 0.95))
 	_apply_font(_map_details)
-	right.add_child(_map_details)
+	info_v.add_child(_map_details)
 
 	# Buttons row
 	var btn_row := HBoxContainer.new()
@@ -519,11 +629,11 @@ func _build_map_overlay() -> void:
 	vbox.add_child(btn_row)
 
 	_map_back_btn = _make_menu_button("← Back", false)
-	_map_back_btn.custom_minimum_size = Vector2(150, 48)
+	_map_back_btn.custom_minimum_size = Vector2(170, 50)
 	btn_row.add_child(_map_back_btn)
 
 	_map_start_btn = _make_menu_button("Start", true)
-	_map_start_btn.custom_minimum_size = Vector2(170, 48)
+	_map_start_btn.custom_minimum_size = Vector2(200, 50)
 	btn_row.add_child(_map_start_btn)
 
 	_setup_map_select_overlay()
@@ -606,11 +716,20 @@ func _setup_map_select_overlay() -> void:
 		var mult := float(m.get("meta_sigils_mult", 1.0))
 		var tier := "★" if mult < 1.2 else ("★★" if mult < 1.5 else "★★★")
 		var locked := not _is_map_unlocked(_map_ids[i])
-		var label := ("🔒 " + name) if locked else name
-		_map_list.add_item("%s  %s" % [label, tier])
-		_map_list.set_item_disabled(i, locked)
+		var label := name
 		if locked:
+			label = "🔒 " + name
+
+		var text := "%s    %s" % [label, tier]
+		_map_list.add_item(text)
+
+		_map_list.set_item_disabled(i, locked)
+		_map_list.set_item_custom_fg_color(i, LOCKED_FG if locked else NORMAL_FG)
+		if locked:
+			_map_list.set_item_custom_bg_color(i, Color(0, 0, 0, 0.10))
 			_map_list.set_item_tooltip(i, "Locked. Win the previous map to unlock.")
+		else:
+			_map_list.set_item_custom_bg_color(i, Color(0, 0, 0, 0.0))
 
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
 	for i in range(_map_ids.size()):
@@ -653,9 +772,16 @@ func _update_map_lock_state(rc: Node) -> void:
 		return
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
 	_selected_map_locked = not _is_map_unlocked(cur)
+
 	if _map_start_btn:
 		_map_start_btn.disabled = _selected_map_locked
 		_map_start_btn.text = "Locked" if _selected_map_locked else "Start"
+
+	if _map_preview_lock_lbl:
+		_map_preview_lock_lbl.visible = _selected_map_locked
+
+	if _map_details_frame:
+		_map_details_frame.modulate = Color(1, 1, 1, 0.85) if _selected_map_locked else Color(1, 1, 1, 1)
 
 func _danger_score(m: Dictionary) -> float:
 	var hp: float = float(m.get("enemy_hp_mult", 1.0))
@@ -720,7 +846,7 @@ func _update_map_preview(rc: Node) -> void:
 	for c in _map_preview_vp.get_children():
 		(c as Node).queue_free()
 
-	_map_preview_vp.size = Vector2i(560, 280)
+	_map_preview_vp.size = Vector2i(720, 360)
 	_map_preview_vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 
 	var root := Node2D.new()
@@ -731,7 +857,7 @@ func _update_map_preview(rc: Node) -> void:
 
 	var cam := Camera2D.new()
 	cam.position = Vector2.ZERO
-	cam.zoom = Vector2(0.45, 0.45)
+	cam.zoom = Vector2(0.34, 0.34)
 	cam.process_mode = Node.PROCESS_MODE_ALWAYS
 	cam.enabled = true
 	root.add_child(cam)
@@ -748,7 +874,7 @@ func _update_map_preview(rc: Node) -> void:
 	tmw.set("map_size", Vector2(2400, 1800))
 	tmw.set("biome", biome)
 	tmw.set("seed_value", _hash32(cur))
-	tmw.set("prop_count", 32)
+	tmw.set("prop_count", 18)
 	tmw.set("prop_min_dist_from_center", 60.0)
 	root.add_child(tmw)
 
@@ -756,7 +882,15 @@ func _open_map_overlay() -> void:
 	if _map_overlay == null:
 		_start_run_with_selected_map()
 		return
+
+	if _crowd != null and is_instance_valid(_crowd):
+		_crowd_prev_visible = _crowd.visible
+		_crowd_prev_process_mode = _crowd.process_mode
+		_crowd.visible = false
+		_crowd.process_mode = Node.PROCESS_MODE_DISABLED
+
 	_map_overlay.visible = true
+	_map_overlay.grab_focus()
 	if _map_list:
 		_map_list.grab_focus()
 	elif _map_start_btn:
@@ -766,6 +900,11 @@ func _close_map_overlay() -> void:
 	if _map_overlay == null:
 		return
 	_map_overlay.visible = false
+
+	if _crowd != null and is_instance_valid(_crowd):
+		_crowd.visible = _crowd_prev_visible
+		_crowd.process_mode = _crowd_prev_process_mode
+
 	if _play_btn:
 		_play_btn.grab_focus()
 
