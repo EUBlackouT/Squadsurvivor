@@ -1055,7 +1055,7 @@ static func _effect_shadow_veil(from: Node2D, target: Node2D, damage: int, e: Di
 		target.pulse_vfx(Color(0.65, 0.55, 0.95, 1.0))
 	var world := _main_world(from)
 	if world != null:
-		_sfx(world, "syn.arc", (target as Node2D).global_position, from)
+		_sfx(world, "syn.wisp", (target as Node2D).global_position, from)
 
 static func _effect_shade_step(from: Node2D, target: Node2D, e: Dictionary) -> void:
 	if from == null or target == null:
@@ -1066,6 +1066,9 @@ static func _effect_shade_step(from: Node2D, target: Node2D, e: Dictionary) -> v
 		from.apply_aegis(float(e.get("duration", 0.7)), float(e.get("aegis_mult", 0.65)))
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.65, 0.55, 0.95, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.wisp", (target as Node2D).global_position, from)
 
 static func _effect_featherstorm(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
 	var interval := int(e.get("interval_hits", 4))
@@ -1081,6 +1084,9 @@ static func _effect_featherstorm(from: Node2D, target: Node2D, damage: int, e: D
 	var radius := float(e.get("radius", 420.0))
 	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.28))))
 	_spawn_extra_bolts(from, (from as Node2D).global_position, radius, extra, dmg, Color(0.90, 0.90, 1.0, 0.95), target)
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.arc", (from as Node2D).global_position, from)
 
 static func _effect_web_ward(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
 	var interval := int(e.get("interval_hits", 4))
@@ -1130,6 +1136,9 @@ static func _effect_venom_bite(from: Node2D, target: Node2D, damage: int, e: Dic
 		target.apply_bleed(dps, dur, tick)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.wisp", (target as Node2D).global_position, from)
 
 static func _effect_spore_cloud(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
 	var interval := int(e.get("interval_hits", 4))
@@ -1219,6 +1228,9 @@ static func _effect_gel_split(from: Node2D, target: Node2D, damage: int, e: Dict
 	var radius := float(e.get("radius", 240.0))
 	var dmg := int(round(float(damage) * float(e.get("damage_mult", 0.30))))
 	_spawn_extra_bolts(from, (target as Node2D).global_position, radius, extra, dmg, Color(0.70, 0.95, 0.85, 0.95), target)
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.wisp", (target as Node2D).global_position, from)
 
 static func _effect_suppressive_fire(from: Node2D, target: Node2D, _damage: int, e: Dictionary) -> void:
 	if randf() > float(e.get("chance", 0.40)):
@@ -1229,6 +1241,9 @@ static func _effect_suppressive_fire(from: Node2D, target: Node2D, _damage: int,
 		target.apply_slow(float(e.get("slow_mult", 0.82)), float(e.get("duration", 0.6)))
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.85, 0.95, 1.0, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.focus_tick", (target as Node2D).global_position, from)
 
 static func _effect_pulse_arc(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
 	var interval := int(e.get("interval_hits", 5))
@@ -1273,6 +1288,9 @@ static func _effect_toxic_spike(from: Node2D, target: Node2D, damage: int, e: Di
 		target.apply_burn(dps, dur, tick)
 	if target.has_method("pulse_vfx"):
 		target.pulse_vfx(Color(0.55, 1.0, 0.65, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_sfx(world, "syn.wisp", (target as Node2D).global_position, from)
 
 static func _effect_mutate_surge(from: Node2D, target: Node2D, damage: int, e: Dictionary) -> void:
 	var interval := int(e.get("interval_hits", 5))
@@ -1832,6 +1850,8 @@ class _SynergyBolt extends Node2D:
 	func _hit() -> void:
 		if _target and is_instance_valid(_target) and _target.has_method("take_damage"):
 			_target.take_damage(_damage, false, "synergy")
+		if _world != null and is_instance_valid(_world):
+			SynergySystem._sfx(_world, "syn.arc", global_position, self)
 		
 		# Small impact flash
 		var flash := Sprite2D.new()

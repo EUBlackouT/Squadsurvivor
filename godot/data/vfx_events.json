@@ -245,7 +245,14 @@
     },
     "syn.frost": {
       "effect_key": "attack_crystal",
-      "fps": 12
+      "fps": 12,
+      "scale": 0.42,
+      "offset": [
+        0,
+        -8
+      ],
+      "z": 2060,
+      "tint": "#9bd8ff"
     },
     "syn.holy": {
       "scene_3d": "res://PolyBlocks/EffectBlocks/assets/loot/healing.tscn",
@@ -427,6 +434,17 @@
       "z": 2010,
       "tint": "#ddaa66"
     },
+    "weapon.poison": {
+      "effect_key": "smoke_toxic",
+      "fps": 12,
+      "scale": 0.45,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2100,
+      "tint": "#77ff66"
+    },
     "weapon.poison_hit": {
       "effect_key": "smoke_toxic",
       "fps": 14,
@@ -438,21 +456,32 @@
       "z": 2100,
       "tint": "#66ff44"
     },
+    "weapon.frost": {
+      "effect_key": "electric_sparks_2",
+      "fps": 16,
+      "scale": 0.5,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2100,
+      "tint": "#9bd8ff"
+    },
     "weapon.frost_hit": {
       "effect_key": "attack_crystal",
       "fps": 14,
-      "scale": 0.85,
+      "scale": 0.40,
       "offset": [
         0,
-        -12
+        -10
       ],
       "z": 2100,
-      "tint": "#88ddff"
+      "tint": "#9bd8ff"
     },
     "weapon.frost_trail": {
       "effect_key": "sparkles",
       "fps": 14,
-      "scale": 0.5,
+      "scale": 0.28,
       "offset": [
         0,
         0
@@ -481,6 +510,17 @@
       ],
       "z": 2050,
       "tint": "#ff8833"
+    },
+    "weapon.spirit": {
+      "effect_key": "sparkles",
+      "fps": 16,
+      "scale": 0.55,
+      "offset": [
+        0,
+        -12
+      ],
+      "z": 2100,
+      "tint": "#c69bff"
     },
     "weapon.spirit_lance": {
       "effect_key": "sparkles",
@@ -537,6 +577,17 @@
       "z": 2100,
       "tint": "#ffcc44"
     },
+    "weapon.ricochet": {
+      "effect_key": "impact_1",
+      "fps": 16,
+      "scale": 0.5,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2080,
+      "tint": "#ffd46b"
+    },
     "weapon.orbital_warning": {
       "effect_key": "ground_effect_2",
       "fps": 10,
@@ -548,6 +599,17 @@
       "z": 1900,
       "tint": "#ff4444",
       "loop": true
+    },
+    "weapon.orbital_charge": {
+      "effect_key": "electric_waves",
+      "fps": 12,
+      "scale": 1.0,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2005,
+      "tint": "#ff8a55"
     },
     "weapon.orbital_strike": {
       "effect_key": "explosion_heavy",
@@ -604,6 +666,171 @@
       ],
       "z": 2100,
       "tint": "#9bffd9"
+    },
+    "passive.explosive_rounds": {
+      "effect_key": "explosion_electric",
+      "fps": 14,
+      "scale": 1.0,
+      "offset": [
+        0,
+        -8
+      ],
+      "z": 2150,
+      "tint": "#ffb25c"
+    },
+    "passive.chain_master": {
+      "effect_key": "electric_sparks_3",
+      "fps": 18,
+      "scale": 0.85,
+      "offset": [
+        0,
+        -12
+      ],
+      "z": 2150,
+      "tint": "#87d8ff"
+    },
+    "passive.scatter_specialist": {
+      "effect_key": "muzzle_flash_1",
+      "fps": 18,
+      "scale": 0.85,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2140,
+      "tint": "#ffe79c"
+    },
+    "passive.boomerang_mastery": {
+      "effect_key": "sparkles",
+      "fps": 16,
+      "scale": 0.8,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2140,
+      "tint": "#97fff0"
+    },
+    "passive.beam_focus": {
+      "effect_key": "electric_waves",
+      "fps": 14,
+      "scale": 0.85,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2140,
+      "tint": "#ff9ca5"
+    },
+    "passive.slam_aftershock": {
+      "effect_key": "shockwave",
+      "fps": 14,
+      "scale": 1.0,
+      "offset": [
+        0,
+        0
+      ],
+      "z": 2140,
+      "tint": "#ffb56a"
+    },
+    "passive.frost_mastery": {
+      "effect_key": "attack_crystal",
+      "fps": 14,
+      "scale": 0.5,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2140,
+      "tint": "#9bd8ff"
+    },
+    "passive.poison_mastery": {
+      "effect_key": "smoke_toxic",
+      "fps": 12,
+      "scale": 0.8,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2140,
+      "tint": "#8dff76"
+    },
+    "passive.fire_mastery": {
+      "effect_key": "fire_heavy",
+      "fps": 14,
+      "scale": 0.65,
+      "offset": [
+        0,
+        -10
+      ],
+      "z": 2140,
+      "tint": "#ff9f44"
+    },
+    "passive.orbital_precision": {
+      "effect_key": "ground_effect_2",
+      "fps": 10,
+      "scale": 1.1,
+      "offset": [
+        0,
+        0
+      ],
+      "z": 2140,
+      "tint": "#ff855e"
+    },
+    "passive.reaper_hunger": {
+      "effect_key": "healing",
+      "fps": 14,
+      "scale": 0.75,
+      "offset": [
+        0,
+        -16
+      ],
+      "z": 2140,
+      "tint": "#ff6f84"
+    },
+    "passive.bomb_expert": {
+      "effect_key": "explosion_heavy",
+      "fps": 14,
+      "scale": 1.0,
+      "offset": [
+        0,
+        -6
+      ],
+      "z": 2150,
+      "tint": "#ffb45c"
+    },
+    "passive.ricochet_master": {
+      "effect_key": "impact_1",
+      "fps": 18,
+      "scale": 0.75,
+      "offset": [
+        0,
+        -12
+      ],
+      "z": 2140,
+      "tint": "#ffd46f"
+    },
+    "passive.spirit_surge": {
+      "effect_key": "impact_4",
+      "fps": 18,
+      "scale": 0.9,
+      "offset": [
+        0,
+        -14
+      ],
+      "z": 2140,
+      "tint": "#d69bff"
+    },
+    "passive.vampiric_mastery": {
+      "effect_key": "healing",
+      "fps": 14,
+      "scale": 0.7,
+      "offset": [
+        0,
+        -14
+      ],
+      "z": 2140,
+      "tint": "#ff6da0"
     }
   }
 }

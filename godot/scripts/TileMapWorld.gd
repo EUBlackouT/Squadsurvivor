@@ -36,26 +36,19 @@ const TILESET_DATA = {
 const PROPS = {
 	"graveyard": [
 		"res://assets/map_props/gravestone.png",
-		"res://assets/map_props/dead_tree.png",
-		"res://assets/structures/obelisk_sheet.png",
-		"res://assets/structures/green_fountain_sheet.png"
+		"res://assets/map_props/dead_tree.png"
 	],
 	"library": [
 		"res://assets/map_props/magic_book.png",
-		"res://assets/map_props/crystal_pillar.png",
-		"res://assets/structures/arcane_cube_sheet.png",
-		"res://assets/structures/obelisk_sheet.png"
+		"res://assets/map_props/crystal_pillar.png"
 	],
 	"arcane_ruins": [
 		"res://assets/map_props/magic_book.png",
-		"res://assets/map_props/crystal_pillar.png",
-		"res://assets/structures/arcane_cube_sheet.png",
-		"res://assets/structures/obelisk_sheet.png"
+		"res://assets/map_props/crystal_pillar.png"
 	],
 	"foundry": [
 		"res://assets/map_props/anvil.png",
-		"res://assets/map_props/cauldron.png",
-		"res://assets/structures/obelisk_sheet.png"
+		"res://assets/map_props/cauldron.png"
 	]
 }
 
@@ -121,16 +114,16 @@ func _setup_tilemap() -> void:
 	_tile_map.tile_set = TilesetLoader.create_procedural_tileset(biome)
 
 func _get_tilemap_modulate() -> Color:
-	# Brighten tiles that were generated too dark
+	# Keep tile colors readable but avoid washed-out overbright maps.
 	match biome:
 		"graveyard":
-			return Color(1.8, 1.7, 1.5, 1.0)  # Strong brightness boost
+			return Color(1.05, 1.05, 1.05, 1.0)
 		"library", "arcane_ruins":
-			return Color(1.4, 1.4, 1.5, 1.0)  # Cool brightness
+			return Color(1.10, 1.10, 1.15, 1.0)
 		"foundry":
-			return Color(1.5, 1.4, 1.3, 1.0)  # Warm glow
+			return Color(1.10, 1.05, 1.00, 1.0)
 		_:
-			return Color(1.4, 1.4, 1.4, 1.0)
+			return Color(1.05, 1.05, 1.05, 1.0)
 
 
 func _get_biome_base_color() -> Color:
@@ -160,24 +153,9 @@ func _generate_terrain() -> void:
 	var half_w = int(map_size.x / 2 / tile_size) + padding
 	var half_h = int(map_size.y / 2 / tile_size) + padding
 	
-	# Build a terrain grid (0 = lower, 1 = upper) with clusters
-	var terrain_grid: Dictionary = {}
-	for x in range(-half_w - 1, half_w + 2):
-		for y in range(-half_h - 1, half_h + 2):
-			terrain_grid[Vector2i(x, y)] = 0
-	
-	# Add organic clusters of upper terrain - more clusters for visual interest
-	var num_clusters = int(_rng.randf_range(25, 40))
-	for _i in range(num_clusters):
-		var cx = _rng.randi_range(-half_w + 5, half_w - 5)
-		var cy = _rng.randi_range(-half_h + 5, half_h - 5)
-		var cluster_size = _rng.randi_range(5, 14)
-		for dx in range(-cluster_size, cluster_size + 1):
-			for dy in range(-cluster_size, cluster_size + 1):
-				var dist = sqrt(dx * dx + dy * dy)
-				var threshold = cluster_size * (0.5 + _rng.randf() * 0.5)
-				if dist < threshold:
-					terrain_grid[Vector2i(cx + dx, cy + dy)] = 1
+	# Build structured terrain grid (0 = lower, 1 = upper).
+	# This keeps the map readable and intentional instead of noisy random blobs.
+	var terrain_grid: Dictionary = _build_structured_terrain_grid(half_w, half_h)
 	
 	# Place tiles based on corner terrain values (Wang tiling)
 	var tiles_placed := 0
@@ -199,6 +177,81 @@ func _generate_terrain() -> void:
 			tiles_placed += 1
 	
 	print("TileMapWorld: Placed %d tiles over %dx%d area" % [tiles_placed, half_w * 2, half_h * 2])
+
+func _build_structured_terrain_grid(half_w: int, half_h: int) -> Dictionary:
+	var grid: Dictionary = {}
+	for x in range(-half_w - 1, half_w + 2):
+		for y in range(-half_h - 1, half_h + 2):
+			grid[Vector2i(x, y)] = 0
+
+	# Core structure shared by all biomes: central plaza + two primary paths.
+	_fill_circle(grid, Vector2i.ZERO, 7, 1)
+	_fill_rect(grid, -1, -half_h - 1, 1, half_h + 1, 1)  # vertical spine
+	_fill_rect(grid, -half_w - 1, -1, half_w + 1, 1, 1)  # horizontal spine
+
+	match biome:
+		"graveyard":
+			# Graveyard: mostly dirt/grass with a clear but sparse cobble path network.
+			_fill_ring(grid, Vector2i.ZERO, 16, 1, 1)
+			_fill_circle(grid, Vector2i(int(half_w * 0.42), int(-half_h * 0.18)), 4, 1)
+			_fill_circle(grid, Vector2i(int(-half_w * 0.40), int(half_h * 0.22)), 4, 1)
+			_fill_rect(grid, -half_w / 3, -10, half_w / 3, -8, 1)
+			_fill_rect(grid, -half_w / 3, 8, half_w / 3, 10, 1)
+		"library", "arcane_ruins":
+			# Ordered aisles / chambers.
+			for lane_x in [-22, -12, -2, 8, 18]:
+				_fill_rect(grid, lane_x, -half_h - 1, lane_x + 1, half_h + 1, 1)
+			for lane_y in [-18, -8, 2, 12]:
+				_fill_rect(grid, -half_w - 1, lane_y, half_w + 1, lane_y + 1, 1)
+			_fill_rect(grid, -14, -10, 14, 10, 1)
+		"foundry":
+			# Heavy industrial strips.
+			_fill_rect(grid, -half_w - 1, -12, half_w + 1, -7, 1)
+			_fill_rect(grid, -half_w - 1, 7, half_w + 1, 12, 1)
+			_fill_rect(grid, -14, -half_h - 1, -9, half_h + 1, 1)
+			_fill_rect(grid, 9, -half_h - 1, 14, half_h + 1, 1)
+			_fill_ring(grid, Vector2i.ZERO, 24, 2, 1)
+		_:
+			# Generic fallback: keep a single outer loop.
+			_fill_ring(grid, Vector2i.ZERO, 22, 2, 1)
+
+	# Light deterministic variation (small patches) so structure does not look too rigid.
+	# For graveyard: only a few subtle patches to keep roads dominant and readable.
+	var patch_count := 0 if biome == "graveyard" else int(max(6, mini(18, (half_w + half_h) / 20)))
+	for _i in range(patch_count):
+		var cx := _rng.randi_range(-half_w + 8, half_w - 8)
+		var cy := _rng.randi_range(-half_h + 8, half_h - 8)
+		var r := _rng.randi_range(1, 3) if biome == "graveyard" else _rng.randi_range(2, 5)
+		_fill_circle(grid, Vector2i(cx, cy), r, 1)
+
+	return grid
+
+func _fill_rect(grid: Dictionary, x0: int, y0: int, x1: int, y1: int, v: int) -> void:
+	var min_x := mini(x0, x1)
+	var max_x := maxi(x0, x1)
+	var min_y := mini(y0, y1)
+	var max_y := maxi(y0, y1)
+	for x in range(min_x, max_x + 1):
+		for y in range(min_y, max_y + 1):
+			grid[Vector2i(x, y)] = v
+
+func _fill_circle(grid: Dictionary, c: Vector2i, r: int, v: int) -> void:
+	var rr := r * r
+	for dx in range(-r, r + 1):
+		for dy in range(-r, r + 1):
+			if dx * dx + dy * dy <= rr:
+				grid[Vector2i(c.x + dx, c.y + dy)] = v
+
+func _fill_ring(grid: Dictionary, c: Vector2i, r: int, thickness: int, v: int) -> void:
+	var r_outer := r
+	var r_inner := maxi(0, r - thickness)
+	var rr_outer := r_outer * r_outer
+	var rr_inner := r_inner * r_inner
+	for dx in range(-r_outer, r_outer + 1):
+		for dy in range(-r_outer, r_outer + 1):
+			var d2 := dx * dx + dy * dy
+			if d2 <= rr_outer and d2 >= rr_inner:
+				grid[Vector2i(c.x + dx, c.y + dy)] = v
 
 func _wang_to_atlas(wang_idx: int) -> Vector2i:
 	# Get the Wang mapping built during tileset loading
@@ -247,14 +300,15 @@ func _spawn_props() -> void:
 			continue
 		
 		var spr = Sprite2D.new()
-		spr.texture = available_textures[_rng.randi() % available_textures.size()]
+		var tex := available_textures[_rng.randi() % available_textures.size()]
+		spr.texture = tex
 		spr.position = pos
 		spr.z_index = int(pos.y)  # Y-sorting
 		spr.modulate.a = _rng.randf_range(0.7, 1.0)
 		
 		# Random scale variation
 		var scale_factor = _rng.randf_range(0.8, 1.2)
-		spr.scale = Vector2(scale_factor, scale_factor)
+		spr.scale = Vector2.ONE * (_fit_prop_scale(tex) * scale_factor)
 		
 		_props_node.add_child(spr)
 	
@@ -418,6 +472,15 @@ func _create_procedural_prop() -> Texture2D:
 				img.set_pixel(x, y, Color(0, 0, 0, 0))
 	
 	return ImageTexture.create_from_image(img)
+
+func _fit_prop_scale(tex: Texture2D) -> float:
+	if tex == null:
+		return 1.0
+	var sz := tex.get_size()
+	var max_dim := maxf(1.0, maxf(sz.x, sz.y))
+	# Normalize any oversized source texture to roughly 56px visible height.
+	var target := 56.0
+	return clampf(target / max_dim, 0.08, 1.0)
 
 func _setup_fog() -> void:
 	_fog = Sprite2D.new()

@@ -57,8 +57,20 @@ func _ready() -> void:
 	# Player physics layer: 4, collide with enemies layer 2
 	collision_layer = 1 << 3
 	collision_mask = 1 << 1
+	_apply_player_visual_identity()
 
 	_spawn_initial_squad()
+
+func _apply_player_visual_identity() -> void:
+	var spr := get_node_or_null("Sprite2D") as Sprite2D
+	if spr != null:
+		spr.scale = Vector2(0.5, 0.5)
+		spr.modulate = Color(0.25, 1.0, 0.45, 1.0)
+		var mat := ShaderMaterial.new()
+		mat.shader = preload("res://shaders/pixel_outline.gdshader")
+		mat.set_shader_parameter("outline_color", Color(0.20, 1.0, 0.40, 0.98))
+		mat.set_shader_parameter("outline_px", 1.5)
+		spr.material = mat
 
 func _spawn_initial_squad() -> void:
 	await get_tree().process_frame

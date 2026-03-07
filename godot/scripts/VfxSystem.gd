@@ -270,7 +270,10 @@ func _get_frames(effect_key: String) -> Array[Texture2D]:
 			break
 		if d.current_is_dir():
 			continue
-		if not f.to_lower().ends_with(".png"):
+		var lf := f.to_lower()
+		var is_png := lf.ends_with(".png")
+		var is_png_import := lf.ends_with(".png.import")
+		if not is_png and not is_png_import:
 			continue
 		if not f.begins_with(want_prefix):
 			continue
@@ -279,8 +282,12 @@ func _get_frames(effect_key: String) -> Array[Texture2D]:
 
 	files.sort()
 	for f2 in files:
+		var tex: Texture2D = null
 		var p := "%s/%s" % [dir_path, f2]
-		var tex := load(p) as Texture2D
+		if f2.to_lower().ends_with(".png"):
+			tex = load(p) as Texture2D
+		elif f2.to_lower().ends_with(".png.import"):
+			tex = _load_texture_from_import_file(p)
 		if tex != null:
 			frames.append(tex)
 
@@ -307,3 +314,25 @@ func _get_frames(effect_key: String) -> Array[Texture2D]:
 
 	_cache_frames[effect_key] = frames
 	return frames
+
+func _load_texture_from_import_file(import_path: String) -> Texture2D:
+	# Support repos where source PNGs are absent but .png.import + .ctex exist.
+	# Example line in .import:
+	# path="res://.godot/imported/fireballs_0000.png-<hash>.ctex"
+	var txt := FileAccess.get_file_as_string(import_path)
+	if txt.is_empty():
+		return null
+	var remap_path := ""
+	for line in txt.split("\n"):
+		var s := line.strip_edges()
+		if s.begins_with("path="):
+			remap_path = s.substr(5)
+			break
+	if remap_path == "":
+		return null
+	remap_path = remap_path.strip_edges()
+	if remap_path.begins_with("\"") and remap_path.ends_with("\"") and remap_path.length() >= 2:
+		remap_path = remap_path.substr(1, remap_path.length() - 2)
+	if remap_path == "" or not ResourceLoader.exists(remap_path):
+		return null
+	return load(remap_path) as Texture2D

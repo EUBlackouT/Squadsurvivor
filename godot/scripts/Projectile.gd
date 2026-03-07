@@ -34,24 +34,27 @@ func _ready() -> void:
 		sprite = Sprite2D.new()
 		sprite.name = "Sprite2D"
 		add_child(sprite)
-	# Prefer EffectBlocks-exported flipbook projectile if available.
+	# Prefer custom projectile sprite by default; flipbook can be enabled per-event.
+	# This avoids "sheet-looking" projectiles when a generic atlas effect is configured.
 	var vfx := get_node_or_null("/root/VfxSystem")
 	var used_flipbook := false
 	if vfx and is_instance_valid(vfx) and vfx.has_method("get_event_cfg") and vfx.has_method("get_frames_for_key"):
 		var cfg: Dictionary = vfx.get_event_cfg("proj.player") as Dictionary
-		var key := String(cfg.get("effect_key", ""))
-		var frames: Array = vfx.get_frames_for_key(key) as Array
-		if not frames.is_empty():
-			_flipbook = VfxFlipbook2D.new()
-			_flipbook.name = "ProjFlipbook"
-			add_child(_flipbook)
-			_flipbook.z_index = int(cfg.get("z", 20))
-			var fps := float(cfg.get("fps", 16))
-			var sc := float(cfg.get("scale", 0.55))
-			_flipbook_rot_offset = deg_to_rad(float(cfg.get("rot_deg", 0.0)))
-			_flipbook.setup(frames as Array[Texture2D], fps, true, Color(1, 1, 1, 1), sc)
-			_flipbook.rotation = _flipbook_rot_offset
-			used_flipbook = true
+		var use_flipbook := bool(cfg.get("use_flipbook", false))
+		if use_flipbook:
+			var key := String(cfg.get("effect_key", ""))
+			var frames: Array = vfx.get_frames_for_key(key) as Array
+			if not frames.is_empty():
+				_flipbook = VfxFlipbook2D.new()
+				_flipbook.name = "ProjFlipbook"
+				add_child(_flipbook)
+				_flipbook.z_index = int(cfg.get("z", 20))
+				var fps := float(cfg.get("fps", 16))
+				var sc := float(cfg.get("scale", 0.55))
+				_flipbook_rot_offset = deg_to_rad(float(cfg.get("rot_deg", 0.0)))
+				_flipbook.setup(frames as Array[Texture2D], fps, true, Color(1, 1, 1, 1), sc)
+				_flipbook.rotation = _flipbook_rot_offset
+				used_flipbook = true
 
 	if used_flipbook:
 		if sprite: sprite.visible = false

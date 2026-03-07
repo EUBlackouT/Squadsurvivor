@@ -10,19 +10,19 @@ extends Node2D
 @export var map_fog_enabled: bool = true
 @export var map_fog_strength: float = 0.16
 
-@export var initial_enemy_count: int = 8  # Start with more enemies for immediate action
+@export var initial_enemy_count: int = 5
 @export var max_enemies_alive: int = 90 # legacy cap, superseded by ramp below
 @export var enemy_spawn_interval: float = 1.15 # legacy interval, superseded by ramp below
 @export var enemy_spawn_burst: int = 1 # legacy burst, superseded by ramp below
-@export var difficulty_ramp_minutes: float = 10.0  # Faster ramp = more exciting
+@export var difficulty_ramp_minutes: float = 14.0
 # >1.0 makes early game chill and midgame ramp faster (e.g. 2.0–3.0 is "chill then spicy").
-@export var ramp_curve_power: float = 2.2  # Less curved = earlier action
+@export var ramp_curve_power: float = 2.8
 # "Vampire Survivors" target: early minutes are cleanable, midgame starts to pressure hard.
-@export var spawn_interval_start: float = 1.80  # Faster spawns from the start
-@export var spawn_interval_end: float = 0.55    # More hectic late game
-@export var max_enemies_start: int = 25         # More enemies early
-@export var max_enemies_end: int = 180          # Bigger swarms late
-@export var spawn_radius_min: float = 700.0     # Enemies spawn closer = more action
+@export var spawn_interval_start: float = 2.60
+@export var spawn_interval_end: float = 0.95
+@export var max_enemies_start: int = 14
+@export var max_enemies_end: int = 120
+@export var spawn_radius_min: float = 900.0
 @export var spawn_radius_max: float = 1100.0
 
 @export var run_timer_max_minutes: float = 18.0
@@ -374,6 +374,7 @@ func _physics_process(delta: float) -> void:
 		_spawn_boss()
 	_tick_end_of_run_timer()
 	_update_hud_labels()
+	_sync_passive_overlay_hotkey()
 
 	if debug_perf_overlay_enabled:
 		var total_ms: float = float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
@@ -463,6 +464,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_try_focus_enemy(get_global_mouse_position())
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
 			_set_rally(get_global_mouse_position(), 0.85)
+
+func _sync_passive_overlay_hotkey() -> void:
+	if _passive_overlay == null:
+		return
+	var blocked := _game_over or _victory or get_tree().paused or has_node("RecruitDraftUI") or has_node("PauseMenu")
+	var wants_overlay := (not blocked) and Input.is_key_pressed(KEY_TAB)
+	if wants_overlay and not _passive_overlay.visible:
+		_show_passive_overlay()
+	elif (not wants_overlay) and _passive_overlay.visible:
+		_hide_passive_overlay()
 
 func _try_focus_enemy(world_pos: Vector2) -> void:
 	_prune_invalid_lists()
@@ -782,9 +793,9 @@ func _tick_spawns() -> void:
 	for i in range(burst):
 		if live_enemies.size() >= cap:
 			break
-		# Elite spawn chance scales with time - more elites = more excitement!
+		# Keep elite pressure gentler early; ramp later.
 		var r := _ramp01_curved()
-		var elite_chance := lerpf(0.06, 0.22, r)  # 6% early -> 22% late
+		var elite_chance := lerpf(0.02, 0.14, r)
 		elite_chance *= float(_map_mod.get("elite_spawn_mult", 1.0))
 		var roll_elite := rng.randf() < elite_chance
 		_spawn_enemy(roll_elite, false, false)
@@ -817,9 +828,9 @@ func _current_max_enemies() -> int:
 	return maxi(1, int(round(float(base) * float(_map_mod.get("max_enemies_mult", 1.0)))))
 
 func _current_spawn_burst() -> int:
-	# Keep early game at 1, later game occasionally uses 2.
+	# Burst spawning only in true late-game.
 	var r := _ramp01_curved()
-	return 1 if r < 0.72 else 2
+	return 1 if r < 0.84 else 2
 
 func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	if ENEMY_SCENE == null:
@@ -1576,6 +1587,7 @@ func _setup_hud() -> void:
 	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	panel.offset_left = 12
 	panel.offset_top = 12
+	panel.custom_minimum_size = Vector2(760, 0)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block game input
 	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
 	hud.add_child(panel)
@@ -1601,26 +1613,35 @@ func _setup_hud() -> void:
 	top_row.add_child(timer_chip)
 
 	var formation_chip := _make_hud_chip("FormationLabel", "Formation: TIGHT   Tactics: NEAREST", UiSkin.ACCENT, 12)
+	formation_chip.visible = false
 	top_row.add_child(formation_chip)
 
 	var cmd := Label.new()
 	cmd.name = "CommandLabel"
 	cmd.text = "LMB Focus Enemy • RMB Rally Squad • Q Overclock • F Callout • TAB Passives"
+	cmd.autowrap_mode = TextServer.AUTOWRAP_OFF
+	cmd.clip_text = true
+	cmd.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	cmd.add_theme_font_size_override("font_size", 13)
 	cmd.add_theme_color_override("font_color", Color(0.70, 0.85, 0.95, 0.85))
+	cmd.visible = false
 	container.add_child(cmd)
 
 	var syn_chip := _make_hud_chip("SynergyLabel", "Synergies: —", UiSkin.ACCENT_PURPLE, 12)
+	syn_chip.visible = false
 	container.add_child(syn_chip)
 
 	var boss_chip := _make_hud_chip("BossLabel", "", UiSkin.ACCENT_RED, 12)
+	boss_chip.visible = false
 	container.add_child(boss_chip)
 
 	# Debug label to identify what is drawing the "orbs"
 	var dbg_chip := _make_hud_chip("DebugLabel", "", UiSkin.TEXT_DIM, 11)
+	dbg_chip.visible = false
 	container.add_child(dbg_chip)
 
 	var perf_chip := _make_hud_chip("PerfLabel", "", UiSkin.TEXT_DIM, 11)
+	perf_chip.visible = false
 	container.add_child(perf_chip)
 	
 	# Passive overlay panel (shown when holding TAB)
@@ -1937,18 +1958,26 @@ func _update_hud_labels() -> void:
 		var mm := int(secs / 60)
 		var ss := int(secs % 60)
 		t.text = "Time: %d:%02d   Essence: %d" % [mm, ss, essence]
+		if t.get_parent() is CanvasItem:
+			(t.get_parent() as CanvasItem).visible = true
 
 	var b := get_node_or_null("HUD/HUDPanel/HUDVBox/BossLabel") as Label
 	if b:
 		if _boss_node and is_instance_valid(_boss_node) and _boss_node.has_method("get_hp_ratio"):
 			var r := float(_boss_node.get_hp_ratio())
 			b.text = "Boss: %d%%" % int(round(r * 100.0))
+			if b.get_parent() is CanvasItem:
+				(b.get_parent() as CanvasItem).visible = true
 		else:
 			b.text = ""
+			if b.get_parent() is CanvasItem:
+				(b.get_parent() as CanvasItem).visible = false
 
 	var s := get_node_or_null("HUD/HUDPanel/HUDVBox/SynergyLabel") as Label
 	if s:
 		s.text = SynergySystem.summary_text()
+		if s.get_parent() is CanvasItem:
+			(s.get_parent() as CanvasItem).visible = debug_hud_enabled
 
 	var cmd := get_node_or_null("HUD/HUDPanel/HUDVBox/CommandLabel") as Label
 	if cmd:
@@ -1972,12 +2001,15 @@ func _update_hud_labels() -> void:
 		if _callout_until_s > 0.0 and _callout_class >= 0:
 			active_txt = "   Active: %s %.1fs" % [_class_name(_callout_class), _callout_until_s]
 		cmd.text = "Commands: LMB Focus • RMB Rally • Shift Dash%s   |   %s   %s   %s   %s%s" % [oc_txt, focus_txt, rally_txt, dash_txt, callout_txt, active_txt]
+		cmd.visible = debug_hud_enabled
 
 	# Debug: count collision shapes / particles to confirm source of circles.
 	var dbg := get_node_or_null("HUD/HUDPanel/HUDVBox/DebugLabel") as Label
 	if dbg:
 		if not debug_hud_enabled:
 			dbg.text = ""
+			if dbg.get_parent() is CanvasItem:
+				(dbg.get_parent() as CanvasItem).visible = false
 		else:
 			_dbg_cd -= get_process_delta_time()
 			if _dbg_cd <= 0.0:
@@ -1999,17 +2031,32 @@ func _update_hud_labels() -> void:
 				if details.size() > 0:
 					_dbg_text += "\nCircleSrc: " + " || ".join(details)
 			dbg.text = _dbg_text
+			if dbg.get_parent() is CanvasItem:
+				(dbg.get_parent() as CanvasItem).visible = true
 
 	var perf := get_node_or_null("HUD/HUDPanel/HUDVBox/PerfLabel") as Label
 	if perf:
 		if not debug_perf_overlay_enabled:
 			perf.text = ""
+			if perf.get_parent() is CanvasItem:
+				(perf.get_parent() as CanvasItem).visible = false
 		else:
 			perf.text = _perf_text
+			if perf.get_parent() is CanvasItem:
+				(perf.get_parent() as CanvasItem).visible = true
 
 func _make_hud_chip(label_name: String, text: String, accent: Color, font_size: int = 12) -> PanelContainer:
 	var chip := PanelContainer.new()
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	match label_name:
+		"RunTimerLabel":
+			chip.custom_minimum_size.x = 260
+		"FormationLabel":
+			chip.custom_minimum_size.x = 300
+		"SynergyLabel":
+			chip.custom_minimum_size.x = 280
+		_:
+			chip.custom_minimum_size.x = 180
 	var sb := UiSkin.chip_style(accent if accent != null else UiSkin.ACCENT)
 	sb.content_margin_left = 8
 	sb.content_margin_right = 8
@@ -2020,7 +2067,9 @@ func _make_hud_chip(label_name: String, text: String, accent: Color, font_size: 
 	var lbl := Label.new()
 	lbl.name = label_name
 	lbl.text = text
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lbl.clip_text = true
+	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	lbl.add_theme_font_size_override("font_size", font_size)
 	lbl.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
 	chip.add_child(lbl)

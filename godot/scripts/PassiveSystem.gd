@@ -790,6 +790,10 @@ static func _vortex_tag(from: Node2D, target: Node2D, damage: int) -> void:
 			v.take_damage(dmg, false, "blast")
 		if v.has_method("pulse_vfx"):
 			v.pulse_vfx(Color(0.35, 0.80, 1.0, 1.0))
+	var world := _main_world(from)
+	if world != null:
+		_vfx_event(world, "syn.shock", origin, Color(0.35, 0.80, 1.0, 1.0), 0.9)
+		_sfx_event(world, "syn.shock", origin, from)
 
 static func _spore_bloom(from: Node2D, target: Node2D, damage: int) -> void:
 	if from == null or target == null or not is_instance_valid(target):
@@ -859,6 +863,7 @@ static func _frost_tag(target: Node2D) -> void:
 	var world := _main_world(target)
 	if world != null:
 		_vfx_event(world, "syn.frost", (target as Node2D).global_position + Vector2(0, -18), Color(0.55, 0.85, 1.0, 1.0), 0.75)
+		_sfx_event(world, "syn.frost", (target as Node2D).global_position, target)
 
 static func _bleed_edge(target: Node2D, damage: int) -> void:
 	if target == null or not is_instance_valid(target):
@@ -874,6 +879,7 @@ static func _bleed_edge(target: Node2D, damage: int) -> void:
 	var world := _main_world(target)
 	if world != null:
 		_vfx_event(world, "enemy.die", (target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.25, 0.35, 1.0), 0.7)
+		_sfx_event(world, "hit.melee", (target as Node2D).global_position, target)
 
 static func _cinder_brand(target: Node2D, damage: int, passive_ids: PackedStringArray) -> void:
 	# Applies burn (DOT) on hit.
@@ -922,6 +928,7 @@ static func _toxic_venom(target: Node2D, damage: int, passive_ids: PackedStringA
 	var world := _main_world(target)
 	if world:
 		_vfx_event(world, "syn.wisp", (target as Node2D).global_position + Vector2(0, -18), Color(0.35, 0.95, 0.25, 1.0), 0.6)
+		_sfx_event(world, "passive.poison_mastery", (target as Node2D).global_position, target)
 
 static func _vampiric_bullets(proj: Node2D, damage: int) -> void:
 	# Heal shooter on projectile hit. Requires Projectile to carry source_unit.
@@ -942,6 +949,7 @@ static func _vampiric_bullets(proj: Node2D, damage: int) -> void:
 	if world != null:
 		var start := (proj as Node2D).global_position
 		_spawn_arc(world, start, su.global_position, Color(0.55, 1.0, 0.65, 0.95))
+		_sfx_event(world, "passive.vampiric_mastery", su.global_position, su)
 	# Heal pulse
 	if world == null or (not _vfx_event(world, "syn.holy", su.global_position + Vector2(0, -18), Color(0.55, 1.0, 0.65, 1.0), 0.9)):
 		var hp := VfxHolyPulse.new()
@@ -1045,6 +1053,8 @@ static func _doomstack(from: Node2D, target: Node2D, damage: int) -> void:
 		var fm := VfxFocusMark.new()
 		fm.setup((target as Node2D).global_position + Vector2(0, -18), Color(0.82, 0.65, 1.0, 1.0), 18.0, stacks, 0.18)
 		_spawn_vfx(target as Node2D, fm)
+	if world != null:
+		_sfx_event(world, "syn.focus_tick", (target as Node2D).global_position, target)
 	if stacks < stacks_need:
 		return
 	# Detonate
@@ -1060,6 +1070,8 @@ static func _doomstack(from: Node2D, target: Node2D, damage: int) -> void:
 		var sw := VfxShockwave.new()
 		sw.setup((target as Node2D).global_position, Color(0.82, 0.65, 1.0, 1.0), 18.0, rad * 0.9, 5.0, 0.22)
 		_spawn_vfx(target as Node2D, sw)
+	if world != null:
+		_sfx_event(world, "syn.shock", (target as Node2D).global_position, target)
 	var origin := (target as Node2D).global_position
 	var victims := _nearby_enemies(from if from != null else target, origin, rad, target as Node2D)
 	for v in victims:
@@ -1090,6 +1102,8 @@ static func _hailburst(from: Node2D, target: Node2D, damage: int) -> void:
 		var nova := VfxFrostNova.new()
 		nova.setup(origin, Color(0.55, 0.85, 1.0, 1.0), rad, 10, 0.24)
 		_spawn_vfx(target as Node2D, nova)
+	if world != null:
+		_sfx_event(world, "syn.frost", origin, target)
 	for v in victims:
 		if v.has_method("take_damage"):
 			v.take_damage(boom, false, "blast")
@@ -1120,6 +1134,8 @@ static func _predator_instinct(target: Node2D, damage: int) -> void:
 		var fm := VfxFocusMark.new()
 		fm.setup((target as Node2D).global_position + Vector2(0, -18), Color(1.0, 0.85, 0.30, 1.0), 18.0, 0, 0.16)
 		_spawn_vfx(target as Node2D, fm)
+	if world != null:
+		_sfx_event(world, "syn.execute", (target as Node2D).global_position, target)
 
 static func _echo_strike(unit: Node2D, target: Node2D, damage: int, _is_crit: bool) -> void:
 	if unit == null or target == null:
@@ -1219,7 +1235,8 @@ static func _venomous(target: Node2D, damage: int) -> void:
 		target.pulse_vfx(Color(0.45, 0.95, 0.35, 1.0))
 	var world := _main_world(target)
 	if world != null:
-		_vfx_event(world, "syn.frost", (target as Node2D).global_position + Vector2(0, -18), Color(0.45, 0.95, 0.35, 1.0), 0.7)
+		_vfx_event(world, "syn.wisp", (target as Node2D).global_position + Vector2(0, -18), Color(0.45, 0.95, 0.35, 1.0), 0.7)
+		_sfx_event(world, "syn.wisp", (target as Node2D).global_position, target)
 
 static func get_berserker_mods(unit: Node2D) -> Dictionary:
 	# Returns stat modifiers for berserker if active (low HP = power boost).

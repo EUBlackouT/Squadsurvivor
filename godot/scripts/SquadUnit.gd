@@ -39,7 +39,7 @@ enum TargetMode { NEAREST, LOWEST_HP, ELITES_FIRST }
 var _formation_mode: int = FormationMode.TIGHT
 var _target_mode: int = TargetMode.NEAREST
 const TARGET_MODE_COUNT: int = 3
-const TARGET_SPRITE_HEIGHT: float = 52.0
+const TARGET_SPRITE_HEIGHT: float = 26.0
 
 var _current_anim: String = "walk_south"
 var _anim_cooldown: float = 0.0
@@ -114,7 +114,7 @@ func _apply_visuals() -> void:
 	# Outline for readability
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://shaders/pixel_outline.gdshader")
-	mat.set_shader_parameter("outline_color", Color(0, 0, 0, 1))
+	mat.set_shader_parameter("outline_color", Color(0.12, 0.55, 1.0, 0.95))
 	mat.set_shader_parameter("outline_px", 1.5)
 	anim.material = mat
 
@@ -127,8 +127,8 @@ func _apply_visuals() -> void:
 		health_bar.show_percentage = false
 		health_bar.min_value = 0
 		health_bar.max_value = 100
-		health_bar.position = Vector2(-24, -50)
-		health_bar.custom_minimum_size = Vector2(48, 6)
+		health_bar.position = Vector2(-20, -36)
+		health_bar.custom_minimum_size = Vector2(40, 5)
 		# Slightly brighter so it reads on dark maps.
 		health_bar.modulate = Color(1.0, 1.0, 1.0, 0.92)
 

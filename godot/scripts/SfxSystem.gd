@@ -278,13 +278,19 @@ func _build_event_cfg() -> void:
 	_event_cfg["weapon.beam"] = {"stream": "weapon_beam", "gain_db": 1.5 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 150, "min_ms_emitter": 300}
 	_event_cfg["weapon.slam"] = {"stream": "weapon_slam", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 280}
 	_event_cfg["weapon.poison"] = {"stream": "weapon_poison", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 60, "min_ms_emitter": 140}
+	_event_cfg["weapon.poison_hit"] = {"stream": "weapon_poison", "gain_db": -1.0 + loud, "pitch": 1.05, "jitter": 0.06, "min_ms_global": 40, "min_ms_emitter": 80}
 	_event_cfg["weapon.frost"] = {"stream": "weapon_frost", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 80, "min_ms_emitter": 180}
+	_event_cfg["weapon.frost_hit"] = {"stream": "weapon_frost", "gain_db": 1.0 + loud, "pitch": 1.02, "jitter": 0.05, "min_ms_global": 40, "min_ms_emitter": 80}
 	_event_cfg["weapon.fire"] = {"stream": "weapon_fire", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 100, "min_ms_emitter": 200}
 	_event_cfg["weapon.spirit"] = {"stream": "weapon_spirit", "gain_db": 0.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 80, "min_ms_emitter": 160}
+	_event_cfg["weapon.spirit_strike"] = {"stream": "weapon_spirit", "gain_db": 1.0 + loud, "pitch": 1.05, "jitter": 0.04, "min_ms_global": 60, "min_ms_emitter": 120}
 	_event_cfg["weapon.vampiric"] = {"stream": "weapon_vampiric", "gain_db": -0.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 100, "min_ms_emitter": 200}
 	_event_cfg["weapon.ricochet"] = {"stream": "weapon_ricochet", "gain_db": -1.5 + loud, "pitch": 1.0, "jitter": 0.10, "min_ms_global": 30, "min_ms_emitter": 60}
+	_event_cfg["weapon.ricochet_bounce"] = {"stream": "weapon_ricochet", "gain_db": -1.0 + loud, "pitch": 1.08, "jitter": 0.10, "min_ms_global": 30, "min_ms_emitter": 60}
+	_event_cfg["weapon.orbital_warning"] = {"stream": "weapon_orbital_charge", "gain_db": 0.5 + loud, "pitch": 0.95, "jitter": 0.03, "min_ms_global": 180, "min_ms_emitter": 350}
 	_event_cfg["weapon.orbital_charge"] = {"stream": "weapon_orbital_charge", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 200, "min_ms_emitter": 400}
 	_event_cfg["weapon.orbital_strike"] = {"stream": "weapon_orbital_strike", "gain_db": 4.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 300, "min_ms_emitter": 500}
+	_event_cfg["weapon.orbital_beam"] = {"stream": "weapon_orbital_charge", "gain_db": 1.2 + loud, "pitch": 0.90, "jitter": 0.03, "min_ms_global": 150, "min_ms_emitter": 300}
 
 #
 # Synth helpers

@@ -356,6 +356,12 @@ class DotProjectile extends Node2D:
 		# Green poison visual
 		if target.has_method("pulse_vfx"):
 			target.pulse_vfx(Color(0.3, 0.9, 0.3, 1.0))
+		var v := _main.get_node_or_null("/root/VfxSystem") if _main else null
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("weapon.poison_hit", target.global_position, _main, Color(0.45, 1.0, 0.45, 1.0), 0.95)
+		var s := _main.get_node_or_null("/root/SfxSystem") if _main else null
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("weapon.poison", target.global_position, self)
 		
 		queue_free()
 
@@ -434,6 +440,12 @@ class SlowProjectile extends Node2D:
 		# Frost visual
 		if target.has_method("pulse_vfx"):
 			target.pulse_vfx(Color(0.6, 0.85, 1.0, 1.0))
+		var v := _main.get_node_or_null("/root/VfxSystem") if _main else null
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("weapon.frost_hit", target.global_position, _main, Color(0.72, 0.9, 1.0, 1.0), 0.9)
+		var s := _main.get_node_or_null("/root/SfxSystem") if _main else null
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("weapon.frost", target.global_position, self)
 		
 		queue_free()
 
@@ -498,6 +510,13 @@ class RicochetProjectile extends Node2D:
 	func _hit(target: Node2D) -> void:
 		if target.has_method("take_damage"):
 			target.take_damage(_damage, _is_crit and _bounces_left == int(_bounces_left), "ricochet")
+		if _main != null and is_instance_valid(_main):
+			var v := _main.get_node_or_null("/root/VfxSystem")
+			if v and is_instance_valid(v) and v.has_method("play_event"):
+				v.play_event("weapon.ricochet_bounce", target.global_position, _main, Color(1.0, 0.9, 0.45, 1.0), 0.85)
+			var sfx := _main.get_node_or_null("/root/SfxSystem")
+			if sfx and is_instance_valid(sfx) and sfx.has_method("play_event"):
+				sfx.play_event("weapon.ricochet", target.global_position, self)
 		_hit_targets.append(target)
 		if _cd != null and PassiveSystem.has_passive(_cd.passive_ids, "ricochet_master"):
 			if _main != null and is_instance_valid(_main):
@@ -606,6 +625,12 @@ class DelayedStrike extends Node2D:
 		var flash := VfxImpactFlash.new()
 		flash.setup(global_position, Color(0.8, 0.6, 1.0, 1.0), _radius * 0.8, 0.15)
 		_main.add_child(flash)
+		var v := _main.get_node_or_null("/root/VfxSystem") if _main else null
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("weapon.spirit_strike", global_position, _main, Color(0.85, 0.7, 1.0, 1.0), maxf(0.7, _radius / 40.0))
+		var s := _main.get_node_or_null("/root/SfxSystem") if _main else null
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("weapon.spirit", global_position, self)
 		
 		queue_free()
 
@@ -686,6 +711,9 @@ class OrbitalStrike extends Node2D:
 			var s := _main.get_node_or_null("/root/SfxSystem") if _main else null
 			if s and is_instance_valid(s) and s.has_method("play_event"):
 				s.play_event("weapon.orbital_charge", global_position, self)
+			var v2 := _main.get_node_or_null("/root/VfxSystem") if _main else null
+			if v2 and is_instance_valid(v2) and v2.has_method("play_event"):
+				v2.play_event("weapon.orbital_charge", global_position, _main, Color(1.0, 0.55, 0.25, 0.95), maxf(0.8, _radius / 90.0))
 		
 		if _elapsed >= _delay:
 			_strike()

@@ -69,6 +69,9 @@ static func execute_attack(
 		w = PassiveSystem.apply_weapon_mods(weapon_id, w, character_data.passive_ids)
 	
 	var wtype := String(w.get("type", "projectile"))
+	# Every ranged/cast attack gets a visible cast flash in addition to hit VFX.
+	if _is_ranged_weapon_type(wtype):
+		_play_vfx(main_node, "player.shot", attacker.global_position + Vector2(0, -10))
 	
 	match wtype:
 		"projectile":
@@ -109,6 +112,13 @@ static func execute_attack(
 			_fire_orbital_strike(attacker, target, damage, is_crit, main_node, character_data, w)
 		_:
 			_fire_standard_projectile(attacker, target, damage, is_crit, main_node, character_data)
+
+static func _is_ranged_weapon_type(wtype: String) -> bool:
+	match wtype:
+		"projectile", "bomb", "chain", "pierce", "scatter", "boomerang", "beam", "dot_projectile", "slow_projectile", "cone", "delayed_strike", "ricochet", "orbital":
+			return true
+		_:
+			return false
 
 # === WEAPON IMPLEMENTATIONS ===
 
@@ -170,7 +180,7 @@ static func _execute_melee_arc(attacker: Node2D, target: Node2D, damage: int, is
 	
 	# VFX: big visible slash arc
 	_spawn_melee_arc_vfx(main_node, attacker.global_position, dir, arc_radius, arc_angle)
-	_play_sfx(main_node, "weapon.slash", attacker.global_position)
+	_play_sfx(main_node, "weapon.reaper_slash", attacker.global_position)
 	
 	# Screen shake for melee impact
 	var shake := main_node.get_node_or_null("/root/ScreenShake")
@@ -275,7 +285,7 @@ static func _fire_piercing_shot(attacker: Node2D, target: Node2D, damage: int, i
 		proj.set_speed(float(w.get("projectile_speed", 750)))
 	if proj.has_method("setup_target"):
 		proj.setup_target(target, damage, is_crit, cd.passive_ids if cd else [], cd, attacker)
-	_play_sfx(main_node, "player.shot", attacker.global_position)
+	_play_sfx(main_node, "weapon.pierce", attacker.global_position)
 
 static func _fire_scatter_shot(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var proj_count := int(w.get("projectile_count", 5))
@@ -307,7 +317,7 @@ static func _fire_scatter_shot(attacker: Node2D, target: Node2D, damage: int, is
 		elif proj.has_method("setup_target"):
 			proj.setup_target(target, int(float(damage) * dmg_per), is_crit and i == proj_count / 2, [], cd, attacker)
 	
-	_play_sfx(main_node, "player.shot", attacker.global_position)
+	_play_sfx(main_node, "weapon.scatter", attacker.global_position)
 
 static func _fire_boomerang(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var boomerang := WP.BoomerangProjectile.new()
@@ -323,7 +333,7 @@ static func _fire_boomerang(attacker: Node2D, target: Node2D, damage: int, is_cr
 		cd
 	)
 	main_node.add_child(boomerang)
-	_play_sfx(main_node, "player.shot", attacker.global_position)
+	_play_sfx(main_node, "weapon.boomerang", attacker.global_position)
 	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "boomerang_mastery"):
 		var ms := VfxMeleeStreak.new()
 		ms.setup(attacker.global_position, Vector2(1, 0), Color(0.55, 0.95, 0.90, 1.0), 36.0, 8.0, 0.10)
@@ -349,7 +359,7 @@ static func _fire_beam(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 		cd
 	)
 	main_node.add_child(beam)
-	_play_sfx(main_node, "hit.crit", attacker.global_position)
+	_play_sfx(main_node, "weapon.beam", attacker.global_position)
 	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "beam_focus"):
 		var pos := attacker.global_position + (target.global_position - attacker.global_position).normalized() * 24.0
 		var sw := VfxShockwave.new()
@@ -518,7 +528,8 @@ static func _fire_dot_projectile(attacker: Node2D, target: Node2D, damage: int, 
 		attacker
 	)
 	main_node.add_child(proj)
-	_play_sfx(main_node, "player.shot", attacker.global_position)
+	_play_sfx(main_node, "weapon.poison", attacker.global_position)
+	_play_vfx(main_node, "weapon.poison", attacker.global_position + Vector2(0, -10))
 
 static func _fire_slow_projectile(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var proj := WP.SlowProjectile.new()
@@ -538,7 +549,8 @@ static func _fire_slow_projectile(attacker: Node2D, target: Node2D, damage: int,
 		attacker
 	)
 	main_node.add_child(proj)
-	_play_sfx(main_node, "player.shot", attacker.global_position)
+	_play_sfx(main_node, "weapon.frost", attacker.global_position)
+	_play_vfx(main_node, "weapon.frost", attacker.global_position + Vector2(0, -10))
 
 static func _fire_cone(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var cone_angle := float(w.get("cone_angle", 60))
@@ -686,7 +698,8 @@ static func _fire_delayed_strike(attacker: Node2D, target: Node2D, damage: int, 
 		strike.setup(strike_pos, per_dmg, is_crit and i == 0, radius, delay + float(i) * 0.15, main_node, cd, attacker)
 		main_node.add_child(strike)
 	
-	_play_sfx(main_node, "player.shot", attacker.global_position)
+	_play_sfx(main_node, "weapon.spirit", attacker.global_position)
+	_play_vfx(main_node, "weapon.spirit", attacker.global_position + Vector2(0, -12))
 
 static func _execute_whirlwind(attacker: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var radius := float(w.get("radius", 95))
@@ -711,7 +724,7 @@ static func _execute_whirlwind(attacker: Node2D, damage: int, is_crit: bool, mai
 	
 	# VFX: spinning slash circle
 	_spawn_whirlwind_vfx(main_node, pos, radius)
-	_play_sfx(main_node, "weapon.slash", pos)
+	_play_sfx(main_node, "weapon.reaper_slash", pos)
 	
 	if hit_count > 0:
 		var shake := main_node.get_node_or_null("/root/ScreenShake")
@@ -869,7 +882,7 @@ static func _execute_lifesteal_melee(attacker: Node2D, target: Node2D, damage: i
 	
 	# VFX
 	_spawn_melee_vfx(main_node, target.global_position, (target.global_position - attacker.global_position).normalized(), Color(0.9, 0.2, 0.3, 1.0))
-	_play_sfx(main_node, "weapon.slash", target.global_position)
+	_play_sfx(main_node, "weapon.vampiric", target.global_position)
 
 static func _fire_ricochet(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var ricochet := WP.RicochetProjectile.new()
@@ -886,7 +899,8 @@ static func _fire_ricochet(attacker: Node2D, target: Node2D, damage: int, is_cri
 		attacker
 	)
 	main_node.add_child(ricochet)
-	_play_sfx(main_node, "player.shot", attacker.global_position)
+	_play_sfx(main_node, "weapon.ricochet", attacker.global_position)
+	_play_vfx(main_node, "weapon.ricochet", attacker.global_position + Vector2(0, -10))
 
 static func _fire_orbital_strike(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var delay := float(w.get("delay", 1.2))

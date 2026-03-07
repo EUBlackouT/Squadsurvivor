@@ -69,7 +69,8 @@ var _move_speed_mult: float = 1.0
 var _dmg_mult: float = 1.0
 var _hp_mult: float = 1.0
 var _scale_mult: float = 1.0
-const TARGET_SPRITE_HEIGHT: float = 52.0
+const TARGET_SPRITE_HEIGHT: float = 26.0
+const ENEMY_WORLD_SPEED_MULT: float = 0.78
 
 var current_hp: int = 30
 
@@ -161,6 +162,15 @@ func _apply_visuals() -> void:
 		anim.modulate = Color(1.0, 0.90, 0.85, 1.0)
 	if _arcane:
 		anim.modulate = anim.modulate.lerp(Color(0.75, 0.55, 1.0, 1.0), 0.35)
+	# Team readability: enemy-specific warm outline (cleaner than floor circles).
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://shaders/pixel_outline.gdshader")
+	var enemy_outline := Color(1.0, 0.26, 0.20, 0.95)
+	if is_elite:
+		enemy_outline = Color(1.0, 0.48, 0.20, 0.98)
+	mat.set_shader_parameter("outline_color", enemy_outline)
+	mat.set_shader_parameter("outline_px", 1.4)
+	anim.material = mat
 
 func _physics_process(delta: float) -> void:
 	_anim_cooldown = maxf(_anim_cooldown - delta, 0.0)
@@ -231,7 +241,7 @@ func _physics_process(delta: float) -> void:
 		_arcane_zap()
 
 func _base_move_speed() -> float:
-	return (character_data.move_speed if character_data != null else 90.0) * _slow_mult * _move_speed_mult
+	return (character_data.move_speed if character_data != null else 90.0) * _slow_mult * _move_speed_mult * ENEMY_WORLD_SPEED_MULT
 
 func _melee_step(_delta: float, _dist: float, dir: Vector2) -> void:
 	var spd := _base_move_speed()
