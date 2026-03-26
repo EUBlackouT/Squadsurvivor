@@ -104,6 +104,14 @@ var _focus_until_s: float = 0.0
 var _focus_lockout_t: float = 0.0
 var _rally_pos: Vector2 = Vector2.ZERO
 var _rally_until_s: float = 0.0
+var _selected_units: Array[Node2D] = []
+var _drag_select_started: bool = false
+var _drag_select_active: bool = false
+var _drag_select_start: Vector2 = Vector2.ZERO
+var _drag_select_end: Vector2 = Vector2.ZERO
+var _selection_layer: CanvasLayer = null
+var _selection_rect: Panel = null
+const DRAG_SELECT_THRESHOLD_PX: float = 10.0
 
 # Active ability unlocked by meta tree: Overclock (Q)
 var _overclock_until_s: float = 0.0
@@ -176,6 +184,7 @@ func _ready() -> void:
 	if enable_rifts:
 		_spawn_rifts()
 	_setup_hud()
+	_setup_selection_ui()
 
 	# Global systems - play map-specific combat music
 	var mm := get_node_or_null("/root/MusicManager")
@@ -325,6 +334,7 @@ func _spawn_rifts() -> void:
 func _physics_process(delta: float) -> void:
 	if _game_over or _victory:
 		return
+	_prune_selected_units()
 
 	# Command timers
 	if _focus_until_s > 0.0:
@@ -458,12 +468,188 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if has_node("RecruitDraftUI") or has_node("PauseMenu"):
 		return
-	if event is InputEventMouseButton and event.pressed:
+	if event is InputEventMouseMotion:
+		var mm := event as InputEventMouseMotion
+		if _drag_select_started and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			_drag_select_end = mm.position
+			if (not _drag_select_active) and _drag_select_start.distance_to(_drag_select_end) >= DRAG_SELECT_THRESHOLD_PX:
+				_drag_select_active = true
+			if _drag_select_active:
+				_update_selection_rect_visual()
+			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
-			_try_focus_enemy(get_global_mouse_position())
-		elif mb.button_index == MOUSE_BUTTON_RIGHT:
-			_set_rally(get_global_mouse_position(), 0.85)
+			if mb.pressed:
+				_drag_select_started = true
+				_drag_select_active = false
+				_drag_select_start = mb.position
+				_drag_select_end = mb.position
+				_update_selection_rect_visual()
+			else:
+				var was_drag := _drag_select_active
+				_drag_select_started = false
+				_drag_select_active = false
+				_update_selection_rect_visual()
+				if was_drag:
+					_select_units_in_screen_rect(_drag_select_start, _drag_select_end, mb.shift_pressed)
+				else:
+					_select_single_unit_at(get_global_mouse_position(), mb.shift_pressed)
+			get_viewport().set_input_as_handled()
+			return
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			if not _selected_units.is_empty():
+				_issue_move_command(get_global_mouse_position())
+			else:
+				_set_rally(get_global_mouse_position(), 0.85)
+			get_viewport().set_input_as_handled()
+			return
+
+func _setup_selection_ui() -> void:
+	if _selection_layer != null and is_instance_valid(_selection_layer):
+		return
+	_selection_layer = CanvasLayer.new()
+	_selection_layer.name = "CommandSelectionLayer"
+	_selection_layer.layer = 40
+	add_child(_selection_layer)
+	_selection_rect = Panel.new()
+	_selection_rect.name = "SelectionRect"
+	_selection_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_selection_rect.visible = false
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.28, 0.72, 1.0, 0.12)
+	sb.border_width_left = 1
+	sb.border_width_right = 1
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.border_color = Color(0.40, 0.86, 1.0, 0.95)
+	_selection_rect.add_theme_stylebox_override("panel", sb)
+	_selection_layer.add_child(_selection_rect)
+
+func _update_selection_rect_visual() -> void:
+	if _selection_rect == null or not is_instance_valid(_selection_rect):
+		return
+	if not _drag_select_active:
+		_selection_rect.visible = false
+		return
+	var min_x := minf(_drag_select_start.x, _drag_select_end.x)
+	var min_y := minf(_drag_select_start.y, _drag_select_end.y)
+	var max_x := maxf(_drag_select_start.x, _drag_select_end.x)
+	var max_y := maxf(_drag_select_start.y, _drag_select_end.y)
+	_selection_rect.position = Vector2(min_x, min_y)
+	_selection_rect.size = Vector2(maxf(2.0, max_x - min_x), maxf(2.0, max_y - min_y))
+	_selection_rect.visible = true
+
+func _prune_selected_units() -> void:
+	for i in range(_selected_units.size() - 1, -1, -1):
+		if not is_instance_valid(_selected_units[i]):
+			_selected_units.remove_at(i)
+
+func _clear_selection() -> void:
+	for u in _selected_units:
+		if is_instance_valid(u) and (u as Node).has_method("set_selected"):
+			(u as Node).set_selected(false)
+	_selected_units.clear()
+
+func _set_unit_selected(u: Node2D, selected: bool) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if (u as Node).has_method("set_selected"):
+		(u as Node).set_selected(selected)
+
+func _select_single_unit_at(world_pos: Vector2, additive: bool) -> void:
+	_prune_invalid_lists()
+	_prune_selected_units()
+	var best: Node2D = null
+	var best_d2 := INF
+	var pick_r2 := 36.0 * 36.0
+	for u in live_squad_units:
+		if not is_instance_valid(u):
+			continue
+		var n2 := u as Node2D
+		if n2 == null:
+			continue
+		var d2 := n2.global_position.distance_squared_to(world_pos)
+		if d2 <= pick_r2 and d2 < best_d2:
+			best_d2 = d2
+			best = n2
+	if not additive:
+		_clear_selection()
+	if best == null:
+		return
+	if _selected_units.has(best):
+		if additive:
+			_selected_units.erase(best)
+			_set_unit_selected(best, false)
+		return
+	_selected_units.append(best)
+	_set_unit_selected(best, true)
+
+func _select_units_in_screen_rect(a: Vector2, b: Vector2, additive: bool) -> void:
+	_prune_invalid_lists()
+	_prune_selected_units()
+	var cam := get_viewport().get_camera_2d()
+	if cam == null:
+		if not additive:
+			_clear_selection()
+		return
+	var p0 := Vector2(minf(a.x, b.x), minf(a.y, b.y))
+	var p1 := Vector2(maxf(a.x, b.x), maxf(a.y, b.y))
+	var rect := Rect2(p0, p1 - p0)
+	if rect.size.length() < DRAG_SELECT_THRESHOLD_PX:
+		_select_single_unit_at(get_global_mouse_position(), additive)
+		return
+	if not additive:
+		_clear_selection()
+	for u in live_squad_units:
+		if not is_instance_valid(u):
+			continue
+		var n2 := u as Node2D
+		if n2 == null:
+			continue
+		var sp := cam.unproject_position(n2.global_position)
+		if rect.has_point(sp) and (not _selected_units.has(n2)):
+			_selected_units.append(n2)
+			_set_unit_selected(n2, true)
+
+func _formation_offsets_for_count(count: int, spacing: float = 42.0) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	if count <= 0:
+		return out
+	if count == 1:
+		out.append(Vector2.ZERO)
+		return out
+	var cols := int(ceili(sqrt(float(count))))
+	var rows := int(ceili(float(count) / float(cols)))
+	for i in range(count):
+		var col := i % cols
+		var row := int(i / cols)
+		var x := (float(col) - (float(cols - 1) * 0.5)) * spacing
+		var y := (float(row) - (float(rows - 1) * 0.5)) * spacing
+		out.append(Vector2(x, y))
+	return out
+
+func _issue_move_command(world_pos: Vector2) -> void:
+	_prune_selected_units()
+	if _selected_units.is_empty():
+		return
+	var offsets := _formation_offsets_for_count(_selected_units.size(), 42.0)
+	for i in range(_selected_units.size()):
+		var u := _selected_units[i]
+		if not is_instance_valid(u):
+			continue
+		if (u as Node).has_method("set_manual_move_target"):
+			(u as Node).set_manual_move_target(world_pos + offsets[i], 1.55)
+	_focus_target = null
+	_focus_until_s = 0.0
+	_rally_until_s = 0.0
+	var sw := VfxShockwave.new()
+	sw.setup(world_pos, Color(0.40, 0.95, 1.0, 1.0), 8.0, 62.0, 2.0, 0.16)
+	add_child(sw)
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_ui"):
+		s.play_ui("ui.confirm")
 
 func _sync_passive_overlay_hotkey() -> void:
 	if _passive_overlay == null:

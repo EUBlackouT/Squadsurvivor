@@ -18,10 +18,14 @@ var _target_enemy: Node2D = null
 
 var _leader: Node2D = null
 var _offset: Vector2 = Vector2.ZERO
+var _manual_move_target: Vector2 = Vector2.ZERO
+var _manual_move_t: float = 0.0
 
 var current_hp: int = 100
 var _max_hp_effective: int = 100
 var _overheal_shield: int = 0
+var _selected: bool = false
+var _selection_ring: Line2D = null
 
 # Temporary defensive buff (Guardian callout): reduces incoming damage.
 var _aegis_until_s: float = 0.0
@@ -131,6 +135,7 @@ func _apply_visuals() -> void:
 		health_bar.custom_minimum_size = Vector2(40, 5)
 		# Slightly brighter so it reads on dark maps.
 		health_bar.modulate = Color(1.0, 1.0, 1.0, 0.92)
+	_ensure_selection_ring()
 
 func set_squad_leader(leader: Node2D, offset: Vector2) -> void:
 	_leader = leader
@@ -147,13 +152,19 @@ func _physics_process(delta: float) -> void:
 	_attack_timer = maxf(_attack_timer - delta, 0.0)
 	_retarget_t -= delta
 	_aegis_until_s = maxf(0.0, _aegis_until_s - delta)
+	_manual_move_t = maxf(0.0, _manual_move_t - delta)
 
 	# Synergy tick (auras/procs with cooldown gating)
 	if character_data != null:
 		SynergySystem.tick_unit(character_data, self)
 
+	# Manual move order has highest priority.
+	if _manual_move_t > 0.0:
+		_target_enemy = null
+		_retarget_t = retarget_interval
+		_step_manual_move()
 	# Rally command overrides combat briefly (reposition moment).
-	if _main and is_instance_valid(_main) and _main.has_method("get_rally_time_left") and float(_main.get_rally_time_left()) > 0.0:
+	elif _main and is_instance_valid(_main) and _main.has_method("get_rally_time_left") and float(_main.get_rally_time_left()) > 0.0:
 		_target_enemy = null
 		_retarget_t = retarget_interval
 	elif _retarget_t <= 0.0 or _target_enemy == null or not is_instance_valid(_target_enemy):
@@ -168,7 +179,9 @@ func _physics_process(delta: float) -> void:
 	# Centralized: animation direction should come from actual motion, not target direction.
 	# (Fixes ranged kiting/backpedal cases and makes it consistent.)
 	var look := Vector2.ZERO
-	if _target_enemy != null and is_instance_valid(_target_enemy):
+	if _manual_move_t > 0.0:
+		look = (_manual_move_target - global_position)
+	elif _target_enemy != null and is_instance_valid(_target_enemy):
 		look = (_target_enemy.global_position - global_position)
 	elif _leader != null and is_instance_valid(_leader):
 		look = (_leader.global_position - global_position)
@@ -214,6 +227,18 @@ func _combat_step(_delta: float) -> void:
 			if rate > 0.01:
 				cd_s /= rate
 		_attack_timer = cd_s
+
+func _step_manual_move() -> void:
+	var to := _manual_move_target - global_position
+	if to.length() <= 10.0:
+		velocity = Vector2.ZERO
+		_manual_move_t = 0.0
+		return
+	var move_speed := _get_effective_move_speed()
+	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
+		move_speed *= float(_main.get_overclock_move_speed_mult())
+	velocity = to.normalized() * (move_speed * 1.08)
+	move_and_slide()
 
 func _follow_leader(_delta: float) -> void:
 	# Rally: follow a command point instead of leader for a short burst.
@@ -270,6 +295,37 @@ func _formation_offset_world() -> Vector2:
 			return Vector2(cos(ang), sin(ang)) * 86.0
 		_:
 			return _offset
+
+func set_manual_move_target(world_pos: Vector2, dur: float = 1.2) -> void:
+	_manual_move_target = world_pos
+	_manual_move_t = maxf(0.05, dur)
+	_target_enemy = null
+	_retarget_t = retarget_interval
+
+func set_selected(v: bool) -> void:
+	_selected = v
+	if _selection_ring != null and is_instance_valid(_selection_ring):
+		_selection_ring.visible = _selected
+
+func is_selected() -> bool:
+	return _selected
+
+func _ensure_selection_ring() -> void:
+	if _selection_ring != null and is_instance_valid(_selection_ring):
+		return
+	_selection_ring = Line2D.new()
+	_selection_ring.name = "SelectionRing"
+	_selection_ring.width = 1.6
+	_selection_ring.default_color = Color(0.48, 0.88, 1.0, 0.95)
+	_selection_ring.z_index = 60
+	_selection_ring.closed = true
+	var r := 18.0
+	var seg := 24
+	for i in range(seg):
+		var a := TAU * float(i) / float(seg)
+		_selection_ring.add_point(Vector2(cos(a), sin(a)) * r)
+	_selection_ring.visible = _selected
+	add_child(_selection_ring)
 
 func _find_target() -> Node2D:
 	var enemies: Array = []
