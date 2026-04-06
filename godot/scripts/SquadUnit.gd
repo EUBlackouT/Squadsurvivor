@@ -20,6 +20,8 @@ var _leader: Node2D = null
 var _offset: Vector2 = Vector2.ZERO
 var _manual_move_target: Vector2 = Vector2.ZERO
 var _manual_move_t: float = 0.0
+var _manual_attack_target: Node2D = null
+var _manual_attack_t: float = 0.0
 
 var current_hp: int = 100
 var _max_hp_effective: int = 100
@@ -153,6 +155,11 @@ func _physics_process(delta: float) -> void:
 	_retarget_t -= delta
 	_aegis_until_s = maxf(0.0, _aegis_until_s - delta)
 	_manual_move_t = maxf(0.0, _manual_move_t - delta)
+	_manual_attack_t = maxf(0.0, _manual_attack_t - delta)
+	var rts_mode := false
+	if _main and is_instance_valid(_main) and _main.has_method("is_rts_command_mode_enabled"):
+		rts_mode = bool(_main.is_rts_command_mode_enabled())
+	var handled_motion := false
 
 	# Synergy tick (auras/procs with cooldown gating)
 	if character_data != null:
@@ -163,6 +170,18 @@ func _physics_process(delta: float) -> void:
 		_target_enemy = null
 		_retarget_t = retarget_interval
 		_step_manual_move()
+		handled_motion = true
+	elif _manual_attack_t > 0.0 and _manual_attack_target != null and is_instance_valid(_manual_attack_target):
+		_target_enemy = _manual_attack_target
+		_retarget_t = retarget_interval
+		_step_manual_attack()
+		handled_motion = true
+	elif rts_mode:
+		if _retarget_t <= 0.0 or _target_enemy == null or not is_instance_valid(_target_enemy):
+			_target_enemy = _find_target_in_range()
+			_retarget_t = retarget_interval
+		_hold_and_fire()
+		handled_motion = true
 	# Rally command overrides combat briefly (reposition moment).
 	elif _main and is_instance_valid(_main) and _main.has_method("get_rally_time_left") and float(_main.get_rally_time_left()) > 0.0:
 		_target_enemy = null
@@ -171,16 +190,19 @@ func _physics_process(delta: float) -> void:
 		_target_enemy = _find_target()
 		_retarget_t = retarget_interval
 
-	if _target_enemy != null and is_instance_valid(_target_enemy):
-		_combat_step(delta)
-	else:
-		_follow_leader(delta)
+	if not handled_motion:
+		if _target_enemy != null and is_instance_valid(_target_enemy):
+			_combat_step(delta)
+		else:
+			_follow_leader(delta)
 
 	# Centralized: animation direction should come from actual motion, not target direction.
 	# (Fixes ranged kiting/backpedal cases and makes it consistent.)
 	var look := Vector2.ZERO
 	if _manual_move_t > 0.0:
 		look = (_manual_move_target - global_position)
+	elif _manual_attack_t > 0.0 and _manual_attack_target != null and is_instance_valid(_manual_attack_target):
+		look = (_manual_attack_target.global_position - global_position)
 	elif _target_enemy != null and is_instance_valid(_target_enemy):
 		look = (_target_enemy.global_position - global_position)
 	elif _leader != null and is_instance_valid(_leader):
@@ -237,8 +259,57 @@ func _step_manual_move() -> void:
 	var move_speed := _get_effective_move_speed()
 	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
 		move_speed *= float(_main.get_overclock_move_speed_mult())
-	velocity = to.normalized() * (move_speed * 1.08)
+	velocity = to.normalized() * (move_speed * 2.2)
 	move_and_slide()
+
+func _step_manual_attack() -> void:
+	var tgt := _manual_attack_target
+	if tgt == null or not is_instance_valid(tgt):
+		velocity = Vector2.ZERO
+		_manual_attack_t = 0.0
+		_manual_attack_target = null
+		return
+	var attack_range := character_data.attack_range if character_data != null else 300.0
+	var dist := global_position.distance_to(tgt.global_position)
+	var move_speed := _get_effective_move_speed()
+	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
+		move_speed *= float(_main.get_overclock_move_speed_mult())
+	if dist > attack_range * 0.92:
+		velocity = (tgt.global_position - global_position).normalized() * (move_speed * 1.8)
+		move_and_slide()
+	else:
+		velocity = Vector2.ZERO
+	if dist <= attack_range and _attack_timer <= 0.0:
+		_attack(tgt)
+		var cd_s := character_data.attack_cooldown if character_data != null else 1.0
+		if character_data != null:
+			var mods := SynergySystem.mods_for_cd(character_data)
+			cd_s *= float(mods.get("attack_cooldown_mult", 1.0))
+		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_rate_mult"):
+			var rate := float(_main.get_overclock_rate_mult())
+			if rate > 0.01:
+				cd_s /= rate
+		_attack_timer = cd_s
+
+func _hold_and_fire() -> void:
+	velocity = Vector2.ZERO
+	if _target_enemy == null or not is_instance_valid(_target_enemy):
+		return
+	var attack_range := character_data.attack_range if character_data != null else 300.0
+	var dist := global_position.distance_to(_target_enemy.global_position)
+	if dist > attack_range:
+		return
+	if _attack_timer <= 0.0:
+		_attack(_target_enemy)
+		var cd_s := character_data.attack_cooldown if character_data != null else 1.0
+		if character_data != null:
+			var mods := SynergySystem.mods_for_cd(character_data)
+			cd_s *= float(mods.get("attack_cooldown_mult", 1.0))
+		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_rate_mult"):
+			var rate := float(_main.get_overclock_rate_mult())
+			if rate > 0.01:
+				cd_s /= rate
+		_attack_timer = cd_s
 
 func _follow_leader(_delta: float) -> void:
 	# Rally: follow a command point instead of leader for a short burst.
@@ -296,10 +367,21 @@ func _formation_offset_world() -> Vector2:
 		_:
 			return _offset
 
-func set_manual_move_target(world_pos: Vector2, dur: float = 1.2) -> void:
+func set_manual_move_target(world_pos: Vector2, dur: float = 9999.0) -> void:
 	_manual_move_target = world_pos
 	_manual_move_t = maxf(0.05, dur)
+	_manual_attack_t = 0.0
+	_manual_attack_target = null
 	_target_enemy = null
+	_retarget_t = retarget_interval
+
+func set_manual_attack_target(tgt: Node2D, dur: float = 9999.0) -> void:
+	if tgt == null or not is_instance_valid(tgt):
+		return
+	_manual_attack_target = tgt
+	_manual_attack_t = maxf(0.05, dur)
+	_manual_move_t = 0.0
+	_target_enemy = tgt
 	_retarget_t = retarget_interval
 
 func set_selected(v: bool) -> void:
@@ -358,6 +440,28 @@ func _find_target() -> Node2D:
 			score *= 0.6 + float(n2.get_hp_ratio())
 		if score < best_score:
 			best_score = score
+			best = n2
+	return best
+
+func _find_target_in_range() -> Node2D:
+	var enemies: Array = []
+	if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
+		enemies = _main.get_cached_enemies()
+	else:
+		enemies = get_tree().get_nodes_in_group("enemies")
+	var best: Node2D = null
+	var best_d2: float = INF
+	var attack_range := character_data.attack_range if character_data != null else 300.0
+	var r2 := attack_range * attack_range
+	for e in enemies:
+		if not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		var d2 := global_position.distance_squared_to(n2.global_position)
+		if d2 <= r2 and d2 < best_d2:
+			best_d2 = d2
 			best = n2
 	return best
 

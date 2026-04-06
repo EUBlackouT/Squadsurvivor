@@ -104,6 +104,7 @@ var _focus_until_s: float = 0.0
 var _focus_lockout_t: float = 0.0
 var _rally_pos: Vector2 = Vector2.ZERO
 var _rally_until_s: float = 0.0
+var _rts_command_mode_enabled: bool = true
 var _selected_units: Array[Node2D] = []
 var _drag_select_started: bool = false
 var _drag_select_active: bool = false
@@ -112,6 +113,8 @@ var _drag_select_end: Vector2 = Vector2.ZERO
 var _selection_layer: CanvasLayer = null
 var _selection_rect: Panel = null
 const DRAG_SELECT_THRESHOLD_PX: float = 10.0
+var _player_node_ref: Node2D = null
+var _player_cam_ref: Camera2D = null
 
 # Active ability unlocked by meta tree: Overclock (Q)
 var _overclock_until_s: float = 0.0
@@ -302,9 +305,11 @@ func _spawn_player() -> void:
 	var p := PLAYER_SCENE.instantiate()
 	p.position = Vector2.ZERO
 	add_child(p)
+	_player_node_ref = p as Node2D
 	if p.has_node("Camera2D"):
 		var cam := p.get_node("Camera2D") as Camera2D
 		if cam:
+			_player_cam_ref = cam
 			# Camera limits must be in *world* coordinates. If the Main scene root is offset
 			# (common when the scene is authored with a viewport-ish origin), center limits
 			# around this node's global_position instead of assuming (0,0).
@@ -335,6 +340,7 @@ func _physics_process(delta: float) -> void:
 	if _game_over or _victory:
 		return
 	_prune_selected_units()
+	_update_camera_follow(delta)
 
 	# Command timers
 	if _focus_until_s > 0.0:
@@ -500,8 +506,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
 			if not _selected_units.is_empty():
-				_issue_move_command(get_global_mouse_position())
-			else:
+				var tgt := _pick_enemy_at(get_global_mouse_position(), 72.0)
+				if tgt != null and is_instance_valid(tgt):
+					_issue_attack_command(tgt)
+				else:
+					_issue_move_command(get_global_mouse_position())
+			elif not _rts_command_mode_enabled:
 				_set_rally(get_global_mouse_position(), 0.85)
 			get_viewport().set_input_as_handled()
 			return
@@ -546,6 +556,21 @@ func _prune_selected_units() -> void:
 		if not is_instance_valid(_selected_units[i]):
 			_selected_units.remove_at(i)
 
+func _update_camera_follow(delta: float) -> void:
+	if _player_cam_ref == null or not is_instance_valid(_player_cam_ref):
+		return
+	if _player_node_ref == null or not is_instance_valid(_player_node_ref):
+		return
+	var target_pos := _player_node_ref.global_position
+	if not _selected_units.is_empty():
+		var n := _selected_units[0] as Node2D
+		if n != null and is_instance_valid(n):
+			target_pos = n.global_position
+	# Camera node is child of player. Drive local offset to follow selected unit.
+	var desired_local := target_pos - _player_node_ref.global_position
+	var t := clampf(delta * 12.0, 0.0, 1.0)
+	_player_cam_ref.position = _player_cam_ref.position.lerp(desired_local, t)
+
 func _clear_selection() -> void:
 	for u in _selected_units:
 		if is_instance_valid(u) and (u as Node).has_method("set_selected"):
@@ -589,11 +614,7 @@ func _select_single_unit_at(world_pos: Vector2, additive: bool) -> void:
 func _select_units_in_screen_rect(a: Vector2, b: Vector2, additive: bool) -> void:
 	_prune_invalid_lists()
 	_prune_selected_units()
-	var cam := get_viewport().get_camera_2d()
-	if cam == null:
-		if not additive:
-			_clear_selection()
-		return
+	var canvas_xform: Transform2D = get_viewport().get_canvas_transform()
 	var p0 := Vector2(minf(a.x, b.x), minf(a.y, b.y))
 	var p1 := Vector2(maxf(a.x, b.x), maxf(a.y, b.y))
 	var rect := Rect2(p0, p1 - p0)
@@ -608,7 +629,7 @@ func _select_units_in_screen_rect(a: Vector2, b: Vector2, additive: bool) -> voi
 		var n2 := u as Node2D
 		if n2 == null:
 			continue
-		var sp := cam.unproject_position(n2.global_position)
+		var sp: Vector2 = canvas_xform * n2.global_position
 		if rect.has_point(sp) and (not _selected_units.has(n2)):
 			_selected_units.append(n2)
 			_set_unit_selected(n2, true)
@@ -640,16 +661,76 @@ func _issue_move_command(world_pos: Vector2) -> void:
 		if not is_instance_valid(u):
 			continue
 		if (u as Node).has_method("set_manual_move_target"):
-			(u as Node).set_manual_move_target(world_pos + offsets[i], 1.55)
+			(u as Node).set_manual_move_target(world_pos + offsets[i], 9999.0)
 	_focus_target = null
 	_focus_until_s = 0.0
 	_rally_until_s = 0.0
-	var sw := VfxShockwave.new()
-	sw.setup(world_pos, Color(0.40, 0.95, 1.0, 1.0), 8.0, 62.0, 2.0, 0.16)
-	add_child(sw)
-	var s := get_node_or_null("/root/SfxSystem")
-	if s and is_instance_valid(s) and s.has_method("play_ui"):
-		s.play_ui("ui.confirm")
+	_spawn_command_marker(world_pos, Color(0.40, 0.85, 1.0, 0.95), false)
+
+func _pick_enemy_at(world_pos: Vector2, radius: float = 72.0) -> Node2D:
+	_prune_invalid_lists()
+	var best: Node2D = null
+	var best_d2 := INF
+	var r2 := radius * radius
+	for e in live_enemies:
+		if not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		var d2 := n2.global_position.distance_squared_to(world_pos)
+		if d2 <= r2 and d2 < best_d2:
+			best_d2 = d2
+			best = n2
+	return best
+
+func _issue_attack_command(target: Node2D) -> void:
+	_prune_selected_units()
+	if target == null or not is_instance_valid(target) or _selected_units.is_empty():
+		return
+	for u in _selected_units:
+		if not is_instance_valid(u):
+			continue
+		if (u as Node).has_method("set_manual_attack_target"):
+			(u as Node).set_manual_attack_target(target, 9999.0)
+	_focus_target = target
+	_focus_until_s = 2.0
+	_rally_until_s = 0.0
+	_spawn_command_marker(target.global_position, Color(1.0, 0.46, 0.40, 0.98), true)
+
+func _spawn_command_marker(world_pos: Vector2, color: Color, attack: bool) -> void:
+	# Lightweight command marker (no noisy shockwave / rally-like SFX).
+	var ring := Line2D.new()
+	ring.width = 2.0 if attack else 1.6
+	ring.default_color = color
+	ring.z_index = 500
+	ring.position = world_pos
+	if attack:
+		ring.add_point(Vector2(-12, 0))
+		ring.add_point(Vector2(-4, 0))
+		ring.add_point(Vector2(4, 0))
+		ring.add_point(Vector2(12, 0))
+		ring.add_point(Vector2(0, 0))
+		ring.add_point(Vector2(0, -12))
+		ring.add_point(Vector2(0, -4))
+		ring.add_point(Vector2(0, 4))
+		ring.add_point(Vector2(0, 12))
+	else:
+		ring.closed = true
+		var r := 11.0
+		for i in range(16):
+			var a := TAU * float(i) / 16.0
+			ring.add_point(Vector2(cos(a), sin(a)) * r)
+	add_child(ring)
+	var tw := create_tween()
+	tw.tween_property(ring, "modulate:a", 0.0, 0.20 if attack else 0.16)
+	tw.finished.connect(func():
+		if is_instance_valid(ring):
+			ring.queue_free()
+	)
+
+func is_rts_command_mode_enabled() -> bool:
+	return _rts_command_mode_enabled
 
 func _sync_passive_overlay_hotkey() -> void:
 	if _passive_overlay == null:

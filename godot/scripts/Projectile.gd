@@ -40,7 +40,7 @@ func _ready() -> void:
 	var used_flipbook := false
 	if vfx and is_instance_valid(vfx) and vfx.has_method("get_event_cfg") and vfx.has_method("get_frames_for_key"):
 		var cfg: Dictionary = vfx.get_event_cfg("proj.player") as Dictionary
-		var use_flipbook := bool(cfg.get("use_flipbook", false))
+		var use_flipbook := bool(cfg.get("use_flipbook", true))
 		if use_flipbook:
 			var key := String(cfg.get("effect_key", ""))
 			var frames: Array = vfx.get_frames_for_key(key) as Array
@@ -136,8 +136,55 @@ func setup_target(t: Node2D, dmg: int, p_is_crit: bool, p_passive_ids: PackedStr
 	passive_ids = p_passive_ids
 	source_cd = p_source_cd
 	source_unit = p_source_unit
+	_apply_pack_flipbook_for_source()
 	pierce_count += PassiveSystem.extra_pierce_count(passive_ids)
 	_update_rotation()
+
+func _apply_pack_flipbook_for_source() -> void:
+	if source_cd == null:
+		return
+	var wid := String(source_cd.weapon_id).to_lower()
+	var evt := ""
+	if wid.find("frost") >= 0 or wid.find("ice") >= 0:
+		evt = "weapon.frost_trail"
+	elif wid.find("poison") >= 0:
+		evt = "weapon.poison"
+	elif wid.find("spirit") >= 0:
+		evt = "weapon.spirit"
+	elif wid.find("fire") >= 0 or wid.find("flame") >= 0:
+		evt = "passive.fire_mastery"
+	if evt == "":
+		return
+	var vfx := get_node_or_null("/root/VfxSystem")
+	if vfx == null or not is_instance_valid(vfx):
+		return
+	if not vfx.has_method("get_event_cfg") or not vfx.has_method("get_frames_for_key"):
+		return
+	var cfg: Dictionary = vfx.get_event_cfg(evt) as Dictionary
+	var key := String(cfg.get("effect_key", ""))
+	if key == "":
+		return
+	var frames: Array = vfx.get_frames_for_key(key) as Array
+	if frames.is_empty():
+		return
+	if _flipbook != null and is_instance_valid(_flipbook):
+		_flipbook.queue_free()
+		_flipbook = null
+	_flipbook = VfxFlipbook2D.new()
+	_flipbook.name = "ProjFlipbook"
+	add_child(_flipbook)
+	_flipbook.z_index = int(cfg.get("z", 20))
+	var fps := float(cfg.get("fps", 16))
+	var sc := float(cfg.get("scale", 0.42))
+	_flipbook_rot_offset = deg_to_rad(float(cfg.get("rot_deg", 0.0)))
+	_flipbook.setup(frames as Array[Texture2D], fps, true, Color(1, 1, 1, 1), sc)
+	_flipbook.rotation = _flipbook_rot_offset
+	if sprite != null:
+		sprite.visible = false
+	if _glow != null and is_instance_valid(_glow):
+		_glow.visible = false
+	if _trail != null and is_instance_valid(_trail):
+		_trail.visible = false
 
 func add_pierce(n: int) -> void:
 	if n > 0:

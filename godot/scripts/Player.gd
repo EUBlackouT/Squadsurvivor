@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-@export var move_speed: float = 265.0  # Snappier base movement
+@export var move_speed: float = 520.0  # Fast, responsive direct-control speed
 @export var squad_size: int = 3
 
 @onready var cam: Camera2D = get_node_or_null("Camera2D")

@@ -70,7 +70,9 @@ var _dmg_mult: float = 1.0
 var _hp_mult: float = 1.0
 var _scale_mult: float = 1.0
 const TARGET_SPRITE_HEIGHT: float = 26.0
-const ENEMY_WORLD_SPEED_MULT: float = 0.78
+const ENEMY_WORLD_SPEED_MULT: float = 0.20
+const TARGET_SEPARATION_RADIUS: float = 26.0
+const ACTOR_SEPARATION_RADIUS: float = 24.0
 
 var current_hp: int = 30
 
@@ -106,11 +108,12 @@ func _ready() -> void:
 	if _main and is_instance_valid(_main) and _main.has_method("register_enemy"):
 		_main.register_enemy(self)
 
-	# Physics layers: enemies = 2, collide with squad(3) + player(4)
+	# Physics layers: enemies = 2.
+	# Keep hard body collision only against enemies to avoid player "rubberband"/stuck feeling.
+	# Player/squad separation is handled manually in _resolve_actor_overlap().
 	collision_layer = 2
 	collision_mask = 0
-	collision_mask |= 1 << 2 # layer 3
-	collision_mask |= 1 << 3 # layer 4
+	collision_mask |= 1 << 1 # layer 2 (enemy-enemy body collision)
 
 	# Apply archetype + affixes before stats/visuals.
 	_apply_archetype_and_affixes()
@@ -215,7 +218,9 @@ func _physics_process(delta: float) -> void:
 	# face the target without playing the walk cycle.
 	_update_anim_from_motion(velocity, dir)
 
-	# Contact damage when close (no pushing "inside")
+	# Contact damage when close; use soft separation instead of hard body blocking.
+	_resolve_actor_overlap()
+	_resolve_target_overlap()
 	if dist <= 28.0 and _contact_t <= 0.0:
 		if _target.has_method("take_damage"):
 			# Smoke blind can cause contact attacks to miss.
@@ -239,6 +244,45 @@ func _physics_process(delta: float) -> void:
 	if _arcane and _arcane_cd <= 0.0:
 		_arcane_cd = 1.55
 		_arcane_zap()
+
+func _resolve_target_overlap() -> void:
+	if _target == null or not is_instance_valid(_target):
+		return
+	var to_target := (_target.global_position - global_position)
+	var dist := to_target.length()
+	if dist < 0.001:
+		return
+	if dist >= TARGET_SEPARATION_RADIUS:
+		return
+	# Soft positional pushback so enemies don't sit inside player/squad bodies.
+	var push := (TARGET_SEPARATION_RADIUS - dist) * 0.65
+	global_position -= to_target.normalized() * push
+
+func _resolve_actor_overlap() -> void:
+	if _main == null or not is_instance_valid(_main):
+		return
+	var r2 := ACTOR_SEPARATION_RADIUS * ACTOR_SEPARATION_RADIUS
+	# Player first
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player != null and is_instance_valid(player):
+		var d := global_position - player.global_position
+		var d2 := d.length_squared()
+		if d2 > 0.0001 and d2 < r2:
+			global_position = player.global_position + d.normalized() * ACTOR_SEPARATION_RADIUS
+	# Squad units
+	var squad: Array = []
+	if _main.has_method("get_cached_squad_units"):
+		squad = _main.get_cached_squad_units()
+	for u in squad:
+		if not is_instance_valid(u):
+			continue
+		var n2 := u as Node2D
+		if n2 == null:
+			continue
+		var dsu := global_position - n2.global_position
+		var dsu2 := dsu.length_squared()
+		if dsu2 > 0.0001 and dsu2 < r2:
+			global_position = n2.global_position + dsu.normalized() * ACTOR_SEPARATION_RADIUS
 
 func _base_move_speed() -> float:
 	return (character_data.move_speed if character_data != null else 90.0) * _slow_mult * _move_speed_mult * ENEMY_WORLD_SPEED_MULT
