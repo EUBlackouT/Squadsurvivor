@@ -336,6 +336,11 @@ func _scan_wav_paths_recursive(dir_path: String, out: Array[String]) -> void:
 		if name.begins_with("."):
 			continue
 		var full := dir_path.path_join(name)
+		var norm_full := full.to_lower().replace("\\", "/")
+		if norm_full.contains("/__macosx/"):
+			continue
+		if name.begins_with("._"):
+			continue
 		if d.current_is_dir():
 			_scan_wav_paths_recursive(full, out)
 		elif name.to_lower().ends_with(".wav"):

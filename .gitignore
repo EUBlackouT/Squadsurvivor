@@ -39,5 +39,7 @@ client/dist/
 server/dist/
 client/assets/
 **/.DS_Store
+**/__MACOSX/**
+**/._*
 **/Thumbs.db
 npm-debug.log*
