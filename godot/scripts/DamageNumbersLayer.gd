@@ -38,7 +38,9 @@ var _font: Font = null
 
 # Aggregation: key -> { amount:int, is_crit:bool, style:int, timer:float, world_pos:Vector2 }
 var _pending: Dictionary = {}
-const PENDING_WINDOW := 0.10
+const PENDING_WINDOW := 0.07
+const MAX_ACTIVE_LABELS := 220
+const MAX_PENDING_BUCKETS := 1024
 
 func _ready() -> void:
 	layer = 200
@@ -58,9 +60,13 @@ func spawn(amount: int, world_pos: Vector2, style: int = STYLE_DEFAULT, is_crit:
 	_spawn_label(amount, _world_to_screen(world_pos), style, is_crit)
 
 func spawn_aggregated(source_id: int, channel: String, amount: int, world_pos: Vector2, style: int, is_crit: bool) -> void:
+	if _pending.size() > MAX_PENDING_BUCKETS:
+		# Emergency pressure valve for pathological scenes.
+		_pending.clear()
 	var key := "%d:%s" % [source_id, channel]
 	var cur: Dictionary = _pending.get(key, {}) as Dictionary
 	cur["amount"] = int(cur.get("amount", 0)) + amount
+	cur["hits"] = int(cur.get("hits", 0)) + 1
 	cur["is_crit"] = bool(cur.get("is_crit", false)) or is_crit
 	cur["style"] = style
 	cur["timer"] = PENDING_WINDOW
@@ -83,7 +89,8 @@ func _process(delta: float) -> void:
 				var pos: Vector2 = pos_v if pos_v is Vector2 else Vector2.ZERO
 				var style := int(d.get("style", STYLE_DEFAULT))
 				var crit := bool(d.get("is_crit", false))
-				_spawn_label(amt, _world_to_screen(pos), style, crit)
+				var hits := maxi(1, int(d.get("hits", 1)))
+				_spawn_label(amt, _world_to_screen(pos), style, crit, hits)
 			_pending.erase(key)
 
 	# Update active damage numbers
@@ -122,21 +129,30 @@ func _process(delta: float) -> void:
 			_recycle_label(f.label)
 			_active.remove_at(i)
 
-func _spawn_label(amount: int, screen_pos: Vector2, style: int, is_crit: bool) -> void:
+func _spawn_label(amount: int, screen_pos: Vector2, style: int, is_crit: bool, hit_count: int = 1) -> void:
+	if _active.size() >= MAX_ACTIVE_LABELS:
+		var overflow := _active.size() - MAX_ACTIVE_LABELS + 1
+		for i in range(mini(overflow, _active.size())):
+			var oldest: Floating = _active.pop_front() as Floating
+			if oldest != null and oldest.label != null and is_instance_valid(oldest.label):
+				_recycle_label(oldest.label)
 	var l := _alloc_label()
 	
 	# Format number with style
+	var txt := _format_amount(amount)
+	if hit_count >= 3:
+		txt += " x%d" % hit_count
 	if is_crit:
-		l.text = str(amount) + "!"
-	else:
-		l.text = str(amount)
+		txt += "!"
+	l.text = txt
 	
 	# Offset based on damage magnitude for visual variety
 	var spread := 16.0 if is_crit else 10.0
+	spread += minf(12.0, float(hit_count) * 1.4)
 	var start_pos := screen_pos + Vector2(randf_range(-spread, spread), randf_range(-8.0, 4.0))
 	l.position = start_pos
 	
-	_apply_style(l, style, is_crit, amount)
+	_apply_style(l, style, is_crit, amount, hit_count)
 	
 	var f := Floating.new()
 	f.label = l
@@ -148,10 +164,10 @@ func _spawn_label(amount: int, screen_pos: Vector2, style: int, is_crit: bool) -
 	
 	# Crits: longer life, faster initial velocity, more dramatic
 	if is_crit:
-		f.life = 1.1
+		f.life = 1.1 + minf(0.25, float(hit_count) * 0.02)
 		f.vel = Vector2(randf_range(-25.0, 25.0), randf_range(-140.0, -110.0))
 	else:
-		f.life = 0.85
+		f.life = 0.85 + minf(0.18, float(hit_count) * 0.018)
 		f.vel = Vector2(randf_range(-15.0, 15.0), randf_range(-90.0, -65.0))
 	
 	_active.append(f)
@@ -185,6 +201,8 @@ func _spawn_label(amount: int, screen_pos: Vector2, style: int, is_crit: bool) -
 		var ss := get_node_or_null("/root/ScreenShake")
 		if ss and is_instance_valid(ss) and ss.has_method("shake"):
 			ss.shake(3.5, 0.08)  # Quick, punchy shake
+	elif hit_count >= 6 or amount >= 180:
+		_spawn_power_echoes(screen_pos, style, amount, hit_count)
 
 func _spawn_crit_flash(pos: Vector2) -> void:
 	# Burst of particles/stars around the crit
@@ -235,7 +253,7 @@ func _spawn_crit_flash(pos: Vector2) -> void:
 	tw2.tween_property(glow, "modulate:a", 0.0, 0.2).set_ease(Tween.EASE_OUT)
 	tw2.chain().tween_callback(glow.queue_free)
 
-func _apply_style(l: Label, style: int, is_crit: bool, amount: int) -> void:
+func _apply_style(l: Label, style: int, is_crit: bool, amount: int, hit_count: int = 1) -> void:
 	# Clean slate - no theme artifacts
 	l.theme = Theme.new()
 	var empty := StyleBoxEmpty.new()
@@ -282,12 +300,42 @@ func _apply_style(l: Label, style: int, is_crit: bool, amount: int) -> void:
 	else:
 		l.add_theme_constant_override("outline_size", 4)
 	
+	if hit_count >= 4:
+		base_size += mini(8, int(hit_count / 2))
+	
 	l.add_theme_font_size_override("font_size", base_size)
 	
 	# DOT numbers are smaller and more subtle
 	if style == STYLE_DOT and not is_crit:
 		l.add_theme_font_size_override("font_size", 15)
 		l.add_theme_constant_override("outline_size", 3)
+
+func _format_amount(amount: int) -> String:
+	if amount >= 1000000:
+		return "%.1fM" % (float(amount) / 1000000.0)
+	if amount >= 10000:
+		return "%.1fK" % (float(amount) / 1000.0)
+	return str(amount)
+
+func _spawn_power_echoes(screen_pos: Vector2, style: int, amount: int, hit_count: int) -> void:
+	var echoes := mini(3, 1 + int(hit_count / 4))
+	for i in range(echoes):
+		var e := Label.new()
+		e.text = "+"
+		e.add_theme_font_size_override("font_size", 16 + i * 2)
+		var col: Color = STYLE_COLORS.get(style, STYLE_COLORS[STYLE_DEFAULT])
+		e.add_theme_color_override("font_color", Color(col.r, col.g, col.b, 0.75))
+		e.add_theme_color_override("font_outline_color", Color(0.05, 0.06, 0.08, 0.85))
+		e.add_theme_constant_override("outline_size", 2)
+		e.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		e.z_index = 995
+		e.position = screen_pos + Vector2(randf_range(-22.0, 22.0), randf_range(-30.0, 8.0))
+		_root.add_child(e)
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(e, "position:y", e.position.y - randf_range(18.0, 36.0), 0.26).set_ease(Tween.EASE_OUT)
+		tw.tween_property(e, "modulate:a", 0.0, 0.24).set_ease(Tween.EASE_IN)
+		tw.chain().tween_callback(e.queue_free)
 
 func _alloc_label() -> Label:
 	var l: Label

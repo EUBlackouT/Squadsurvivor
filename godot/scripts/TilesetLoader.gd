@@ -26,6 +26,10 @@ static func load_tileset(metadata_path: String, image_path: String, biome: Strin
 	if err != OK:
 		push_error("TilesetLoader: Failed to load image: %s (error: %d)" % [actual_path, err])
 		return null
+	# Remove visible per-tile border seams from baked atlases.
+	# Some generated atlases have brighter edge pixels per 32x32 tile, which produces
+	# "square boxes" in-game when many transition tiles are adjacent.
+	_desquare_atlas_borders(img, 32)
 	
 	var texture = ImageTexture.create_from_image(img)
 	if texture == null:
@@ -127,6 +131,31 @@ static func load_tileset(metadata_path: String, image_path: String, biome: Strin
 	tileset.add_source(source)
 	return tileset
 
+static func _desquare_atlas_borders(img: Image, tile_size: int) -> void:
+	if img == null or tile_size <= 2:
+		return
+	var w := img.get_width()
+	var h := img.get_height()
+	if w < tile_size or h < tile_size:
+		return
+	# Snap border pixels to neighboring interior pixels for each tile cell.
+	for ty in range(0, h, tile_size):
+		for tx in range(0, w, tile_size):
+			var x0 := tx
+			var y0 := ty
+			var x1 := mini(tx + tile_size - 1, w - 1)
+			var y1 := mini(ty + tile_size - 1, h - 1)
+			if x1 - x0 < 2 or y1 - y0 < 2:
+				continue
+			# Top / bottom rows
+			for x in range(x0, x1 + 1):
+				img.set_pixel(x, y0, img.get_pixel(x, y0 + 1))
+				img.set_pixel(x, y1, img.get_pixel(x, y1 - 1))
+			# Left / right columns
+			for y in range(y0, y1 + 1):
+				img.set_pixel(x0, y, img.get_pixel(x0 + 1, y))
+				img.set_pixel(x1, y, img.get_pixel(x1 - 1, y))
+
 
 static func create_procedural_tileset(biome: String, tile_size: int = 32) -> TileSet:
 	"""Create a procedural fallback tileset for a biome."""
@@ -206,6 +235,12 @@ static func _get_biome_colors(biome: String) -> Dictionary:
 				"base": Color(0.10, 0.06, 0.06),
 				"feature": Color(0.20, 0.10, 0.08),
 				"accent": Color(1.0, 0.5, 0.2)
+			}
+		"cathedral":
+			return {
+				"base": Color(0.11, 0.11, 0.13),
+				"feature": Color(0.20, 0.20, 0.24),
+				"accent": Color(0.82, 0.82, 0.90)
 			}
 		_:
 			return {

@@ -114,6 +114,7 @@ func _ready() -> void:
 	collision_layer = 2
 	collision_mask = 0
 	collision_mask |= 1 << 1 # layer 2 (enemy-enemy body collision)
+	collision_mask |= 1 << 0 # layer 1 (map blockers from authored TMX)
 
 	# Apply archetype + affixes before stats/visuals.
 	_apply_archetype_and_affixes()
@@ -135,6 +136,7 @@ func _exit_tree() -> void:
 func _apply_visuals() -> void:
 	if anim == null:
 		return
+	var is_boss := bool(get_meta("boss", false))
 	if pixellab_south_path == "" and character_data != null:
 		pixellab_south_path = character_data.sprite_path
 	var frames := PixellabUtil.walk_frames_from_south_path(pixellab_south_path)
@@ -151,8 +153,12 @@ func _apply_visuals() -> void:
 	anim.play()
 	_anim_base_pos = anim.position
 	_anim_base_scale = anim.scale
-	# Elites slightly larger
-	var base := 1.08 if is_elite else 1.0
+	# Elites/bosses are larger for readability + threat presence.
+	var base := 1.0
+	if is_boss:
+		base = 1.42
+	elif is_elite:
+		base = 1.10
 	anim.scale = _anim_base_scale * base * _scale_mult
 	# Mild tint for readability by archetype/affix
 	if ai_id == "swarmer":
@@ -165,14 +171,18 @@ func _apply_visuals() -> void:
 		anim.modulate = Color(1.0, 0.90, 0.85, 1.0)
 	if _arcane:
 		anim.modulate = anim.modulate.lerp(Color(0.75, 0.55, 1.0, 1.0), 0.35)
+	if is_boss:
+		anim.modulate = anim.modulate.lerp(Color(1.0, 0.78, 0.62, 1.0), 0.22)
 	# Team readability: enemy-specific warm outline (cleaner than floor circles).
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://shaders/pixel_outline.gdshader")
 	var enemy_outline := Color(1.0, 0.26, 0.20, 0.95)
 	if is_elite:
 		enemy_outline = Color(1.0, 0.48, 0.20, 0.98)
+	if is_boss:
+		enemy_outline = Color(1.0, 0.70, 0.35, 1.0)
 	mat.set_shader_parameter("outline_color", enemy_outline)
-	mat.set_shader_parameter("outline_px", 1.4)
+	mat.set_shader_parameter("outline_px", 2.2 if is_boss else 1.4)
 	anim.material = mat
 
 func _physics_process(delta: float) -> void:

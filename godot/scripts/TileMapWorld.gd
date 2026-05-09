@@ -5,7 +5,7 @@ class_name TileMapWorld
 # Procedurally generates terrain using Godot's TileMapLayer terrain system.
 
 @export var map_size: Vector2 = Vector2(4800, 3600)
-@export var biome: String = "graveyard" # graveyard | library | foundry
+@export var biome: String = "graveyard" # graveyard | library | foundry | cathedral
 @export var seed_value: int = 0
 
 @export var prop_count: int = 80  # More scenery!
@@ -29,6 +29,10 @@ const TILESET_DATA = {
 	"foundry": {
 		"metadata": "res://tilesets/foundry_metadata.json",
 		"image": "res://tilesets/foundry_image.png"
+	},
+	"cathedral": {
+		"metadata": "res://tilesets/cathedral_metadata.json",
+		"image": "res://tilesets/cathedral_image.png"
 	}
 }
 
@@ -49,6 +53,10 @@ const PROPS = {
 	"foundry": [
 		"res://assets/map_props/anvil.png",
 		"res://assets/map_props/cauldron.png"
+	],
+	"cathedral": [
+		"res://assets/map_props/crystal_pillar.png",
+		"res://assets/map_props/gravestone.png"
 	]
 }
 
@@ -122,6 +130,8 @@ func _get_tilemap_modulate() -> Color:
 			return Color(1.10, 1.10, 1.15, 1.0)
 		"foundry":
 			return Color(1.10, 1.05, 1.00, 1.0)
+		"cathedral":
+			return Color(1.08, 1.08, 1.10, 1.0)
 		_:
 			return Color(1.05, 1.05, 1.05, 1.0)
 
@@ -134,6 +144,8 @@ func _get_biome_base_color() -> Color:
 			return Color(0.12, 0.14, 0.22)  # Brighter purple-blue
 		"foundry":
 			return Color(0.18, 0.12, 0.10)  # Brighter rust-orange
+		"cathedral":
+			return Color(0.14, 0.14, 0.16)
 		_:
 			return Color(0.15, 0.15, 0.15)
 
@@ -156,6 +168,8 @@ func _generate_terrain() -> void:
 	# Build structured terrain grid (0 = lower, 1 = upper).
 	# This keeps the map readable and intentional instead of noisy random blobs.
 	var terrain_grid: Dictionary = _build_structured_terrain_grid(half_w, half_h)
+	# Smooth sharp cell edges so transitions read like terrain, not checker boxes.
+	terrain_grid = _smooth_terrain_grid(terrain_grid, half_w, half_h, 2)
 	
 	# Place tiles based on corner terrain values (Wang tiling)
 	var tiles_placed := 0
@@ -211,6 +225,15 @@ func _build_structured_terrain_grid(half_w: int, half_h: int) -> Dictionary:
 			_fill_rect(grid, -14, -half_h - 1, -9, half_h + 1, 1)
 			_fill_rect(grid, 9, -half_h - 1, 14, half_h + 1, 1)
 			_fill_ring(grid, Vector2i.ZERO, 24, 2, 1)
+		"cathedral":
+			# Nave + transept layout with side chapels.
+			_fill_rect(grid, -2, -half_h - 1, 2, half_h + 1, 1)  # main nave spine
+			_fill_rect(grid, -half_w / 2, -3, half_w / 2, 3, 1)  # transept
+			_fill_rect(grid, -18, -14, -10, 14, 1)  # left aisle
+			_fill_rect(grid, 10, -14, 18, 14, 1)  # right aisle
+			_fill_rect(grid, -7, -half_h + 8, 7, -half_h + 16, 1)  # top sanctuary
+			_fill_circle(grid, Vector2i(0, int(half_h * 0.24)), 9, 1)  # lower rotunda
+			_fill_ring(grid, Vector2i.ZERO, 19, 1, 1)
 		_:
 			# Generic fallback: keep a single outer loop.
 			_fill_ring(grid, Vector2i.ZERO, 22, 2, 1)
@@ -218,6 +241,8 @@ func _build_structured_terrain_grid(half_w: int, half_h: int) -> Dictionary:
 	# Light deterministic variation (small patches) so structure does not look too rigid.
 	# For graveyard: only a few subtle patches to keep roads dominant and readable.
 	var patch_count := 0 if biome == "graveyard" else int(max(6, mini(18, (half_w + half_h) / 20)))
+	if biome == "cathedral":
+		patch_count = 4
 	for _i in range(patch_count):
 		var cx := _rng.randi_range(-half_w + 8, half_w - 8)
 		var cy := _rng.randi_range(-half_h + 8, half_h - 8)
@@ -225,6 +250,32 @@ func _build_structured_terrain_grid(half_w: int, half_h: int) -> Dictionary:
 		_fill_circle(grid, Vector2i(cx, cy), r, 1)
 
 	return grid
+
+func _smooth_terrain_grid(grid: Dictionary, half_w: int, half_h: int, iterations: int = 1) -> Dictionary:
+	var out: Dictionary = grid.duplicate(true)
+	for _it in range(maxi(0, iterations)):
+		var next: Dictionary = out.duplicate(true)
+		for x in range(-half_w, half_w + 1):
+			for y in range(-half_h, half_h + 1):
+				var p := Vector2i(x, y)
+				var cur := int(out.get(p, 0))
+				var neighbors := 0
+				for ox in range(-1, 2):
+					for oy in range(-1, 2):
+						if ox == 0 and oy == 0:
+							continue
+						neighbors += int(out.get(Vector2i(x + ox, y + oy), 0))
+				# Majority smoothing:
+				# - remove isolated single upper cells
+				# - fill tiny holes in upper regions
+				if neighbors >= 5:
+					next[p] = 1
+				elif neighbors <= 2:
+					next[p] = 0
+				else:
+					next[p] = cur
+		out = next
+	return out
 
 func _fill_rect(grid: Dictionary, x0: int, y0: int, x1: int, y1: int, v: int) -> void:
 	var min_x := mini(x0, x1)
@@ -318,6 +369,8 @@ func _spawn_props() -> void:
 func _spawn_scenery_details(half_w: float, half_h: float, center_exclusion_sq: float) -> void:
 	# Spawn lots of small scenery for visual interest
 	var detail_count := prop_count * 3  # 3x more small details than props
+	if biome == "cathedral":
+		detail_count = int(prop_count * 2.0)  # cleaner read for indoor-like map
 	
 	for _i in range(detail_count):
 		var pos = Vector2(
@@ -359,6 +412,8 @@ func _create_grass_tuft() -> Texture2D:
 	var green := Color(0.3, 0.5, 0.25) if biome == "graveyard" else Color(0.2, 0.4, 0.3)
 	if biome == "foundry":
 		green = Color(0.35, 0.3, 0.25)  # Brown-ish dead grass
+	elif biome == "cathedral":
+		green = Color(0.42, 0.42, 0.45)  # Dusty floor debris
 	
 	# Draw grass blades
 	for blade in range(_rng.randi_range(3, 6)):
@@ -378,7 +433,7 @@ func _create_small_rock() -> Texture2D:
 	img.fill(Color(0, 0, 0, 0))
 	
 	var base := Color(0.4, 0.38, 0.35)
-	if biome == "library" or biome == "arcane_ruins":
+	if biome == "library" or biome == "arcane_ruins" or biome == "cathedral":
 		base = Color(0.35, 0.35, 0.45)
 	elif biome == "foundry":
 		base = Color(0.45, 0.35, 0.30)

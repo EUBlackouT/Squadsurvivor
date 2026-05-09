@@ -1,0 +1,17 @@
+[
+null,
+null,
+{"id":2,"expanded":true,"name":"fire","order":1,"parentId":0,"scrollX":811,"scrollY":491},
+{"id":3,"expanded":true,"name":"fire","order":2,"parentId":0,"scrollX":819,"scrollY":461},
+{"id":4,"expanded":true,"name":"water","order":3,"parentId":0,"scrollX":811,"scrollY":461},
+{"id":5,"expanded":false,"name":"water","order":4,"parentId":0,"scrollX":819,"scrollY":461},
+{"id":6,"expanded":false,"name":"earth","order":5,"parentId":0,"scrollX":811,"scrollY":604},
+{"id":7,"expanded":false,"name":"earth","order":6,"parentId":0,"scrollX":819,"scrollY":461},
+{"id":8,"expanded":false,"name":"wind","order":7,"parentId":0,"scrollX":811,"scrollY":491},
+{"id":9,"expanded":false,"name":"wind","order":8,"parentId":0,"scrollX":811,"scrollY":544},
+{"id":10,"expanded":false,"name":"wind","order":9,"parentId":0,"scrollX":811,"scrollY":544},
+{"id":11,"expanded":false,"name":"earth","order":10,"parentId":0,"scrollX":811,"scrollY":499},
+{"id":12,"expanded":false,"name":"water (no water tiles)","order":11,"parentId":0,"scrollX":811,"scrollY":507},
+{"id":13,"expanded":false,"name":"fire","order":12,"parentId":0,"scrollX":1396,"scrollY":499},
+{"id":14,"expanded":false,"name":"fire","order":13,"parentId":0,"scrollX":1469,"scrollY":491}
+]

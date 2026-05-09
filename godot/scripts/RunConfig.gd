@@ -3,7 +3,7 @@ extends Node
 # Minimal cross-scene run configuration.
 # Keeps the selected map + loads map tuning from JSON (data-driven).
 
-var selected_map_id: String = "graveyard"
+var selected_map_id: String = "church"
 
 var _loaded: bool = false
 var _maps_by_id: Dictionary = {}
@@ -54,7 +54,12 @@ func get_map_ids() -> Array[String]:
 
 func get_map_ids_ordered() -> Array[String]:
 	ensure_loaded()
-	return _map_ids_order.duplicate()
+	var out := _map_ids_order.duplicate()
+	# Starter map first for fresh runs.
+	if out.has("church"):
+		out.erase("church")
+		out.insert(0, "church")
+	return out
 
 func get_map(map_id: String) -> Dictionary:
 	ensure_loaded()

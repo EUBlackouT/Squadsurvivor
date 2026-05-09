@@ -56,7 +56,7 @@ func _ready() -> void:
 
 	# Player physics layer: 4, collide with enemies layer 2
 	collision_layer = 1 << 3
-	collision_mask = 1 << 1
+	collision_mask = (1 << 1) | (1 << 0)
 	_apply_player_visual_identity()
 
 	_spawn_initial_squad()

@@ -124,6 +124,22 @@
         "attack_cooldown": 0.85,
         "move_speed": 95,
         "armor": 28
+      },
+      "identity": {
+        "signature_passives": [
+          "slam_aftershock",
+          "berserker",
+          "stagger"
+        ],
+        "chase_passive": "reaper_hunger",
+        "passive_cap": 6,
+        "stat_bias": {
+          "hp": 1.14,
+          "dmg": 1.07,
+          "move": 0.93,
+          "range": 0.92,
+          "cd": 0.97
+        }
       }
     },
     "warlord": {
@@ -224,6 +240,22 @@
         "attack_cooldown": 0.7,
         "move_speed": 125,
         "armor": 8
+      },
+      "identity": {
+        "signature_passives": [
+          "boomerang_mastery",
+          "phase_step",
+          "ricochet_master"
+        ],
+        "chase_passive": "chain_master",
+        "passive_cap": 5,
+        "stat_bias": {
+          "hp": 0.92,
+          "dmg": 1.06,
+          "move": 1.12,
+          "range": 1.04,
+          "cd": 0.94
+        }
       }
     },
     "insectoid": {
@@ -284,6 +316,22 @@
         "attack_cooldown": 0.76,
         "move_speed": 112,
         "armor": 10
+      },
+      "identity": {
+        "signature_passives": [
+          "doomstack",
+          "phantom_strike",
+          "reaper_hunger"
+        ],
+        "chase_passive": "spirit_surge",
+        "passive_cap": 6,
+        "stat_bias": {
+          "hp": 1.04,
+          "dmg": 1.08,
+          "move": 0.95,
+          "range": 1.08,
+          "cd": 0.94
+        }
       }
     },
     "death_knight": {
@@ -344,6 +392,22 @@
         "attack_cooldown": 0.86,
         "move_speed": 118,
         "armor": 6
+      },
+      "identity": {
+        "signature_passives": [
+          "fire_mastery",
+          "chain_reaction",
+          "cinder_brand"
+        ],
+        "chase_passive": "beam_focus",
+        "passive_cap": 5,
+        "stat_bias": {
+          "hp": 0.95,
+          "dmg": 1.12,
+          "move": 1.02,
+          "range": 1.06,
+          "cd": 0.92
+        }
       }
     },
     "ember_duelist": {
@@ -384,6 +448,22 @@
         "attack_cooldown": 0.8,
         "move_speed": 118,
         "armor": 8
+      },
+      "identity": {
+        "signature_passives": [
+          "arc_chain",
+          "orbital_precision",
+          "time_dilation"
+        ],
+        "chase_passive": "chain_master",
+        "passive_cap": 6,
+        "stat_bias": {
+          "hp": 0.95,
+          "dmg": 1.09,
+          "move": 1.03,
+          "range": 1.14,
+          "cd": 0.92
+        }
       }
     },
     "frost_mystic": {
@@ -464,6 +544,22 @@
         "attack_cooldown": 0.78,
         "move_speed": 118,
         "armor": 9
+      },
+      "identity": {
+        "signature_passives": [
+          "spirit_surge",
+          "beam_focus",
+          "hailburst"
+        ],
+        "chase_passive": "vampiric_mastery",
+        "passive_cap": 6,
+        "stat_bias": {
+          "hp": 1.02,
+          "dmg": 0.94,
+          "move": 1.05,
+          "range": 1.12,
+          "cd": 0.9
+        }
       }
     },
     "spore_brute": {
@@ -1384,6 +1480,22 @@
         "attack_cooldown": 0.72,
         "move_speed": 125,
         "armor": 10
+      },
+      "identity": {
+        "signature_passives": [
+          "vortex_tag",
+          "chain_master",
+          "predator_instinct"
+        ],
+        "chase_passive": "boomerang_mastery",
+        "passive_cap": 5,
+        "stat_bias": {
+          "hp": 1.0,
+          "dmg": 1.08,
+          "move": 1.12,
+          "range": 1.0,
+          "cd": 0.93
+        }
       }
     },
     "coral_guardian": {
@@ -1404,6 +1516,22 @@
         "attack_cooldown": 0.85,
         "move_speed": 100,
         "armor": 22
+      },
+      "identity": {
+        "signature_passives": [
+          "frost_mastery",
+          "ricochet_master",
+          "stagger"
+        ],
+        "chase_passive": "beam_focus",
+        "passive_cap": 5,
+        "stat_bias": {
+          "hp": 1.1,
+          "dmg": 1.0,
+          "move": 0.95,
+          "range": 1.05,
+          "cd": 0.96
+        }
       }
     },
     "abyss_siren": {
@@ -1504,6 +1632,22 @@
         "attack_cooldown": 0.72,
         "move_speed": 125,
         "armor": 10
+      },
+      "identity": {
+        "signature_passives": [
+          "phantom_strike",
+          "execute_mark",
+          "predator_instinct"
+        ],
+        "chase_passive": "reaper_hunger",
+        "passive_cap": 5,
+        "stat_bias": {
+          "hp": 0.96,
+          "dmg": 1.12,
+          "move": 1.11,
+          "range": 1.0,
+          "cd": 0.9
+        }
       }
     },
     "glimmer_duelist": {
@@ -2086,7 +2230,23 @@
         "move_speed": 110,
         "armor": 10
       },
-      "racial_passive_id": "web_snare"
+      "racial_passive_id": "web_snare",
+      "identity": {
+        "signature_passives": [
+          "web_snare",
+          "toxic",
+          "predator_instinct"
+        ],
+        "chase_passive": "poison_mastery",
+        "passive_cap": 5,
+        "stat_bias": {
+          "hp": 1.02,
+          "dmg": 1.08,
+          "move": 1.08,
+          "range": 0.98,
+          "cd": 0.92
+        }
+      }
     },
     "silk_oracle": {
       "display_name": "Silk Oracle",
@@ -2240,7 +2400,23 @@
         "move_speed": 90,
         "armor": 24
       },
-      "racial_passive_id": "spore_bloom"
+      "racial_passive_id": "spore_bloom",
+      "identity": {
+        "signature_passives": [
+          "spore_bloom",
+          "vampiric_mastery",
+          "stagger"
+        ],
+        "chase_passive": "frost_mastery",
+        "passive_cap": 5,
+        "stat_bias": {
+          "hp": 1.12,
+          "dmg": 0.97,
+          "move": 0.92,
+          "range": 1.04,
+          "cd": 0.98
+        }
+      }
     },
     "thorn_duelist": {
       "display_name": "Thorn Duelist",
@@ -2394,7 +2570,23 @@
         "move_speed": 95,
         "armor": 18
       },
-      "racial_passive_id": "gel_mitosis"
+      "racial_passive_id": "gel_mitosis",
+      "identity": {
+        "signature_passives": [
+          "gel_mitosis",
+          "poison_mastery",
+          "berserker"
+        ],
+        "chase_passive": "chain_reaction",
+        "passive_cap": 5,
+        "stat_bias": {
+          "hp": 1.1,
+          "dmg": 1.05,
+          "move": 0.94,
+          "range": 0.96,
+          "cd": 0.97
+        }
+      }
     },
     "slime_savant": {
       "display_name": "Slime Savant",

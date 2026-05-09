@@ -1,16 +1,21 @@
 extends Node
 
-# Procedural SFX: generated at runtime (no external audio assets).
-# Designed to be loud + distinct, with pitch variation to avoid repetition.
+# Hybrid SFX system:
+# - Prefers external curated library clips (if present).
+# - Falls back to procedural synthesis for any missing category.
 
-@export var master_gain_db: float = -3.0
-@export var max_voices: int = 16
+@export var master_gain_db: float = -6.5
+@export var max_voices: int = 20
 @export var default_pitch_jitter: float = 0.06
-@export var loud_mode: bool = true
+@export var loud_mode: bool = false
 
 const SAMPLE_RATE: int = 44100
+const EXTERNAL_SFX_ROOT: String = "res://assets/audio/Fantasy_Game_24bit_Updated/Fantasy_Game_24bit_Updated/Fantasy_Game_24bit"
+const MAX_VARIANTS_PER_STREAM: int = 10
 
-var _streams: Dictionary = {} # id -> AudioStreamWAV
+var _streams: Dictionary = {} # id -> AudioStream
+var _stream_variants: Dictionary = {} # id -> Array[AudioStream]
+var _stream_variant_idx: Dictionary = {} # id -> int
 var _pool: Array[AudioStreamPlayer2D] = []
 var _pool_idx: int = 0
 
@@ -37,10 +42,24 @@ func play_2d(id: String, world_pos: Vector2, gain_db: float = 0.0, pitch: float 
 	_pool_idx = (_pool_idx + 1) % _pool.size()
 
 	p.global_position = world_pos
-	p.stream = _streams[id] as AudioStreamWAV
+	p.stream = _pick_stream_variant(id)
+	if p.stream == null:
+		return
 	p.volume_db = master_gain_db + gain_db
 	p.pitch_scale = pitch * randf_range(1.0 - pitch_jitter, 1.0 + pitch_jitter)
 	p.play()
+
+func _pick_stream_variant(id: String) -> AudioStream:
+	var variants := _stream_variants.get(id, []) as Array
+	if variants != null and variants.size() > 0:
+		var idx := int(_stream_variant_idx.get(id, 0))
+		if idx < 0:
+			idx = 0
+		var s: AudioStream = variants[idx % variants.size()] as AudioStream
+		_stream_variant_idx[id] = (idx + 1) % variants.size()
+		if s != null:
+			return s
+	return _streams.get(id, null) as AudioStream
 
 func play_event(event_id: String, world_pos: Vector2, emitter: Object = null) -> void:
 	# Event router: enforces cooldowns so SFX don't feel random/spammy.
@@ -112,6 +131,8 @@ func _build_pool() -> void:
 
 func _build_streams() -> void:
 	_streams.clear()
+	_stream_variants.clear()
+	_stream_variant_idx.clear()
 	# Arc/zap
 	_streams["arc_zap"] = _make_zap(0.11, 1200.0, 240.0, 0.25)
 	# Shockwave thump
@@ -185,6 +206,148 @@ func _build_streams() -> void:
 	_streams["weapon_ricochet"] = _make_tick(0.05, 1100.0, 0.18)
 	_streams["weapon_orbital_charge"] = _make_beam(0.35, 180.0, 0.15)
 	_streams["weapon_orbital_strike"] = _make_explosion(0.30, 80.0, 0.95)
+	_attach_external_library()
+
+func _attach_external_library() -> void:
+	if DirAccess.open(EXTERNAL_SFX_ROOT) == null:
+		return
+	var wav_paths := _scan_wav_paths(EXTERNAL_SFX_ROOT)
+	if wav_paths.is_empty():
+		return
+
+	# Prefer purpose-built samples from the external pack.
+	_attach_variants("arc_zap", wav_paths, PackedStringArray(["lightning", "electric", "zap"]))
+	_attach_variants("shockwave", wav_paths, PackedStringArray(["impact", "drum_impact", "weapon_impact", "meteor_spell_hit"]))
+	_attach_variants("frost_nova", wav_paths, PackedStringArray(["ice_", "ice_", "blizzard", "ice_long"]))
+	_attach_variants("flame_burst", wav_paths, PackedStringArray(["fire_", "felflame", "molten", "lava"]))
+	_attach_variants("holy_pulse", wav_paths, PackedStringArray(["holy", "light_magic", "magic_confirm"]))
+	_attach_variants("focus_tick", wav_paths, PackedStringArray(["select", "tab_button", "rune"]))
+
+	_attach_variants("web_snare", wav_paths, PackedStringArray(["trap", "wooden_trap"]))
+	_attach_variants("spore_bloom", wav_paths, PackedStringArray(["poison", "organic_poof"]))
+	_attach_variants("gel_mitosis", wav_paths, PackedStringArray(["water_bolt", "airy_sting"]))
+
+	_attach_variants("passive_explosive_rounds", wav_paths, PackedStringArray(["meteor_spell_hit", "weapon_impact"]))
+	_attach_variants("passive_chain_master", wav_paths, PackedStringArray(["lightning", "electric"]))
+	_attach_variants("passive_scatter_specialist", wav_paths, PackedStringArray(["rain_of_arrows", "rain_of_bolts"]))
+	_attach_variants("passive_boomerang_mastery", wav_paths, PackedStringArray(["axethrow", "knife_throw"]))
+	_attach_variants("passive_beam_focus", wav_paths, PackedStringArray(["arcane_missile", "arcane_spell"]))
+	_attach_variants("passive_slam_aftershock", wav_paths, PackedStringArray(["weapon_impact", "earth_", "meteor_spell_hit"]))
+	_attach_variants("passive_frost_mastery", wav_paths, PackedStringArray(["ice_", "blizzard"]))
+	_attach_variants("passive_poison_mastery", wav_paths, PackedStringArray(["poison", "debuff"]))
+	_attach_variants("passive_fire_mastery", wav_paths, PackedStringArray(["fire_", "felflame"]))
+	_attach_variants("passive_orbital_precision", wav_paths, PackedStringArray(["arcane_long_cast", "thunderstorm_cast"]))
+	_attach_variants("passive_reaper_hunger", wav_paths, PackedStringArray(["shadow_spell", "dark_conjure"]))
+	_attach_variants("passive_bomb_expert", wav_paths, PackedStringArray(["meteor_spell_hit", "molten_lave_hit", "weapon_impact"]))
+	_attach_variants("passive_ricochet_master", wav_paths, PackedStringArray(["crossbow", "bow_"]))
+	_attach_variants("passive_spirit_surge", wav_paths, PackedStringArray(["arcane", "essence"]))
+	_attach_variants("passive_vampiric_mastery", wav_paths, PackedStringArray(["shadow", "dark_conjure", "weapon_impact_blood"]))
+
+	_attach_variants("execute", wav_paths, PackedStringArray(["weapon_impact_blood", "weapon_impact"]))
+	_attach_variants("ui_click", wav_paths, PackedStringArray(["select", "tab_button"]))
+	_attach_variants("ui_confirm", wav_paths, PackedStringArray(["confirm"]))
+	_attach_variants("ui_cancel", wav_paths, PackedStringArray(["select"]))
+	_attach_variants("ui_reroll", wav_paths, PackedStringArray(["arcane_select", "magic_confirm"]))
+	_attach_variants("ui_open", wav_paths, PackedStringArray(["gear_inventory", "inventory_material"]))
+	_attach_variants("ui_drop", wav_paths, PackedStringArray(["accept_quest_drum_impact"]))
+	_attach_variants("ui_victory", wav_paths, PackedStringArray(["upgrade", "skill_upgrade", "magic_confirm"]))
+	_attach_variants("ui_defeat", wav_paths, PackedStringArray(["distant_soft_rumble", "weapon_impact"]))
+	_attach_variants("ui_levelup", wav_paths, PackedStringArray(["skill_upgrade", "magic_action_rune"]))
+
+	_attach_variants("player_slash", wav_paths, PackedStringArray(["blade_draw", "heavy_weapon", "sword"]))
+	_attach_variants("player_shot", wav_paths, PackedStringArray(["bow_", "crossbow_", "magic_arrow"]))
+	_attach_variants("hit_ranged", wav_paths, PackedStringArray(["crossbow", "bow_"]))
+	_attach_variants("hit_melee", wav_paths, PackedStringArray(["weapon_impact", "clank", "armor_hit"]))
+	_attach_variants("hit_crit", wav_paths, PackedStringArray(["weapon_impact_blood", "meteor_spell_hit"]))
+	_attach_variants("dash_whoosh", wav_paths, PackedStringArray(["airy_sting", "dark_transition", "water_bolt"]))
+	_attach_variants("telegraph_tick", wav_paths, PackedStringArray(["rune", "select"]))
+	_attach_variants("enemy_die", wav_paths, PackedStringArray(["creature_growl", "weapon_impact_blood"]))
+	_attach_variants("enemy_spawn_elite", wav_paths, PackedStringArray(["creature_high", "growl_loud", "distant_soft_rumble"]))
+
+	_attach_variants("weapon_slash", wav_paths, PackedStringArray(["blade_draw", "sword", "heavy_weapon"]))
+	_attach_variants("weapon_bomb_launch", wav_paths, PackedStringArray(["axethrow", "knife_throw"]))
+	_attach_variants("weapon_bomb_explode", wav_paths, PackedStringArray(["meteor_spell_hit", "molten_lave_hit"]))
+	_attach_variants("weapon_chain_zap", wav_paths, PackedStringArray(["lightning", "electric"]))
+	_attach_variants("weapon_pierce", wav_paths, PackedStringArray(["crossbow", "bow_"]))
+	_attach_variants("weapon_scatter", wav_paths, PackedStringArray(["rain_of_arrows", "rain_of_bolts", "crossbow"]))
+	_attach_variants("weapon_boomerang", wav_paths, PackedStringArray(["axethrow", "knife_throw"]))
+	_attach_variants("weapon_beam", wav_paths, PackedStringArray(["arcane_missile", "lightning_long_cast"]))
+	_attach_variants("weapon_slam", wav_paths, PackedStringArray(["earth_", "weapon_impact", "meteor_spell_hit"]))
+	_attach_variants("weapon_poison", wav_paths, PackedStringArray(["poison", "debuff"]))
+	_attach_variants("weapon_frost", wav_paths, PackedStringArray(["ice_", "blizzard"]))
+	_attach_variants("weapon_fire", wav_paths, PackedStringArray(["fire_", "felflame"]))
+	_attach_variants("weapon_spirit", wav_paths, PackedStringArray(["arcane_spell", "essence", "shadow_spell"]))
+	_attach_variants("weapon_vampiric", wav_paths, PackedStringArray(["weapon_impact_blood", "dark_conjure"]))
+	_attach_variants("weapon_ricochet", wav_paths, PackedStringArray(["crossbow", "bow_"]))
+	_attach_variants("weapon_orbital_charge", wav_paths, PackedStringArray(["thunderstorm_cast", "arcane_long_cast"]))
+	_attach_variants("weapon_orbital_strike", wav_paths, PackedStringArray(["meteor_spell_hit", "molten_lave_hit", "weapon_impact"]))
+
+func _attach_variants(stream_id: String, all_paths: Array[String], include_tokens: PackedStringArray) -> void:
+	var picked := _pick_paths_by_tokens(all_paths, include_tokens)
+	if picked.is_empty():
+		return
+	var variants: Array[AudioStream] = []
+	for p in picked:
+		if variants.size() >= MAX_VARIANTS_PER_STREAM:
+			break
+		var st := load(p) as AudioStream
+		if st != null:
+			variants.append(st)
+	if variants.is_empty():
+		return
+	_stream_variants[stream_id] = variants
+	_stream_variant_idx[stream_id] = 0
+	# Use first clip as canonical stream for systems expecting one id.
+	_streams[stream_id] = variants[0]
+
+func _pick_paths_by_tokens(all_paths: Array[String], include_tokens: PackedStringArray) -> Array[String]:
+	var scored: Array[Dictionary] = []
+	for p in all_paths:
+		var n := _norm_name(p)
+		var score := 0
+		for t in include_tokens:
+			var token := _norm_name(String(t))
+			if token != "" and n.contains(token):
+				score += 1
+		if score > 0:
+			scored.append({"path": p, "score": score})
+	scored.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("score", 0)) > int(b.get("score", 0))
+	)
+	var out: Array[String] = []
+	for row in scored:
+		out.append(String(row.get("path", "")))
+	return out
+
+func _scan_wav_paths(root: String) -> Array[String]:
+	var out: Array[String] = []
+	_scan_wav_paths_recursive(root, out)
+	return out
+
+func _scan_wav_paths_recursive(dir_path: String, out: Array[String]) -> void:
+	var d := DirAccess.open(dir_path)
+	if d == null:
+		return
+	d.list_dir_begin()
+	while true:
+		var name := d.get_next()
+		if name == "":
+			break
+		if name.begins_with("."):
+			continue
+		var full := dir_path.path_join(name)
+		if d.current_is_dir():
+			_scan_wav_paths_recursive(full, out)
+		elif name.to_lower().ends_with(".wav"):
+			out.append(full)
+	d.list_dir_end()
+
+func _norm_name(s: String) -> String:
+	var n := s.to_lower()
+	n = n.replace("\\", "/")
+	n = n.replace(" ", "_")
+	n = n.replace("-", "_")
+	return n
 
 func _build_event_cfg() -> void:
 	_event_cfg.clear()

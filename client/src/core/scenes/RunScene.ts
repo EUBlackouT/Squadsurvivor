@@ -4,7 +4,6 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../game';
 import { PatchesManager } from '../../systems/PatchesManager';
 import { loadOptions } from '../../ui/Options';
 import { loadUnlocks, saveUnlocks, computeUnlockedWeapons, notifyRoomCleared, notifyKill, notifyBossDefeated, grantBlueprint, notifyCouncilCompleted, type UnlocksState } from '../../systems/Unlocks';
-import { loadOptions } from '../../ui/Options';
 import { BlueprintsMenu } from '../../ui/BlueprintsMenu';
 import seedrandom from 'seedrandom';
 

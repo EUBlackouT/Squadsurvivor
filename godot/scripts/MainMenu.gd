@@ -1,6 +1,6 @@
 extends Control
 
-# Main Menu - FULL rebuild in a cozy, playful, pixel-fantasy wooden sign style.
+# Main Menu - fantasy meadow theme with animated layered backdrop.
 # Behavior (scene changes, signals, logic) stays the same.
 
 var _menu_root: Control
@@ -9,6 +9,7 @@ var _play_btn: Button
 var _resume_btn: Button
 var _armory_btn: Button
 var _protocol_btn: Button
+var _info_btn: Button
 var _settings_btn: Button
 var _quit_btn: Button
 
@@ -30,9 +31,21 @@ var _map_ids: Array[String] = []
 var _crowd: Node2D = null
 var _preview_root: Node = null
 var _selected_map_locked: bool = false
+var _bg_far: TextureRect = null
+var _bg_near: TextureRect = null
+var _bg_light: ColorRect = null
+var _menu_anim_t: float = 0.0
 
 var _crowd_prev_visible: bool = true
 var _crowd_prev_process_mode: int = Node.PROCESS_MODE_INHERIT
+
+var _info_overlay: Control = null
+var _info_search: LineEdit = null
+var _info_section: OptionButton = null
+var _info_list: ItemList = null
+var _info_details: RichTextLabel = null
+var _info_hint: Label = null
+var _info_entries: Array[Dictionary] = []
 
 @export var game_title: String = "Character Collection"
 @export var game_tagline: String = "Collect • Upgrade • Build your dream team"
@@ -41,13 +54,14 @@ var _crowd_prev_process_mode: int = Node.PROCESS_MODE_INHERIT
 # ─────────────────────────────────────────────────────────────────────────────
 # ASSETS (put the generated PNGs here)
 # ─────────────────────────────────────────────────────────────────────────────
-const BG_PATH: String = "res://assets/ui/wood_menu/bg_fantasy_1920x1080.jpg"
-const ASSET_PANEL: String = "res://assets/ui/wood_menu/panel_wood_9slice_512.png"
+const BG_PATH: String = "res://assets/ui/meadow_menu/bg_meadow_base.webp"
+const BG_NEAR_PATH: String = "res://assets/ui/meadow_menu/bg_meadow_foreground.webp"
+const ASSET_PANEL: String = "res://assets/ui/meadow_menu/panel_ornate.webp"
 
-const BTN_NORMAL: String = "res://assets/ui/wood_menu/button_wood_normal_512x128.png"
-const BTN_HOVER: String = "res://assets/ui/wood_menu/button_wood_hover_512x128.png"
-const BTN_PRESSED: String = "res://assets/ui/wood_menu/button_wood_pressed_512x128.png"
-const BTN_DISABLED: String = "res://assets/ui/wood_menu/button_wood_disabled_512x128.png"
+const BTN_NORMAL: String = "res://assets/ui/meadow_menu/button_normal.webp"
+const BTN_HOVER: String = "res://assets/ui/meadow_menu/button_hover.webp"
+const BTN_PRESSED: String = "res://assets/ui/meadow_menu/button_pressed.webp"
+const BTN_DISABLED: String = "res://assets/ui/meadow_menu/button_disabled.webp"
 
 const TAB_NORMAL: String = "res://assets/ui/wood_menu/tab_wood_normal_384x128.png"
 const TAB_HOVER: String = "res://assets/ui/wood_menu/tab_wood_hover_384x128.png"
@@ -90,6 +104,7 @@ func _ready() -> void:
 		_menu_root = self
 
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	set_process(true)
 
 	_apply_menu_art()
 	_play_intro_splash()
@@ -98,10 +113,26 @@ func _ready() -> void:
 	if mm and is_instance_valid(mm) and mm.has_method("play"):
 		mm.play("menu", 1.0)
 
-	_spawn_menu_crowd()
 	_build_menu()
 	_build_map_overlay()
 	_connect_signals()
+
+func _process(delta: float) -> void:
+	_menu_anim_t += delta
+	if _bg_far != null and is_instance_valid(_bg_far):
+		_bg_far.position = Vector2(
+			sin(_menu_anim_t * 0.10) * 18.0,
+			cos(_menu_anim_t * 0.07) * 6.0
+		)
+	if _bg_near != null and is_instance_valid(_bg_near):
+		_bg_near.position = Vector2(
+			sin(_menu_anim_t * 0.22 + 1.3) * 34.0,
+			cos(_menu_anim_t * 0.16 + 0.4) * 10.0
+		)
+	if _bg_light != null and is_instance_valid(_bg_light):
+		_bg_light.modulate.a = 0.26 + sin(_menu_anim_t * 0.32) * 0.07
+	if _card != null and is_instance_valid(_card):
+		_card.rotation = sin(_menu_anim_t * 0.42) * 0.004
 
 func _apply_menu_art() -> void:
 	var bg := get_node_or_null("MenuBackground") as TextureRect
@@ -110,17 +141,46 @@ func _apply_menu_art() -> void:
 		bg.name = "MenuBackground"
 		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		bg.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		bg.z_index = -200
+		bg.z_index = -220
 		add_child(bg)
 		move_child(bg, 0)
+	_bg_far = bg
 
 	var t := _load_tex(BG_PATH)
 	if t == null:
 		push_error("MainMenu: BG texture missing: " + BG_PATH)
-	bg.texture = t
+	_bg_far.texture = t
+
+	var near := get_node_or_null("MenuBackgroundNear") as TextureRect
+	if near == null:
+		near = TextureRect.new()
+		near.name = "MenuBackgroundNear"
+		near.set_anchors_preset(Control.PRESET_FULL_RECT)
+		near.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		near.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		near.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		near.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		near.z_index = -210
+		near.modulate = Color(1, 1, 1, 0.68)
+		add_child(near)
+		move_child(near, 1)
+	_bg_near = near
+	_bg_near.texture = _load_tex(BG_NEAR_PATH)
+
+	var light := get_node_or_null("MenuSunwash") as ColorRect
+	if light == null:
+		light = ColorRect.new()
+		light.name = "MenuSunwash"
+		light.set_anchors_preset(Control.PRESET_FULL_RECT)
+		light.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		light.color = Color(1.0, 0.92, 0.78, 0.26)
+		light.z_index = -205
+		add_child(light)
+		move_child(light, 2)
+	_bg_light = light
 
 	# Hide purple overlays when we have a BG (otherwise they draw on top)
 	var bds := get_node_or_null("BackdropShader") as CanvasItem
@@ -246,6 +306,9 @@ func _build_menu() -> void:
 	_protocol_btn = _make_menu_button("★ Progression", false, ACCENT_BERRY)
 	vbox.add_child(_protocol_btn)
 
+	_info_btn = _make_menu_button("Info / Codex", false)
+	vbox.add_child(_info_btn)
+
 	_settings_btn = _make_menu_button("Settings", false)
 	vbox.add_child(_settings_btn)
 
@@ -277,11 +340,10 @@ func _make_panel_style() -> StyleBox:
 	if tex != null:
 		var sbt := StyleBoxTexture.new()
 		sbt.texture = tex
-		# The generated panel has a thick border; these margins are tuned for it.
-		sbt.texture_margin_left = 48
-		sbt.texture_margin_right = 48
-		sbt.texture_margin_top = 48
-		sbt.texture_margin_bottom = 48
+		sbt.texture_margin_left = 56
+		sbt.texture_margin_right = 56
+		sbt.texture_margin_top = 56
+		sbt.texture_margin_bottom = 56
 		sbt.content_margin_left = 28
 		sbt.content_margin_right = 28
 		sbt.content_margin_top = 24
@@ -324,17 +386,17 @@ func _make_menu_button(text: String, is_primary: bool, accent: Color = ACCENT_SU
 	var btn := Button.new()
 	btn.text = text
 	btn.custom_minimum_size = Vector2(0, 62)
-	btn.add_theme_font_size_override("font_size", 22)
+	btn.add_theme_font_size_override("font_size", 21)
 	btn.focus_mode = Control.FOCUS_ALL
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	btn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_apply_font(btn)
 
 	# Wooden button textures (separate states)
-	var normal := _stylebox_from(BTN_NORMAL, 24, 16, 34)
-	var hover := _stylebox_from(BTN_HOVER, 24, 16, 34)
-	var pressed := _stylebox_from(BTN_PRESSED, 24, 18, 34)
-	var disabled := _stylebox_from(BTN_DISABLED, 24, 16, 34)
+	var normal := _stylebox_from(BTN_NORMAL, 64, 22, 36)
+	var hover := _stylebox_from(BTN_HOVER, 64, 22, 36)
+	var pressed := _stylebox_from(BTN_PRESSED, 64, 24, 36)
+	var disabled := _stylebox_from(BTN_DISABLED, 64, 22, 36)
 
 	if normal != null:
 		btn.add_theme_stylebox_override("normal", normal)
@@ -672,6 +734,12 @@ func _connect_signals() -> void:
 			_open_protocol_grid()
 		)
 
+	if _info_btn:
+		_info_btn.pressed.connect(func():
+			_play_ui("ui.click")
+			_open_info_overlay()
+		)
+
 	if _settings_btn:
 		_settings_btn.pressed.connect(func():
 			_play_ui("ui.click")
@@ -868,14 +936,20 @@ func _update_map_preview(rc: Node) -> void:
 		biome = String(vis.get("theme_id"))
 
 	var tmw := Node2D.new()
-	tmw.set_script(preload("res://scripts/TileMapWorld.gd"))
 	tmw.name = "TileMapWorld"
 	tmw.process_mode = Node.PROCESS_MODE_ALWAYS
-	tmw.set("map_size", Vector2(2400, 1800))
-	tmw.set("biome", biome)
-	tmw.set("seed_value", _hash32(cur))
-	tmw.set("prop_count", 18)
-	tmw.set("prop_min_dist_from_center", 60.0)
+	var tmx_path := String(m.get("tmx_path", ""))
+	if not tmx_path.is_empty():
+		tmw.set_script(preload("res://scripts/TmxMapWorld.gd"))
+		tmw.set("tmx_path", tmx_path)
+		tmw.set("map_size", Vector2(2400, 1800))
+	else:
+		tmw.set_script(preload("res://scripts/TileMapWorld.gd"))
+		tmw.set("map_size", Vector2(2400, 1800))
+		tmw.set("biome", biome)
+		tmw.set("seed_value", _hash32(cur))
+		tmw.set("prop_count", 18)
+		tmw.set("prop_min_dist_from_center", 60.0)
 	root.add_child(tmw)
 
 func _open_map_overlay() -> void:
@@ -910,9 +984,21 @@ func _close_map_overlay() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		if (event as InputEventKey).keycode == KEY_ESCAPE and _map_overlay and _map_overlay.visible:
-			_close_map_overlay()
-			get_viewport().set_input_as_handled()
+		if (event as InputEventKey).keycode == KEY_ESCAPE:
+			if _map_overlay and _map_overlay.visible:
+				_close_map_overlay()
+				get_viewport().set_input_as_handled()
+				return
+			if _info_overlay and _info_overlay.visible:
+				_close_info_overlay()
+				get_viewport().set_input_as_handled()
+				return
+			if _protocol_overlay and _protocol_overlay.visible:
+				_protocol_overlay.visible = false
+				if _play_btn:
+					_play_btn.grab_focus()
+				get_viewport().set_input_as_handled()
+				return
 
 func _start_run_with_selected_map() -> void:
 	if _selected_map_locked:
@@ -921,17 +1007,378 @@ func _start_run_with_selected_map() -> void:
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 func _is_map_unlocked(map_id: String) -> bool:
-	if map_id == "" or map_id == "graveyard":
+	if map_id == "" or map_id == "graveyard" or map_id == "cathedral" or map_id == "church":
 		return true
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
-		return map_id == "graveyard"
-	return bool(mp.is_map_unlocked(map_id)) if mp.has_method("is_map_unlocked") else map_id == "graveyard"
+		return map_id == "graveyard" or map_id == "cathedral" or map_id == "church"
+	return bool(mp.is_map_unlocked(map_id)) if mp.has_method("is_map_unlocked") else (map_id == "graveyard" or map_id == "cathedral" or map_id == "church")
 
 func _play_ui(id: String) -> void:
 	var s := get_node_or_null("/root/SfxSystem")
 	if s and is_instance_valid(s) and s.has_method("play_ui"):
 		s.play_ui(id)
+
+func _open_info_overlay() -> void:
+	if _info_overlay != null and is_instance_valid(_info_overlay):
+		if _crowd != null and is_instance_valid(_crowd):
+			_crowd_prev_visible = _crowd.visible
+			_crowd_prev_process_mode = _crowd.process_mode
+			_crowd.visible = false
+			_crowd.process_mode = Node.PROCESS_MODE_DISABLED
+		_info_overlay.visible = true
+		_reload_info_entries()
+		if _info_search:
+			_info_search.grab_focus()
+		return
+	_create_info_overlay()
+	_reload_info_entries()
+	if _info_search:
+		_info_search.grab_focus()
+	if _crowd != null and is_instance_valid(_crowd):
+		_crowd_prev_visible = _crowd.visible
+		_crowd_prev_process_mode = _crowd.process_mode
+		_crowd.visible = false
+		_crowd.process_mode = Node.PROCESS_MODE_DISABLED
+
+func _close_info_overlay() -> void:
+	if _info_overlay == null:
+		return
+	_info_overlay.visible = false
+	if _crowd != null and is_instance_valid(_crowd):
+		_crowd.visible = _crowd_prev_visible
+		_crowd.process_mode = _crowd_prev_process_mode
+	if _play_btn:
+		_play_btn.grab_focus()
+
+func _create_info_overlay() -> void:
+	_info_overlay = Control.new()
+	_info_overlay.name = "InfoOverlay"
+	_info_overlay.visible = false
+	_info_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_info_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_info_overlay)
+
+	var bg := ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.06, 0.05, 0.04, 0.92)
+	_info_overlay.add_child(bg)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -620
+	panel.offset_top = -350
+	panel.offset_right = 620
+	panel.offset_bottom = 350
+	panel.add_theme_stylebox_override("panel", _make_panel_style())
+	_info_overlay.add_child(panel)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 24)
+	pad.add_theme_constant_override("margin_right", 24)
+	pad.add_theme_constant_override("margin_top", 18)
+	pad.add_theme_constant_override("margin_bottom", 18)
+	panel.add_child(pad)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	pad.add_child(v)
+
+	var title := Label.new()
+	title.text = "Info Codex"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", TITLE_COLOR)
+	title.add_theme_color_override("font_outline_color", Color(0.10, 0.07, 0.04, 1))
+	title.add_theme_constant_override("outline_size", 6)
+	_apply_font(title)
+	v.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "Search passives, synergies, weapons, stats and tuning."
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_font_size_override("font_size", 14)
+	sub.add_theme_color_override("font_color", SUBTITLE_COLOR)
+	_apply_font(sub)
+	v.add_child(sub)
+
+	var filter_row := HBoxContainer.new()
+	filter_row.add_theme_constant_override("separation", 10)
+	v.add_child(filter_row)
+
+	_info_section = OptionButton.new()
+	_info_section.custom_minimum_size = Vector2(190, 34)
+	_info_section.add_item("All", 0)
+	_info_section.add_item("Overview", 1)
+	_info_section.add_item("Stats", 2)
+	_info_section.add_item("Passives", 3)
+	_info_section.add_item("Synergies", 4)
+	_info_section.add_item("Weapons", 5)
+	_info_section.selected = 0
+	filter_row.add_child(_info_section)
+
+	_info_search = LineEdit.new()
+	_info_search.placeholder_text = "Search (name, id, tags, description...)"
+	_info_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	filter_row.add_child(_info_search)
+
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 12)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(body)
+
+	var left_frame := PanelContainer.new()
+	left_frame.custom_minimum_size = Vector2(380, 420)
+	left_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left_frame.add_theme_stylebox_override("panel", _sb_inset(12, 0.88))
+	body.add_child(left_frame)
+
+	var left_pad := MarginContainer.new()
+	left_pad.add_theme_constant_override("margin_left", 8)
+	left_pad.add_theme_constant_override("margin_right", 8)
+	left_pad.add_theme_constant_override("margin_top", 8)
+	left_pad.add_theme_constant_override("margin_bottom", 8)
+	left_frame.add_child(left_pad)
+
+	_info_list = ItemList.new()
+	_info_list.select_mode = ItemList.SELECT_SINGLE
+	_info_list.allow_reselect = true
+	_info_list.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	_info_list.add_theme_font_size_override("font_size", 14)
+	_info_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left_pad.add_child(_info_list)
+
+	var right_frame := PanelContainer.new()
+	right_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_frame.add_theme_stylebox_override("panel", _sb_inset(12, 0.86))
+	body.add_child(right_frame)
+
+	var right_pad := MarginContainer.new()
+	right_pad.add_theme_constant_override("margin_left", 10)
+	right_pad.add_theme_constant_override("margin_right", 10)
+	right_pad.add_theme_constant_override("margin_top", 10)
+	right_pad.add_theme_constant_override("margin_bottom", 10)
+	right_frame.add_child(right_pad)
+
+	var right_v := VBoxContainer.new()
+	right_v.add_theme_constant_override("separation", 8)
+	right_pad.add_child(right_v)
+
+	_info_hint = Label.new()
+	_info_hint.text = "Select an entry on the left."
+	_info_hint.add_theme_font_size_override("font_size", 13)
+	_info_hint.add_theme_color_override("font_color", Color(0.95, 0.92, 0.80, 0.85))
+	_apply_font(_info_hint)
+	right_v.add_child(_info_hint)
+
+	_info_details = RichTextLabel.new()
+	_info_details.bbcode_enabled = true
+	_info_details.fit_content = false
+	_info_details.scroll_active = true
+	_info_details.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_info_details.add_theme_font_size_override("normal_font_size", 13)
+	_info_details.add_theme_color_override("default_color", Color(0.94, 0.91, 0.86, 0.96))
+	_apply_font(_info_details)
+	right_v.add_child(_info_details)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 16)
+	v.add_child(btn_row)
+
+	var close_btn := _make_menu_button("Close", false)
+	close_btn.custom_minimum_size = Vector2(180, 46)
+	close_btn.pressed.connect(func():
+		_play_ui("ui.cancel")
+		_close_info_overlay()
+	)
+	btn_row.add_child(close_btn)
+
+	_info_section.item_selected.connect(func(_idx: int):
+		_update_info_list()
+	)
+	_info_search.text_changed.connect(func(_t: String):
+		_update_info_list()
+	)
+	_info_list.item_selected.connect(func(idx: int):
+		_render_info_entry(idx)
+	)
+
+	_info_overlay.visible = true
+
+func _load_json_dict(path: String) -> Dictionary:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return {}
+	var txt := FileAccess.get_file_as_string(path)
+	var parsed: Variant = JSON.parse_string(txt)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return {}
+	return parsed as Dictionary
+
+func _join_string_array(values: Array) -> String:
+	var out: PackedStringArray = PackedStringArray()
+	for v in values:
+		var s := String(v).strip_edges()
+		if s != "":
+			out.append(s)
+	return ", ".join(out)
+
+func _reload_info_entries() -> void:
+	_info_entries.clear()
+	_info_entries.append({
+		"section": "Overview",
+		"title": "Game Loop",
+		"id": "overview_game_loop",
+		"text": "Draft units, combine synergies, and survive scaling enemy waves. Characters are now tuned as identity units (race + class + role + chase passives)."
+	})
+	_info_entries.append({
+		"section": "Overview",
+		"title": "Optimization Basics",
+		"id": "overview_builds",
+		"text": "Build around one carry and one support core. Chase units have curated signatures; higher rarity opens more passive slots and build variants."
+	})
+	_info_entries.append({
+		"section": "Stats",
+		"title": "Stat Meanings",
+		"id": "stats_meanings",
+		"text": "HP: survivability.\nDamage: hit strength.\nCooldown: attack interval (lower is faster).\nRange: attack distance.\nMove Speed: repositioning and kite potential."
+	})
+	var ub := _load_json_dict("res://data/unit_balance.json")
+	if not ub.is_empty():
+		var ctx := ub.get("context_stat_mult", {}) as Dictionary
+		var enemy := ctx.get("enemy", {}) as Dictionary
+		var recruit := ctx.get("recruit", {}) as Dictionary
+		var scal := ub.get("enemy_scaling", {}) as Dictionary
+		var txt := "Recruit multipliers: hp x%.2f, dmg x%.2f, move x%.2f\nEnemy multipliers: hp x%.2f, dmg x%.2f, move x%.2f\nEnemy scaling per minute: hp +%.1f%%, dmg +%.1f%%" % [
+			float(recruit.get("max_hp", 1.0)), float(recruit.get("attack_damage", 1.0)), float(recruit.get("move_speed", 1.0)),
+			float(enemy.get("max_hp", 1.0)), float(enemy.get("attack_damage", 1.0)), float(enemy.get("move_speed", 1.0)),
+			float(scal.get("hp_per_minute_mult", 0.0)) * 100.0, float(scal.get("damage_per_minute_mult", 0.0)) * 100.0
+		]
+		_info_entries.append({
+			"section": "Stats",
+			"title": "Current Tuning Snapshot",
+			"id": "stats_tuning_snapshot",
+			"text": txt
+		})
+
+	var pd := _load_json_dict("res://data/passives.json")
+	for p in pd.get("passives", []):
+		if typeof(p) != TYPE_DICTIONARY:
+			continue
+		var d := p as Dictionary
+		var tags := _join_string_array(d.get("tags", []) as Array)
+		var body := String(d.get("description", ""))
+		if tags != "":
+			body += "\nTags: " + tags
+		_info_entries.append({
+			"section": "Passives",
+			"title": String(d.get("name", d.get("id", ""))),
+			"id": String(d.get("id", "")),
+			"search": String(d.get("id", "")) + " " + tags,
+			"text": body
+		})
+
+	var sd := _load_json_dict("res://data/synergies.json")
+	for s in sd.get("synergies", []):
+		if typeof(s) != TYPE_DICTIONARY:
+			continue
+		var sy := s as Dictionary
+		var tiers: Array = sy.get("tiers", []) as Array
+		var lines: Array[String] = []
+		for t in tiers:
+			if typeof(t) != TYPE_DICTIONARY:
+				continue
+			var td := t as Dictionary
+			var c := int(td.get("count", 0))
+			var mods := td.get("mods", {}) as Dictionary
+			lines.append("%d units: %s" % [c, JSON.stringify(mods)])
+		_info_entries.append({
+			"section": "Synergies",
+			"title": String(sy.get("name", sy.get("id", ""))),
+			"id": String(sy.get("id", "")),
+			"search": String(sy.get("count_tag", "")),
+			"text": String(sy.get("description", "")) + ("\n" + "\n".join(lines) if not lines.is_empty() else "")
+		})
+
+	var wd := _load_json_dict("res://data/weapons.json")
+	for wid in wd.keys():
+		var wv: Variant = wd.get(wid, {})
+		if typeof(wv) != TYPE_DICTIONARY:
+			continue
+		var w := wv as Dictionary
+		var tags2 := _join_string_array(w.get("tags", []) as Array)
+		var txt2 := "%s\nType: %s" % [String(w.get("description", "")), String(w.get("type", ""))]
+		if tags2 != "":
+			txt2 += "\nTags: " + tags2
+		_info_entries.append({
+			"section": "Weapons",
+			"title": String(w.get("name", String(wid))),
+			"id": String(wid),
+			"search": tags2,
+			"text": txt2
+		})
+
+	_update_info_list()
+
+func _info_section_name() -> String:
+	if _info_section == null:
+		return "All"
+	return _info_section.get_item_text(_info_section.selected)
+
+func _update_info_list() -> void:
+	if _info_list == null:
+		return
+	_info_list.clear()
+	var section := _info_section_name()
+	var needle := ""
+	if _info_search != null:
+		needle = _info_search.text.strip_edges().to_lower()
+	var count := 0
+	for i in range(_info_entries.size()):
+		var e := _info_entries[i]
+		var sec := String(e.get("section", ""))
+		if section != "All" and sec != section:
+			continue
+		var hay := "%s %s %s %s %s" % [
+			String(e.get("title", "")),
+			String(e.get("id", "")),
+			String(e.get("text", "")),
+			String(e.get("search", "")),
+			sec
+		]
+		if needle != "" and hay.to_lower().find(needle) < 0:
+			continue
+		var label := "[%s] %s" % [sec, String(e.get("title", e.get("id", "")))]
+		_info_list.add_item(label)
+		_info_list.set_item_metadata(count, i)
+		count += 1
+	if _info_hint:
+		_info_hint.text = "Results: %d" % count
+	if count > 0:
+		_info_list.select(0)
+		_render_info_entry(0)
+	else:
+		if _info_details:
+			_info_details.text = "No results for current filter."
+
+func _render_info_entry(list_idx: int) -> void:
+	if _info_list == null or _info_details == null:
+		return
+	if list_idx < 0 or list_idx >= _info_list.item_count:
+		return
+	var meta: Variant = _info_list.get_item_metadata(list_idx)
+	if typeof(meta) != TYPE_INT:
+		return
+	var src_idx := int(meta)
+	if src_idx < 0 or src_idx >= _info_entries.size():
+		return
+	var e := _info_entries[src_idx]
+	var title := String(e.get("title", "Entry"))
+	var sec := String(e.get("section", ""))
+	var id := String(e.get("id", ""))
+	var body := String(e.get("text", ""))
+	_info_details.text = "[b][color=#ffe0a2]%s[/color][/b]\n[color=#b9b2aa]%s • %s[/color]\n\n%s" % [title, sec, id, body]
 
 func _open_settings() -> void:
 	if has_node("SettingsMenu"):

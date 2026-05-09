@@ -44,6 +44,8 @@ const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
 const DAMAGE_NUMBERS_LAYER_SCRIPT: Script = preload("res://scripts/DamageNumbersLayer.gd")
 const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
 const TILE_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TileMapWorld.gd")
+const TMX_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TmxMapWorld.gd")
+const VFX_ARC_SCENE: PackedScene = preload("res://scenes/VfxArcLightning.tscn")
 const HUD_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
 const DRAFT_BG_PATH: String = "res://assets/ui/mockups/draft_picks.webp"
 const USE_UI_MOCKUPS: bool = false
@@ -69,8 +71,15 @@ var _boss_spawned: bool = false
 var _boss_node: Node2D = null
 var _boss_deadline_s: float = -1.0
 var _boss_fight_active: bool = false
+var _boss_wave_times: PackedFloat32Array = PackedFloat32Array()
+var _boss_wave_index: int = 0
+var _boss_kills: int = 0
+var _multi_boss_schedule_enabled: bool = false
+var _boss_test_mode: bool = false
 var _game_over: bool = false
 var _victory: bool = false
+var _objective_event_index: int = 0
+var _objective_events: PackedFloat32Array = PackedFloat32Array([2.5, 6.0, 10.0, 14.0])
 
 #
 # Draft system: RNG drops (no capture meter) - Should feel RARE and SPECIAL
@@ -131,6 +140,8 @@ var _arc_surge_dmg_mult: float = 0.22
 
 # Map tuning (data-driven via RunConfig + maps.json)
 var _map_mod: Dictionary = {}
+var _authored_map_world: Node2D = null
+var _map_atmo_overlay: Node2D = null
 
 # Autosave node (ticks while paused)
 var _autosave_node: Node = null
@@ -140,6 +151,8 @@ func _ready() -> void:
 	add_to_group("main")
 	_init_rng()
 	run_start_time = Time.get_ticks_msec() / 1000.0
+	var uargs := OS.get_cmdline_user_args()
+	_boss_test_mode = uargs.has("boss_test")
 
 	# Hard-disable editor debug overlays that can make gameplay unreadable.
 	# (Some run configurations can keep these on even when the menu checkbox looks off.)
@@ -166,6 +179,10 @@ func _ready() -> void:
 		boss_spawn_time_minutes = float(_map_mod.get("boss_spawn_minutes", boss_spawn_time_minutes))
 		# Align survival timer with boss spawn if the map is "boss at the end".
 		run_timer_max_minutes = float(_map_mod.get("boss_spawn_minutes", run_timer_max_minutes))
+		_apply_map_pacing_overrides()
+		_sync_objective_event_index_from_elapsed()
+		_configure_boss_schedule()
+		_sync_boss_wave_index_from_elapsed()
 
 	_make_background()
 
@@ -222,6 +239,21 @@ func _init_rng() -> void:
 func _elapsed_minutes() -> float:
 	return ((Time.get_ticks_msec() / 1000.0) - run_start_time) / 60.0
 
+func _configure_boss_schedule() -> void:
+	_multi_boss_schedule_enabled = false
+	_boss_wave_times = PackedFloat32Array()
+	_boss_wave_index = 0
+	_boss_kills = 0
+	var map_id := String(_map_mod.get("id", ""))
+	if not enable_bosses:
+		return
+	# Church onboarding arc: two distinct boss checks in one run.
+	if map_id == "church":
+		_multi_boss_schedule_enabled = true
+		_boss_wave_times = PackedFloat32Array([5.0, 10.0])
+		boss_spawn_time_minutes = float(_boss_wave_times[0])
+		run_timer_max_minutes = maxf(run_timer_max_minutes, 12.0)
+
 func _make_background() -> void:
 	# Determine biome from map_mod or theme_id
 	var biome := "graveyard"
@@ -236,6 +268,24 @@ func _make_background() -> void:
 			biome = String(_map_mod.get("id"))
 	if biome.is_empty():
 		biome = map_theme_id
+
+	# Prefer authored TMX maps when provided by map data.
+	var tmx_path := String(_map_mod.get("tmx_path", ""))
+	if use_rich_map and not tmx_path.is_empty() and TMX_MAP_WORLD_SCRIPT != null:
+		var authored := Node2D.new()
+		authored.set_script(TMX_MAP_WORLD_SCRIPT)
+		authored.name = "TmxMapWorld"
+		authored.set("tmx_path", tmx_path)
+		authored.set("map_size", map_size)
+		authored.call("build_if_needed")
+		if authored.has_method("get_world_size"):
+			var ws: Vector2 = authored.get_world_size()
+			if ws.x > 64.0 and ws.y > 64.0:
+				map_size = ws
+		add_child(authored)
+		_authored_map_world = authored
+		_add_tmx_atmo_overlay(vis)
+		return
 	
 	# Try TileMapWorld (tile-based real maps) first
 	if use_rich_map and TILE_MAP_WORLD_SCRIPT != null:
@@ -299,11 +349,115 @@ func _make_background() -> void:
 	bg.z_index = -100
 	add_child(bg)
 
+func _add_tmx_atmo_overlay(vis: Dictionary) -> void:
+	if _map_atmo_overlay != null and is_instance_valid(_map_atmo_overlay):
+		_map_atmo_overlay.queue_free()
+		_map_atmo_overlay = null
+	var fog_col := Color(0.72, 0.76, 0.86, 1.0)
+	if vis.has("fog_color"):
+		fog_col = Color.html(String(vis.get("fog_color")))
+	var fog_strength := clampf(float(vis.get("fog_strength", map_fog_strength)), 0.0, 0.45)
+	var vignette_strength := clampf(float(vis.get("vignette", 0.28)), 0.0, 0.7)
+	var light_strength := clampf(float(vis.get("light_strength", 0.15)), 0.0, 0.5)
+	var root := Node2D.new()
+	root.name = "MapAtmoOverlay"
+	root.z_index = 1400
+	add_child(root)
+	_map_atmo_overlay = root
+
+	# Fine noise tint to unify noisy authored tiles into one lighting mood.
+	var fog_tex := _build_map_tint_texture(
+		Color(fog_col.r, fog_col.g, fog_col.b, 1.0),
+		0.04 + fog_strength * 0.22,
+		0.02 + fog_strength * 0.10
+	)
+	var fog := Sprite2D.new()
+	fog.texture = fog_tex
+	fog.centered = false
+	fog.position = Vector2(-map_size.x * 0.5, -map_size.y * 0.5)
+	fog.scale = Vector2(map_size.x / maxf(1.0, float(fog_tex.get_width())), map_size.y / maxf(1.0, float(fog_tex.get_height())))
+	fog.modulate = Color(1, 1, 1, 0.85)
+	fog.z_index = 2
+	root.add_child(fog)
+
+	# Edge vignette keeps combat focus near the center camera area.
+	var vig_tex := _build_map_vignette_texture(
+		Color(0.05, 0.06, 0.08, 1.0),
+		0.14 + vignette_strength * 0.46
+	)
+	var vignette := Sprite2D.new()
+	vignette.texture = vig_tex
+	vignette.centered = false
+	vignette.position = Vector2(-map_size.x * 0.5, -map_size.y * 0.5)
+	vignette.scale = Vector2(map_size.x / maxf(1.0, float(vig_tex.get_width())), map_size.y / maxf(1.0, float(vig_tex.get_height())))
+	vignette.modulate = Color(1, 1, 1, 0.82)
+	vignette.z_index = 3
+	root.add_child(vignette)
+
+	# Subtle top-down sacred light gradient to sell church atmosphere.
+	var light_tex := _build_vertical_light_texture(Color(1.0, 0.96, 0.88, 1.0), 0.06 + light_strength * 0.24)
+	var top_light := Sprite2D.new()
+	top_light.texture = light_tex
+	top_light.centered = false
+	top_light.position = Vector2(-map_size.x * 0.5, -map_size.y * 0.5)
+	top_light.scale = Vector2(map_size.x / maxf(1.0, float(light_tex.get_width())), map_size.y / maxf(1.0, float(light_tex.get_height())))
+	top_light.modulate = Color(1, 1, 1, 0.85)
+	top_light.z_index = 4
+	root.add_child(top_light)
+
+func _build_map_tint_texture(color: Color, base_alpha: float, noise_alpha: float) -> Texture2D:
+	var w := 384
+	var h := maxi(240, int(round(384.0 * (map_size.y / maxf(1.0, map_size.x)))))
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var nrng := RandomNumberGenerator.new()
+	nrng.seed = int(random_seed if random_seed != 0 else 1337)
+	for y in range(h):
+		for x in range(w):
+			var n := nrng.randf_range(-1.0, 1.0)
+			var a := clampf(base_alpha + n * noise_alpha, 0.0, 1.0)
+			img.set_pixel(x, y, Color(color.r, color.g, color.b, a))
+	return ImageTexture.create_from_image(img)
+
+func _build_map_vignette_texture(color: Color, edge_alpha: float) -> Texture2D:
+	var w := 384
+	var h := maxi(240, int(round(384.0 * (map_size.y / maxf(1.0, map_size.x)))))
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var cx := float(w - 1) * 0.5
+	var cy := float(h - 1) * 0.5
+	var inv_rx := 1.0 / maxf(1.0, cx)
+	var inv_ry := 1.0 / maxf(1.0, cy)
+	for y in range(h):
+		for x in range(w):
+			var nx := (float(x) - cx) * inv_rx
+			var ny := (float(y) - cy) * inv_ry
+			var d := sqrt(nx * nx + ny * ny)
+			var e := clampf((d - 0.44) / 0.56, 0.0, 1.0)
+			var a := edge_alpha * e * e
+			img.set_pixel(x, y, Color(color.r, color.g, color.b, a))
+	return ImageTexture.create_from_image(img)
+
+func _build_vertical_light_texture(color: Color, max_alpha: float) -> Texture2D:
+	var w := 256
+	var h := 256
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for y in range(h):
+		var t := float(y) / float(h - 1)
+		var head := clampf(1.0 - t * 1.7, 0.0, 1.0)
+		var a := max_alpha * head * head
+		for x in range(w):
+			var nx := absf((float(x) / float(w - 1)) * 2.0 - 1.0)
+			var side_falloff := 1.0 - pow(nx, 1.5)
+			img.set_pixel(x, y, Color(color.r, color.g, color.b, a * maxf(0.0, side_falloff)))
+	return ImageTexture.create_from_image(img)
+
 func _spawn_player() -> void:
 	if PLAYER_SCENE == null:
 		return
 	var p := PLAYER_SCENE.instantiate()
-	p.position = Vector2.ZERO
+	var spawn_pos := Vector2.ZERO
+	if _authored_map_world != null and is_instance_valid(_authored_map_world) and _authored_map_world.has_method("get_default_spawn"):
+		spawn_pos = _authored_map_world.get_default_spawn()
+	p.position = spawn_pos
 	add_child(p)
 	_player_node_ref = p as Node2D
 	if p.has_node("Camera2D"):
@@ -384,10 +538,16 @@ func _physics_process(delta: float) -> void:
 	if _spawn_timer >= spawn_interval:
 		_spawn_timer = 0.0
 		_tick_spawns()
+	_tick_objective_events()
+	_tick_boss_mechanics(delta)
 
 	var em := _elapsed_minutes()
-	if enable_bosses and (not _boss_spawned) and em >= boss_spawn_time_minutes:
-		_spawn_boss()
+	if enable_bosses:
+		if _multi_boss_schedule_enabled:
+			if (not _boss_fight_active) and _boss_wave_index < _boss_wave_times.size() and em >= float(_boss_wave_times[_boss_wave_index]):
+				_spawn_boss()
+		elif (not _boss_spawned) and em >= boss_spawn_time_minutes:
+			_spawn_boss()
 	_tick_end_of_run_timer()
 	_update_hud_labels()
 	_sync_passive_overlay_hotkey()
@@ -1108,8 +1268,6 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	var center := Vector2.ZERO
 	if player and is_instance_valid(player):
 		center = player.global_position
-	var ang := rng.randf_range(0.0, TAU)
-	var dist := rng.randf_range(spawn_radius_min, spawn_radius_max)
 
 	# Random character pool -> random enemy skin
 	var cd := CharacterRegistryUtil.build_random_character_data("enemy", rng, _elapsed_minutes(), _map_mod)
@@ -1152,7 +1310,12 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	e.ai_id = ai_id
 	e.affix_ids = affixes
 	add_child(e)
-	e.global_position = center + Vector2(cos(ang), sin(ang)) * dist
+	if _authored_map_world != null and is_instance_valid(_authored_map_world) and _authored_map_world.has_method("get_random_spawn_around"):
+		e.global_position = _authored_map_world.get_random_spawn_around(center, spawn_radius_min, spawn_radius_max, rng)
+	else:
+		var ang := rng.randf_range(0.0, TAU)
+		var dist := rng.randf_range(spawn_radius_min, spawn_radius_max)
+		e.global_position = center + Vector2(cos(ang), sin(ang)) * dist
 	# SFX: elite spawns read as events (throttled).
 	if is_elite and (not is_boss):
 		var s := get_node_or_null("/root/SfxSystem")
@@ -1165,6 +1328,10 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 func _spawn_boss() -> void:
 	_boss_spawned = true
 	_boss_fight_active = true
+	var profile := "default"
+	var wave := _boss_wave_index
+	if _multi_boss_schedule_enabled:
+		profile = "siegebreaker" if wave == 0 else "storm_oracle"
 	# Deadline for the boss fight (map-tunable). If 0 or missing, no deadline.
 	var limit_m := float(_map_mod.get("boss_time_limit_minutes", 0.0))
 	if limit_m > 0.05:
@@ -1172,7 +1339,7 @@ func _spawn_boss() -> void:
 		_boss_deadline_s = now_s + limit_m * 60.0
 	else:
 		_boss_deadline_s = -1.0
-	_spawn_enemy(true, false, true)
+	_spawn_boss_profile(profile)
 	# Boss entrance feedback
 	var s := get_node_or_null("/root/SfxSystem")
 	if s and is_instance_valid(s) and s.has_method("play_event"):
@@ -1196,6 +1363,168 @@ func _spawn_boss() -> void:
 		if _boss_node != null and is_instance_valid(_boss_node):
 			pos2 = (_boss_node as Node2D).global_position
 		v.play_event("boss.spawn", pos2, self)
+	if toast_layer != null:
+		var title := "Boss: Siegebreaker Vanguard" if profile == "siegebreaker" else ("Boss: Storm Oracle" if profile == "storm_oracle" else "Boss has spawned")
+		toast_layer.show_toast(title, Color(1.0, 0.72, 0.42, 1.0))
+	if _multi_boss_schedule_enabled:
+		_boss_wave_index += 1
+
+func _spawn_boss_profile(profile: String) -> void:
+	# Use existing enemy/boss spawn path, then mutate profile-specific behavior.
+	_spawn_enemy(true, false, true)
+	if live_enemies.is_empty():
+		return
+	var b := live_enemies[live_enemies.size() - 1]
+	if b == null or not is_instance_valid(b):
+		return
+	_boss_node = b
+	b.set_meta("boss_profile", profile)
+	b.set_meta("boss_spawn_elapsed", _elapsed_minutes())
+	b.set_meta("boss_skill_cd", 2.0)
+	b.set_meta("boss_summon_cd", 6.0)
+	b.set_meta("boss_enraged", false)
+	if profile == "siegebreaker":
+		b.set_meta("boss_name", "Siegebreaker Vanguard")
+		b.ai_id = "charger"
+		b.affix_ids = PackedStringArray(["volatile", "vampiric"])
+		if "contact_damage" in b:
+			b.contact_damage = int(round(float(b.contact_damage) * 1.15))
+	elif profile == "storm_oracle":
+		b.set_meta("boss_name", "Storm Oracle")
+		b.ai_id = "spitter"
+		b.affix_ids = PackedStringArray(["arcane", "vampiric"])
+		if "contact_damage" in b:
+			b.contact_damage = int(round(float(b.contact_damage) * 1.25))
+	else:
+		b.set_meta("boss_name", "Archfiend")
+		b.ai_id = "charger"
+		b.affix_ids = PackedStringArray(["arcane", "volatile"])
+	# Re-apply behavior modifiers when we override profile after spawn.
+	if b.has_method("_apply_archetype_and_affixes"):
+		b._apply_archetype_and_affixes()
+	if b.has_method("_apply_visuals"):
+		b._apply_visuals()
+
+func _tick_boss_mechanics(delta: float) -> void:
+	if not _boss_fight_active:
+		return
+	if _boss_node == null or not is_instance_valid(_boss_node):
+		return
+	var profile := String(_boss_node.get_meta("boss_profile", "default"))
+	var hp_ratio := 1.0
+	if _boss_node.has_method("get_hp_ratio"):
+		hp_ratio = float(_boss_node.get_hp_ratio())
+	if (not bool(_boss_node.get_meta("boss_enraged", false))) and hp_ratio <= 0.5:
+		_boss_node.set_meta("boss_enraged", true)
+		if "contact_damage" in _boss_node:
+			_boss_node.contact_damage = int(round(float(_boss_node.contact_damage) * 1.2))
+		if toast_layer != null:
+			toast_layer.show_toast("Boss enrages!", Color(1.0, 0.45, 0.32, 1.0))
+
+	var skill_cd := maxf(0.0, float(_boss_node.get_meta("boss_skill_cd", 0.0)) - delta)
+	var summon_cd := maxf(0.0, float(_boss_node.get_meta("boss_summon_cd", 0.0)) - delta)
+	_boss_node.set_meta("boss_skill_cd", skill_cd)
+	_boss_node.set_meta("boss_summon_cd", summon_cd)
+
+	if profile == "siegebreaker":
+		if skill_cd <= 0.0:
+			_do_siegebreaker_slam(_boss_node)
+			_boss_node.set_meta("boss_skill_cd", 8.0 if hp_ratio > 0.5 else 5.8)
+		if summon_cd <= 0.0:
+			_spawn_boss_minions(_boss_node, "bomber", 2)
+			_boss_node.set_meta("boss_summon_cd", 16.0 if hp_ratio > 0.5 else 11.0)
+	elif profile == "storm_oracle":
+		if skill_cd <= 0.0:
+			_do_storm_oracle_barrage(_boss_node)
+			_boss_node.set_meta("boss_skill_cd", 7.0 if hp_ratio > 0.5 else 4.6)
+		if summon_cd <= 0.0:
+			_spawn_boss_minions(_boss_node, "spitter", 2)
+			_boss_node.set_meta("boss_summon_cd", 15.0 if hp_ratio > 0.5 else 10.0)
+	if _boss_test_mode:
+		var spawn_elapsed := float(_boss_node.get_meta("boss_spawn_elapsed", _elapsed_minutes()))
+		if (_elapsed_minutes() - spawn_elapsed) >= 0.75 and _boss_node.has_method("take_damage"):
+			_boss_node.take_damage(9999999, false, "test")
+
+func _do_siegebreaker_slam(boss: Node2D) -> void:
+	var pos := boss.global_position
+	var sw := VfxShockwave.new()
+	sw.setup(pos, Color(1.0, 0.55, 0.22, 1.0), 18.0, 220.0, 7.0, 0.30)
+	add_child(sw)
+	var ss := get_node_or_null("/root/ScreenShake")
+	if ss and is_instance_valid(ss) and ss.has_method("shake"):
+		ss.shake(9.0, 0.16)
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and s.is_inside_tree() and s.has_method("play_event"):
+		s.play_event("weapon.slam", pos, boss)
+	var radius := 220.0
+	var r2 := radius * radius
+	var dmg := maxi(8, int(round(float(boss.contact_damage) * 1.45)))
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player != null and is_instance_valid(player) and player.global_position.distance_squared_to(pos) <= r2 and player.has_method("take_damage"):
+		player.take_damage(dmg, false, "blast")
+	_prune_invalid_lists()
+	for u in live_squad_units:
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.global_position.distance_squared_to(pos) > r2:
+			continue
+		if u.has_method("take_damage"):
+			u.take_damage(dmg, false, "blast")
+
+func _do_storm_oracle_barrage(boss: Node2D) -> void:
+	_prune_invalid_lists()
+	var targets: Array[Node2D] = []
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player != null and is_instance_valid(player):
+		targets.append(player)
+	for u in live_squad_units:
+		if u != null and is_instance_valid(u):
+			targets.append(u)
+	if targets.is_empty():
+		return
+	targets.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		return a.global_position.distance_squared_to(boss.global_position) < b.global_position.distance_squared_to(boss.global_position)
+	)
+	var s := get_node_or_null("/root/SfxSystem")
+	var v := get_node_or_null("/root/VfxSystem")
+	var strikes := mini(3, targets.size())
+	var dmg := maxi(7, int(round(float(boss.contact_damage) * 1.15)))
+	for i in range(strikes):
+		var t := targets[i]
+		if t == null or not is_instance_valid(t):
+			continue
+		if t.has_method("take_damage"):
+			t.take_damage(dmg, false, "arc")
+		if VFX_ARC_SCENE != null:
+			var arc := VFX_ARC_SCENE.instantiate()
+			add_child(arc)
+			if arc.has_method("setup"):
+				arc.setup(boss.global_position, t.global_position, Color(0.55, 0.88, 1.0, 0.95))
+		if v and is_instance_valid(v) and v.has_method("play_event"):
+			v.play_event("syn.arc", t.global_position, self, Color(0.55, 0.88, 1.0, 1.0), 1.0)
+		if s and is_instance_valid(s) and s.has_method("play_event"):
+			s.play_event("enemy.arcane", t.global_position, boss)
+
+func _spawn_boss_minions(boss: Node2D, ai_id: String, count: int) -> void:
+	var p := get_tree().get_first_node_in_group("player") as Node2D
+	var center := boss.global_position
+	if p != null and is_instance_valid(p):
+		center = p.global_position
+	for _i in range(maxi(1, count)):
+		if live_enemies.size() >= _current_max_enemies():
+			break
+		_spawn_enemy(true, false, false)
+		if live_enemies.is_empty():
+			continue
+		var n := live_enemies[live_enemies.size() - 1]
+		if n == null or not is_instance_valid(n) or n == boss:
+			continue
+		n.ai_id = ai_id
+		if n.has_method("_apply_archetype_and_affixes"):
+			n._apply_archetype_and_affixes()
+		var ang := rng.randf_range(0.0, TAU)
+		var dist := rng.randf_range(110.0, 180.0)
+		n.global_position = center + Vector2(cos(ang), sin(ang)) * dist
 
 func register_enemy(e: Node2D) -> void:
 	live_enemies.append(e)
@@ -1220,7 +1549,7 @@ func on_squad_unit_died(u: Node2D) -> void:
 	if idx >= 0:
 		live_squad_units.remove_at(idx)
 	# Run fails if you lose your whole squad.
-	if (not _game_over) and (not _victory) and live_squad_units.is_empty():
+	if (not _boss_test_mode) and (not _game_over) and (not _victory) and live_squad_units.is_empty():
 		_show_game_over()
 
 func _prune_invalid_lists() -> void:
@@ -1284,7 +1613,18 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	# Boss victory
 	if enable_bosses and was_boss:
 		_boss_fight_active = false
-		_show_victory()
+		_boss_node = null
+		_boss_deadline_s = -1.0
+		_boss_kills += 1
+		if _multi_boss_schedule_enabled:
+			if _boss_wave_index >= _boss_wave_times.size():
+				_show_victory()
+			else:
+				if toast_layer != null:
+					var next_m := float(_boss_wave_times[_boss_wave_index])
+					toast_layer.show_toast("Boss defeated. Next threat at %d:%02d." % [int(next_m), int(round(fmod(next_m * 60.0, 60.0)))], Color(0.72, 0.92, 1.0, 1.0))
+		else:
+			_show_victory()
 
 func start_rift_encounter(_rift: Node) -> void:
 	# Next draft offers a "Mystery Rift" option with better odds
@@ -1878,6 +2218,8 @@ func _setup_hud() -> void:
 
 	var timer_chip := _make_hud_chip("RunTimerLabel", "Time: 0:00   Essence: 0", UiSkin.ACCENT_GOLD, 12)
 	top_row.add_child(timer_chip)
+	var objective_chip := _make_hud_chip("ObjectiveLabel", "Objective: Stabilize the church perimeter.", UiSkin.ACCENT_PURPLE, 12)
+	container.add_child(objective_chip)
 
 	var formation_chip := _make_hud_chip("FormationLabel", "Formation: TIGHT   Tactics: NEAREST", UiSkin.ACCENT, 12)
 	formation_chip.visible = false
@@ -2240,6 +2582,35 @@ func _update_hud_labels() -> void:
 			if b.get_parent() is CanvasItem:
 				(b.get_parent() as CanvasItem).visible = false
 
+	var o := get_node_or_null("HUD/HUDPanel/HUDVBox/ObjectiveLabel") as Label
+	if o:
+		var now_s := int(round(((Time.get_ticks_msec() / 1000.0) - run_start_time)))
+		var now_m := float(now_s) / 60.0
+		var txt := ""
+		if enable_bosses and _boss_fight_active:
+			if _boss_deadline_s > 0.0:
+				var left := maxi(0, int(round(_boss_deadline_s - float(Time.get_ticks_msec()) / 1000.0)))
+				txt = "Objective: Slay the boss before %d:%02d." % [int(left / 60), int(left % 60)]
+			else:
+				txt = "Objective: Slay the boss."
+		elif enable_bosses and _multi_boss_schedule_enabled and _boss_wave_index < _boss_wave_times.size():
+			var next_boss_m := float(_boss_wave_times[_boss_wave_index])
+			var left2s := maxi(0, int(round((next_boss_m - now_m) * 60.0)))
+			txt = "Objective: Prepare for boss wave %d (%d:%02d)." % [_boss_wave_index + 1, int(left2s / 60), int(left2s % 60)]
+		elif enable_bosses and (not _boss_spawned):
+			var left2 := maxi(0.0, run_timer_max_minutes - now_m)
+			var left2s2 := int(round(left2 * 60.0))
+			txt = "Objective: Hold out until boss (%d:%02d)." % [int(left2s2 / 60), int(left2s2 % 60)]
+		else:
+			var left3 := maxi(0.0, run_timer_max_minutes - now_m)
+			var left3s := int(round(left3 * 60.0))
+			txt = "Objective: Survive the run (%d:%02d)." % [int(left3s / 60), int(left3s % 60)]
+		if _objective_event_index < _objective_events.size():
+			var next_m := float(_objective_events[_objective_event_index])
+			var dt_s := maxi(0, int(round((next_m - now_m) * 60.0)))
+			txt += "  Next surge in %d:%02d." % [int(dt_s / 60), int(dt_s % 60)]
+		o.text = txt
+
 	var s := get_node_or_null("HUD/HUDPanel/HUDVBox/SynergyLabel") as Label
 	if s:
 		s.text = SynergySystem.summary_text()
@@ -2322,6 +2693,8 @@ func _make_hud_chip(label_name: String, text: String, accent: Color, font_size: 
 			chip.custom_minimum_size.x = 300
 		"SynergyLabel":
 			chip.custom_minimum_size.x = 280
+		"ObjectiveLabel":
+			chip.custom_minimum_size.x = 520
 		_:
 			chip.custom_minimum_size.x = 180
 	var sb := UiSkin.chip_style(accent if accent != null else UiSkin.ACCENT)
@@ -2436,6 +2809,14 @@ func _tick_end_of_run_timer() -> void:
 	if _victory or _game_over:
 		return
 	var now_m := _elapsed_minutes()
+	if _multi_boss_schedule_enabled:
+		# Multi-boss mode: victory is granted on final boss kill, not by surviving the timer.
+		if _boss_wave_index >= _boss_wave_times.size() and (not _boss_fight_active) and _boss_kills >= _boss_wave_times.size():
+			_show_victory()
+		# Fail-safe for very long stalled runs.
+		if now_m >= maxf(run_timer_max_minutes, float(_boss_wave_times[_boss_wave_times.size() - 1]) + 5.0) and (not _victory):
+			_show_game_over()
+		return
 	if enable_bosses:
 		# Boss-at-end: reaching the timer triggers the boss; victory requires killing it.
 		if (not _boss_spawned) and now_m >= run_timer_max_minutes:
@@ -2449,6 +2830,85 @@ func _tick_end_of_run_timer() -> void:
 		# Survival mode
 		if now_m >= run_timer_max_minutes:
 			_show_victory()
+
+func _apply_map_pacing_overrides() -> void:
+	var map_id := String(_map_mod.get("id", ""))
+	# Church is the onboarding map: faster rewards, cleaner first minutes, less downtime.
+	if map_id == "church":
+		draft_drop_chance_normal = maxf(draft_drop_chance_normal, 0.012)
+		draft_drop_chance_elite = maxf(draft_drop_chance_elite, 0.085)
+		draft_drop_pity_add_per_kill = maxf(draft_drop_pity_add_per_kill, 0.0014)
+		draft_drop_pity_cap = maxf(draft_drop_pity_cap, 0.05)
+		draft_drop_min_seconds_between = minf(draft_drop_min_seconds_between, 52.0)
+		reroll_cost_essence = mini(reroll_cost_essence, 2)
+		spawn_interval_start = minf(spawn_interval_start, 2.25)
+		spawn_interval_end = minf(spawn_interval_end, 0.84)
+		max_enemies_start = maxi(max_enemies_start, 18)
+		max_enemies_end = maxi(max_enemies_end, 132)
+		# Keep pressure arcs visible on church without overwhelming beginners.
+		_objective_events = PackedFloat32Array([1.8, 4.5, 7.0, 10.0, 13.0, 16.0])
+	else:
+		_objective_events = PackedFloat32Array([2.5, 6.0, 10.0, 14.0])
+	_objective_event_index = 0
+
+func _tick_objective_events() -> void:
+	if _game_over or _victory:
+		return
+	if _boss_fight_active:
+		return
+	if _objective_event_index >= _objective_events.size():
+		return
+	var now_m := _elapsed_minutes()
+	if now_m < float(_objective_events[_objective_event_index]):
+		return
+	var stage := _objective_event_index + 1
+	_objective_event_index += 1
+	var map_id := String(_map_mod.get("id", ""))
+	# Milestone reward: a little certainty in a highly random loop.
+	var reward_essence := 5 + stage * 2
+	if map_id == "church":
+		reward_essence = 7 + stage * 3
+	essence += reward_essence
+	_draft_pity = minf(draft_drop_pity_cap, _draft_pity + (0.016 if map_id == "church" else 0.012))
+	if toast_layer != null:
+		toast_layer.show_toast("Milestone %d: +%d Essence. Enemy surge incoming!" % [stage, reward_essence], Color(1.0, 0.90, 0.45, 1.0))
+	# Controlled intensity spike to create memorable beats.
+	var extra_elites := 1 + int(stage / 2)
+	if map_id == "church":
+		extra_elites += 1
+	for _i in range(extra_elites):
+		if live_enemies.size() >= _current_max_enemies():
+			break
+		_spawn_enemy(true, false, false)
+	if map_id == "church":
+		var extra_normals := mini(10, 2 + stage)
+		for _j in range(extra_normals):
+			if live_enemies.size() >= _current_max_enemies():
+				break
+			_spawn_enemy(false, false, false)
+	# Every other milestone gives a deterministic choice moment.
+	var now_s := float(Time.get_ticks_msec()) / 1000.0
+	var should_offer_draft := (stage % 2 == 0)
+	if map_id == "church" and stage >= 5:
+		should_offer_draft = true
+	if should_offer_draft and not has_node("RecruitDraftUI") and (now_s - _last_draft_time_s) >= 30.0:
+		_last_draft_time_s = now_s
+		_draft_pity = 0.0
+		_on_draft_ready()
+
+func _sync_objective_event_index_from_elapsed() -> void:
+	var now_m := _elapsed_minutes()
+	_objective_event_index = 0
+	while _objective_event_index < _objective_events.size() and now_m >= float(_objective_events[_objective_event_index]):
+		_objective_event_index += 1
+
+func _sync_boss_wave_index_from_elapsed() -> void:
+	if not _multi_boss_schedule_enabled:
+		return
+	var now_m := _elapsed_minutes()
+	_boss_wave_index = 0
+	while _boss_wave_index < _boss_wave_times.size() and now_m >= float(_boss_wave_times[_boss_wave_index]):
+		_boss_wave_index += 1
 
 func _show_game_over() -> void:
 	_game_over = true
@@ -2563,6 +3023,8 @@ func _try_apply_run_resume() -> void:
 		s.play_ui("ui.resume_load")
 	if toast_layer != null:
 		toast_layer.show_toast("Resumed run.", Color(0.65, 0.85, 1.0, 1.0))
+	_sync_objective_event_index_from_elapsed()
+	_sync_boss_wave_index_from_elapsed()
 
 func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> void:
 	# CRITICAL: Allow UI to work while paused

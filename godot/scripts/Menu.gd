@@ -1412,14 +1412,14 @@ func _setup_map_select() -> void:
 	)
 
 func _is_map_unlocked(map_id: String) -> bool:
-	if map_id == "" or map_id == "graveyard":
+	if map_id == "" or map_id == "graveyard" or map_id == "cathedral":
 		return true
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
-		return map_id == "graveyard"
+		return map_id == "graveyard" or map_id == "cathedral"
 	if mp.has_method("is_map_unlocked"):
 		return bool(mp.is_map_unlocked(map_id))
-	return map_id == "graveyard"
+	return map_id == "graveyard" or map_id == "cathedral"
 
 func _refresh() -> void:
 	_sync_synergy_system()
