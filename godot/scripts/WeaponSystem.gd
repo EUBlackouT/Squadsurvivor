@@ -71,7 +71,7 @@ static func execute_attack(
 	var wtype := String(w.get("type", "projectile"))
 	# Every ranged/cast attack gets a visible cast flash in addition to hit VFX.
 	if _is_ranged_weapon_type(wtype):
-		_play_vfx(main_node, "player.shot", attacker.global_position + Vector2(0, -10))
+		_play_vfx(main_node, "player.shot", attacker.global_position + Vector2(0, -10), Color.WHITE, 1.35)
 	
 	match wtype:
 		"projectile":
@@ -947,8 +947,16 @@ static func _play_vfx(main_node: Node2D, event: String, pos: Vector2, tint: Colo
 	if main_node == null:
 		return
 	var v := main_node.get_node_or_null("/root/VfxSystem")
+	var ok := false
 	if v and is_instance_valid(v) and v.has_method("play_event"):
-		v.play_event(event, pos, main_node, tint, scale)
+		ok = bool(v.play_event(event, pos, main_node, tint, scale))
+	if ok:
+		return
+	# Readable fallback for attacks when pack VFX are unavailable/tiny.
+	if event == "player.shot":
+		var flash := VfxImpactFlash.new()
+		flash.setup(pos, Color(1.0, 0.92, 0.70, 1.0), 18.0 * scale, 0.11)
+		main_node.add_child(flash)
 
 static func _spawn_arc_vfx(main_node: Node2D, pos: Vector2, dir: Vector2, radius: float, color: Color) -> void:
 	var v := main_node.get_node_or_null("/root/VfxSystem") if main_node else null

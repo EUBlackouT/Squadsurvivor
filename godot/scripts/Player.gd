@@ -2,6 +2,10 @@ extends CharacterBody2D
 
 @export var move_speed: float = 520.0  # Fast, responsive direct-control speed
 @export var squad_size: int = 3
+@export var gameplay_camera_zoom: Vector2 = Vector2(0.78, 0.78)
+@export var zoom_min: float = 0.42
+@export var zoom_max: float = 2.20
+@export var zoom_step: float = 0.10
 
 @onready var cam: Camera2D = get_node_or_null("Camera2D")
 
@@ -46,6 +50,8 @@ var formation_offsets: Array[Vector2] = [
 func _ready() -> void:
 	if cam:
 		cam.make_current()
+		var z := clampf(gameplay_camera_zoom.x, zoom_min, zoom_max)
+		cam.zoom = Vector2(z, z)
 	add_to_group("player")
 	_main = get_tree().get_first_node_in_group("main") as Node2D
 
@@ -61,10 +67,28 @@ func _ready() -> void:
 
 	_spawn_initial_squad()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if cam == null:
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if not mb.pressed:
+			return
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_set_camera_zoom(cam.zoom.x - zoom_step)
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_set_camera_zoom(cam.zoom.x + zoom_step)
+
+func _set_camera_zoom(v: float) -> void:
+	if cam == null:
+		return
+	var z := clampf(v, zoom_min, zoom_max)
+	cam.zoom = Vector2(z, z)
+
 func _apply_player_visual_identity() -> void:
 	var spr := get_node_or_null("Sprite2D") as Sprite2D
 	if spr != null:
-		spr.scale = Vector2(0.5, 0.5)
+		spr.scale = Vector2(0.22, 0.22)
 		spr.modulate = Color(0.25, 1.0, 0.45, 1.0)
 		var mat := ShaderMaterial.new()
 		mat.shader = preload("res://shaders/pixel_outline.gdshader")
@@ -91,8 +115,7 @@ func _spawn_initial_squad() -> void:
 		for i in range(3):
 			var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0, map_mod)
 			if cd == null:
-				var south := PixellabUtil.pick_random_south_path(rng)
-				cd = UnitFactory.build_character_data("recruit", rng, 0.0, south, map_mod)
+				continue
 			roster.append(cd)
 			# Also unlock and add to roster
 			var cm2 := get_node_or_null("/root/CollectionManager")

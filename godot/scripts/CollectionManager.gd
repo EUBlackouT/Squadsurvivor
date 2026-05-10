@@ -207,9 +207,6 @@ func _build_starter_roster(map_mod: Dictionary, rng: RandomNumberGenerator, coun
 		tries += 1
 		var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0, map_mod)
 		if cd == null:
-			var south := PixellabUtil.pick_random_south_path(rng)
-			cd = UnitFactory.build_character_data("recruit", rng, 0.0, south, map_mod)
-		if cd == null:
 			continue
 		var uid := _make_unlock_id(cd)
 		var dup := false

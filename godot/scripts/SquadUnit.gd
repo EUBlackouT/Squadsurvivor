@@ -45,7 +45,7 @@ enum TargetMode { NEAREST, LOWEST_HP, ELITES_FIRST }
 var _formation_mode: int = FormationMode.TIGHT
 var _target_mode: int = TargetMode.NEAREST
 const TARGET_MODE_COUNT: int = 3
-const TARGET_SPRITE_HEIGHT: float = 26.0
+const TARGET_SPRITE_HEIGHT: float = 10.0
 
 var _current_anim: String = "walk_south"
 var _anim_cooldown: float = 0.0
@@ -109,7 +109,7 @@ func _apply_visuals() -> void:
 		var frames := PixellabUtil.walk_frames_from_south_path(character_data.sprite_path)
 		if frames != null:
 			var base_scale := anim.scale
-			var scale_mult := PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.6, 1.05)
+			var scale_mult := PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.20, 0.42)
 			anim.scale = base_scale * scale_mult
 			anim.sprite_frames = frames
 			_current_anim = "walk_south"
@@ -401,7 +401,7 @@ func _ensure_selection_ring() -> void:
 	_selection_ring.default_color = Color(0.48, 0.88, 1.0, 0.95)
 	_selection_ring.z_index = 60
 	_selection_ring.closed = true
-	var r := 18.0
+	var r := 11.0
 	var seg := 24
 	for i in range(seg):
 		var a := TAU * float(i) / float(seg)
@@ -613,16 +613,16 @@ func _apply_walk_bob(moving: bool) -> void:
 		anim.scale = _anim_base_scale
 
 func _pick_walk_anim(dir: Vector2) -> String:
-	# 4-way facing with deadzone; fall back if an animation is missing.
+	# 4-way facing biased toward the dominant axis.
+	# This avoids stale opposite-facing frames during quick strafe/turn moments.
 	var d := dir.normalized()
 	var ax := absf(d.x)
 	var ay := absf(d.y)
 	var desired := _current_anim
-	var threshold := 0.10
-	if ax > ay + threshold:
+	if ax >= ay * 0.75:
 		desired = "walk_east" if d.x >= 0.0 else "walk_west"
-	elif ay > ax + threshold:
-		desired = "walk_south" if d.y > 0.0 else "walk_north"
+	else:
+		desired = "walk_south" if d.y >= 0.0 else "walk_north"
 
 	# Ensure animation exists; PixellabUtil provides fallbacks, but be safe.
 	if anim != null and anim.sprite_frames != null:

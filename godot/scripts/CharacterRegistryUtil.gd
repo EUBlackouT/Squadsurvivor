@@ -9,6 +9,8 @@ extends Node
 static var _loaded: bool = false
 static var _entries: Array[Dictionary] = []
 static var _entry_by_id: Dictionary = {}
+static var _entry_has_assets_cache: Dictionary = {} # id -> bool
+static var _entries_for_map_cache: Dictionary = {} # key -> Array[Dictionary]
 static var _passive_catalog_loaded: bool = false
 static var _known_passive_ids: Dictionary = {}
 
@@ -233,6 +235,8 @@ static func ensure_loaded() -> void:
 	var chars: Dictionary = root.get("characters", {})
 	_entries.clear()
 	_entry_by_id.clear()
+	_entry_has_assets_cache.clear()
+	_entries_for_map_cache.clear()
 	for k in chars.keys():
 		var d: Dictionary = chars.get(k, {}) as Dictionary
 		if d.is_empty():
@@ -261,8 +265,20 @@ static func build_random_character_data(context: String, rng: RandomNumberGenera
 	return _build_character_data_from_entry(entry, context, rng, elapsed_minutes, map_mod)
 
 static func _entries_for_map(context: String, map_mod: Dictionary) -> Array[Dictionary]:
+	var cache_key := _map_pool_cache_key(context, map_mod)
+	if _entries_for_map_cache.has(cache_key):
+		var cached_any: Variant = _entries_for_map_cache.get(cache_key, [])
+		var cached_arr: Array = cached_any as Array
+		var out_cached: Array[Dictionary] = []
+		for it in cached_arr:
+			if typeof(it) == TYPE_DICTIONARY:
+				out_cached.append(it as Dictionary)
+		return out_cached
+
 	if map_mod.is_empty():
-		return _entries_with_assets(_entries)
+		var all_with_assets := _entries_with_assets(_entries)
+		_entries_for_map_cache[cache_key] = all_with_assets.duplicate()
+		return all_with_assets
 	var pool: Array = []
 	if context == "enemy" and map_mod.has("race_pool_enemy"):
 		pool = map_mod.get("race_pool_enemy", []) as Array
@@ -272,7 +288,9 @@ static func _entries_for_map(context: String, map_mod: Dictionary) -> Array[Dict
 		pool = map_mod.get("race_pool", []) as Array
 	var blacklist: Array = map_mod.get("race_blacklist", []) as Array
 	if pool.is_empty() and blacklist.is_empty():
-		return _entries_with_assets(_entries)
+		var all_with_assets2 := _entries_with_assets(_entries)
+		_entries_for_map_cache[cache_key] = all_with_assets2.duplicate()
+		return all_with_assets2
 	var out: Array[Dictionary] = []
 	for entry in _entries:
 		var race := String(entry.get("race", ""))
@@ -281,19 +299,52 @@ static func _entries_for_map(context: String, map_mod: Dictionary) -> Array[Dict
 		if not blacklist.is_empty() and blacklist.has(race):
 			continue
 		out.append(entry)
-	return _entries_with_assets(out)
+	var filtered := _entries_with_assets(out)
+	_entries_for_map_cache[cache_key] = filtered.duplicate()
+	return filtered
 
 static func _entries_with_assets(entries: Array) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for entry in entries:
-		var folder := String(entry.get("folder", ""))
-		if folder == "":
-			continue
-		var south_path := "res://assets/characters/%s/frames/walk_front/frame_000.png" % folder
-		if not ResourceLoader.exists(south_path):
-			continue
-		out.append(entry)
+		if _entry_has_assets(entry):
+			out.append(entry)
 	return out
+
+static func _entry_has_assets(entry: Dictionary) -> bool:
+	var eid := String(entry.get("id", ""))
+	if eid == "":
+		eid = String(entry.get("folder", ""))
+	if eid == "":
+		return false
+	if _entry_has_assets_cache.has(eid):
+		return bool(_entry_has_assets_cache.get(eid, false))
+	var folder := String(entry.get("folder", ""))
+	if folder == "":
+		_entry_has_assets_cache[eid] = false
+		return false
+	var south_path := "res://assets/characters/%s/frames/walk_front/frame_000.png" % folder
+	var ok := ResourceLoader.exists(south_path)
+	_entry_has_assets_cache[eid] = ok
+	return ok
+
+static func _map_pool_cache_key(context: String, map_mod: Dictionary) -> String:
+	var pool: Array = []
+	if context == "enemy" and map_mod.has("race_pool_enemy"):
+		pool = map_mod.get("race_pool_enemy", []) as Array
+	elif context == "recruit" and map_mod.has("race_pool_recruit"):
+		pool = map_mod.get("race_pool_recruit", []) as Array
+	elif map_mod.has("race_pool"):
+		pool = map_mod.get("race_pool", []) as Array
+	var blacklist: Array = map_mod.get("race_blacklist", []) as Array
+	var p: Array[String] = []
+	for r in pool:
+		p.append(String(r))
+	p.sort()
+	var b: Array[String] = []
+	for r2 in blacklist:
+		b.append(String(r2))
+	b.sort()
+	return "%s|P:%s|B:%s" % [context, ",".join(p), ",".join(b)]
 
 static func build_character_data_by_id(char_id: String, context: String, rng: RandomNumberGenerator, elapsed_minutes: float, map_mod: Dictionary = {}) -> CharacterData:
 	ensure_loaded()

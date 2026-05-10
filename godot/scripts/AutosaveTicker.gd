@@ -26,6 +26,20 @@ func trigger_autosave(_reason: String = "") -> void:
 		return
 	if bool(_main.get("_victory") if ("_victory" in _main) else false):
 		return
+	# Avoid periodic autosave hitches during peak combat.
+	if _reason == "interval":
+		var in_boss := bool(_main.get("_boss_fight_active") if ("_boss_fight_active" in _main) else false)
+		var enemy_count := 0
+		if _main.has_method("get_cached_enemies"):
+			var enemies: Array = _main.get_cached_enemies()
+			for e in enemies:
+				if is_instance_valid(e):
+					enemy_count += 1
+		# Interval saves are cheap in menus but can hitch in active combat.
+		# Defer until the battlefield is calm; explicit save points still run.
+		if in_boss or enemy_count > 0:
+			_next_due_ms = int(Time.get_ticks_msec()) + 12000
+			return
 
 	var now_ms: int = int(Time.get_ticks_msec())
 	# Hard guard: never save more often than every 3 seconds.
@@ -51,10 +65,10 @@ func _process(_delta: float) -> void:
 
 func _schedule_next() -> void:
 	var now_ms: int = int(Time.get_ticks_msec())
-	var interval_s := 25.0
+	var interval_s := 35.0
 	if _main != null and is_instance_valid(_main) and ("autosave_interval_seconds" in _main):
 		interval_s = float(_main.get("autosave_interval_seconds"))
-	interval_s = maxf(5.0, interval_s)
+	interval_s = maxf(20.0, interval_s)
 	_next_due_ms = now_ms + int(round(interval_s * 1000.0))
 
 func _update_indicator(now_ms: int) -> void:

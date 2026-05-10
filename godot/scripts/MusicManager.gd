@@ -30,6 +30,12 @@ var _proc_streams: Dictionary = {} # track_id -> AudioStream
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_ensure_players()
+	_build_procedural_streams()
+
+func _ensure_players() -> void:
+	if _a != null and is_instance_valid(_a) and _b != null and is_instance_valid(_b):
+		return
 	_a = AudioStreamPlayer.new()
 	_b = AudioStreamPlayer.new()
 	_a.bus = _pick_bus()
@@ -38,9 +44,9 @@ func _ready() -> void:
 	_b.volume_db = -80.0
 	add_child(_a)
 	add_child(_b)
-	_build_procedural_streams()
 
 func play(track_id: String, crossfade_duration: float = 1.0) -> void:
+	_ensure_players()
 	if track_id == _current_track_id:
 		return
 	var stream := _resolve_stream(track_id)

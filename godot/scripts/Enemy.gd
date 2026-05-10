@@ -40,6 +40,8 @@ var _charge_dir: Vector2 = Vector2.ZERO
 var _charge_target_pos: Vector2 = Vector2.ZERO
 var _charge_line: Line2D = null
 static var _charge_line_tex: Texture2D = null
+static var _scale_mult_cache: Dictionary = {} # south_path -> float
+static var _outline_mat_cache: Dictionary = {} # key -> ShaderMaterial
 var _volatile_on_death: bool = false
 var _vampiric: bool = false
 var _arcane: bool = false
@@ -69,10 +71,11 @@ var _move_speed_mult: float = 1.0
 var _dmg_mult: float = 1.0
 var _hp_mult: float = 1.0
 var _scale_mult: float = 1.0
-const TARGET_SPRITE_HEIGHT: float = 26.0
+const TARGET_SPRITE_HEIGHT: float = 10.0
 const ENEMY_WORLD_SPEED_MULT: float = 0.20
 const TARGET_SEPARATION_RADIUS: float = 26.0
 const ACTOR_SEPARATION_RADIUS: float = 24.0
+const OUTLINE_SHADER: Shader = preload("res://shaders/pixel_outline.gdshader")
 
 var current_hp: int = 30
 
@@ -142,7 +145,12 @@ func _apply_visuals() -> void:
 	var frames := PixellabUtil.walk_frames_from_south_path(pixellab_south_path)
 	if frames != null:
 		var base_scale := anim.scale
-		var scale_mult := PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.6, 1.05)
+		var scale_mult := 1.0
+		if _scale_mult_cache.has(pixellab_south_path):
+			scale_mult = float(_scale_mult_cache.get(pixellab_south_path, 1.0))
+		else:
+			scale_mult = PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.20, 0.42)
+			_scale_mult_cache[pixellab_south_path] = scale_mult
 		anim.scale = base_scale * scale_mult
 		anim.sprite_frames = frames
 	_current_anim = "walk_south"
@@ -156,9 +164,9 @@ func _apply_visuals() -> void:
 	# Elites/bosses are larger for readability + threat presence.
 	var base := 1.0
 	if is_boss:
-		base = 1.42
+		base = 1.28
 	elif is_elite:
-		base = 1.10
+		base = 1.06
 	anim.scale = _anim_base_scale * base * _scale_mult
 	# Mild tint for readability by archetype/affix
 	if ai_id == "swarmer":
@@ -174,16 +182,24 @@ func _apply_visuals() -> void:
 	if is_boss:
 		anim.modulate = anim.modulate.lerp(Color(1.0, 0.78, 0.62, 1.0), 0.22)
 	# Team readability: enemy-specific warm outline (cleaner than floor circles).
-	var mat := ShaderMaterial.new()
-	mat.shader = preload("res://shaders/pixel_outline.gdshader")
 	var enemy_outline := Color(1.0, 0.26, 0.20, 0.95)
 	if is_elite:
 		enemy_outline = Color(1.0, 0.48, 0.20, 0.98)
 	if is_boss:
 		enemy_outline = Color(1.0, 0.70, 0.35, 1.0)
-	mat.set_shader_parameter("outline_color", enemy_outline)
-	mat.set_shader_parameter("outline_px", 2.2 if is_boss else 1.4)
-	anim.material = mat
+	var outline_px := 2.2 if is_boss else 1.4
+	anim.material = _get_outline_material(enemy_outline, outline_px)
+
+static func _get_outline_material(color: Color, px: float) -> ShaderMaterial:
+	var key := "%s|%.2f" % [color.to_html(true), px]
+	if _outline_mat_cache.has(key):
+		return _outline_mat_cache[key] as ShaderMaterial
+	var mat := ShaderMaterial.new()
+	mat.shader = OUTLINE_SHADER
+	mat.set_shader_parameter("outline_color", color)
+	mat.set_shader_parameter("outline_px", px)
+	_outline_mat_cache[key] = mat
+	return mat
 
 func _physics_process(delta: float) -> void:
 	_anim_cooldown = maxf(_anim_cooldown - delta, 0.0)
@@ -666,11 +682,10 @@ func _pick_walk_anim(dir: Vector2) -> String:
 	var ax := absf(d.x)
 	var ay := absf(d.y)
 	var desired := _current_anim
-	var threshold := 0.10
-	if ax > ay + threshold:
+	if ax >= ay * 0.75:
 		desired = "walk_east" if d.x >= 0.0 else "walk_west"
-	elif ay > ax + threshold:
-		desired = "walk_south" if d.y > 0.0 else "walk_north"
+	else:
+		desired = "walk_south" if d.y >= 0.0 else "walk_north"
 
 	var sf := anim.sprite_frames
 	if sf.has_animation(desired) and sf.get_frame_count(desired) > 0:

@@ -40,7 +40,7 @@ func _ready() -> void:
 	var used_flipbook := false
 	if vfx and is_instance_valid(vfx) and vfx.has_method("get_event_cfg") and vfx.has_method("get_frames_for_key"):
 		var cfg: Dictionary = vfx.get_event_cfg("proj.player") as Dictionary
-		var use_flipbook := bool(cfg.get("use_flipbook", true))
+		var use_flipbook := bool(cfg.get("use_flipbook", false))
 		if use_flipbook:
 			var key := String(cfg.get("effect_key", ""))
 			var frames: Array = vfx.get_frames_for_key(key) as Array
@@ -65,7 +65,7 @@ func _ready() -> void:
 		_bullet_tex = _make_bullet_tex()
 	sprite.texture = _bullet_tex
 	sprite.position = Vector2.ZERO
-	sprite.scale = Vector2(1.15, 1.15)
+	sprite.scale = Vector2(1.55, 1.55)
 	sprite.z_index = 20
 
 	_glow = Sprite2D.new()
@@ -73,7 +73,7 @@ func _ready() -> void:
 	_glow.texture = _bullet_tex
 	_glow.centered = true
 	_glow.z_index = 19
-	_glow.scale = Vector2(2.2, 2.2)
+	_glow.scale = Vector2(2.8, 2.8)
 	_glow.modulate = Color(1, 1, 1, 0.35)
 	var mat := CanvasItemMaterial.new()
 	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
@@ -84,7 +84,7 @@ func _ready() -> void:
 	_trail.name = "Trail"
 	_trail.top_level = true
 	_trail.z_index = 18
-	_trail.width = 3.0
+	_trail.width = 4.4
 	_trail.antialiased = true
 	_trail.joint_mode = Line2D.LINE_JOINT_ROUND
 	_trail.begin_cap_mode = Line2D.LINE_CAP_ROUND
@@ -257,13 +257,13 @@ func _spawn_hit_vfx(enemy: Node2D) -> void:
 	# Crisp impact flash (reads as "hit" even on dark maps)
 	var c0 := sprite.modulate if sprite != null else Color(0.85, 0.92, 1.0, 1.0)
 	var flash := VfxImpactFlash.new()
-	flash.setup(pos, Color(c0.r, c0.g, c0.b, 1.0), 16.0, 0.10)
+	flash.setup(pos, Color(c0.r, c0.g, c0.b, 1.0), 24.0, 0.12)
 	main.add_child(flash)
 
 	# Small impact spark (uses FlameBurst as generic spark burst)
 	var c := c0
 	var fb := VfxFlameBurst.new()
-	fb.setup(pos, Color(c.r, c.g, c.b, 0.9), 18.0, 7, 0.16, dir)
+	fb.setup(pos, Color(c.r, c.g, c.b, 0.9), 28.0, 10, 0.18, dir)
 	main.add_child(fb)
 
 	# Crit marker

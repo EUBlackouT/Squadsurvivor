@@ -24,6 +24,7 @@ extends Node2D
 @export var max_enemies_end: int = 120
 @export var spawn_radius_min: float = 900.0
 @export var spawn_radius_max: float = 1100.0
+@export var enemy_visual_pool_size: int = 16
 
 @export var run_timer_max_minutes: float = 18.0
 @export var enable_bosses: bool = false # overridden by map mod if present
@@ -32,6 +33,8 @@ extends Node2D
 @export var debug_hud_enabled: bool = false
 @export var debug_collision_cleanup_enabled: bool = false
 @export var debug_perf_overlay_enabled: bool = false
+@export var hitch_probe_enabled: bool = true
+@export var hitch_probe_threshold_ms: float = 120.0
 
 # Autosave (run state)
 @export var autosave_enabled: bool = true
@@ -106,6 +109,10 @@ var _run_elite_kills: int = 0
 var _run_drafts: int = 0
 var _hide_debug_shapes_cd: float = 0.0
 var _perf_text: String = ""
+var _hud_refresh_t: float = 0.0
+var _hitch_probe_cd: float = 0.0
+var _probe_last_spawn_ms: float = 0.0
+var _probe_last_spawn_count: int = 0
 
 # Player commands (interactive layer)
 var _focus_target: Node2D = null
@@ -145,6 +152,7 @@ var _map_atmo_overlay: Node2D = null
 
 # Autosave node (ticks while paused)
 var _autosave_node: Node = null
+var _enemy_visual_pool: PackedStringArray = PackedStringArray()
 
 func _ready() -> void:
 	UiSkin.apply_global_font()
@@ -166,6 +174,7 @@ func _ready() -> void:
 	UnitFactory.ensure_loaded()
 	PassiveSystem.ensure_loaded()
 	EnemyFactory.ensure_loaded()
+	_build_enemy_visual_pool()
 	var rc := get_node_or_null("/root/RunConfig")
 	if rc and is_instance_valid(rc):
 		if rc.has_method("ensure_loaded"):
@@ -493,6 +502,11 @@ func _spawn_rifts() -> void:
 func _physics_process(delta: float) -> void:
 	if _game_over or _victory:
 		return
+	var frame_start_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
+	var seg_a_us := frame_start_us
+	var seg_b_us := frame_start_us
+	var seg_c_us := frame_start_us
+	_prune_invalid_lists()
 	_prune_selected_units()
 	_update_camera_follow(delta)
 
@@ -515,6 +529,10 @@ func _physics_process(delta: float) -> void:
 		_callout_cd_s = maxf(0.0, _callout_cd_s - delta)
 	if _arc_surge_until_s > 0.0:
 		_arc_surge_until_s = maxf(0.0, _arc_surge_until_s - delta)
+	if hitch_probe_enabled:
+		seg_a_us = int(Time.get_ticks_usec())
+	_probe_last_spawn_ms = 0.0
+	_probe_last_spawn_count = 0
 
 	var t0_us: int = 0
 	if debug_perf_overlay_enabled:
@@ -535,7 +553,9 @@ func _physics_process(delta: float) -> void:
 
 	_spawn_timer += delta
 	var spawn_interval := _current_spawn_interval()
+	var did_spawn_tick := false
 	if _spawn_timer >= spawn_interval:
+		did_spawn_tick = true
 		_spawn_timer = 0.0
 		_tick_spawns()
 	_tick_objective_events()
@@ -549,14 +569,33 @@ func _physics_process(delta: float) -> void:
 		elif (not _boss_spawned) and em >= boss_spawn_time_minutes:
 			_spawn_boss()
 	_tick_end_of_run_timer()
-	_update_hud_labels()
+	_hud_refresh_t -= delta
+	if _hud_refresh_t <= 0.0:
+		_hud_refresh_t = 0.10
+		_update_hud_labels()
 	_sync_passive_overlay_hotkey()
+	if hitch_probe_enabled:
+		seg_b_us = int(Time.get_ticks_usec())
 
 	if debug_perf_overlay_enabled:
 		var total_ms: float = float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
 		_perf_text = "PERF frame_logic: %.2fms  enemies:%d  squad:%d" % [
 			total_ms, live_enemies.size(), live_squad_units.size()
 		]
+	if hitch_probe_enabled:
+		seg_c_us = int(Time.get_ticks_usec())
+		_hitch_probe_cd = maxf(0.0, _hitch_probe_cd - delta)
+		var total_ms2 := float(seg_c_us - frame_start_us) / 1000.0
+		if total_ms2 >= hitch_probe_threshold_ms and _hitch_probe_cd <= 0.0:
+			_hitch_probe_cd = 0.75
+			var pre_ms := float(seg_a_us - frame_start_us) / 1000.0
+			var core_ms := float(seg_b_us - seg_a_us) / 1000.0
+			var post_ms := float(seg_c_us - seg_b_us) / 1000.0
+			var map_id := String(_map_mod.get("id", "unknown"))
+			print("HITCH total=%.1fms pre=%.1f core=%.1f post=%.1f enemies=%d squad=%d map=%s spawn_tick=%s spawn_ms=%.1f spawn_count=%d" % [
+				total_ms2, pre_ms, core_ms, post_ms, live_enemies.size(), live_squad_units.size(), map_id,
+				("1" if did_spawn_tick else "0"), _probe_last_spawn_ms, _probe_last_spawn_count
+			])
 
 func _unhandled_input(event: InputEvent) -> void:
 	# TAB: Show/hide passive overlay
@@ -1209,12 +1248,19 @@ func get_rally_time_left() -> float:
 	return _rally_until_s
 
 func _tick_spawns() -> void:
-	_prune_invalid_lists()
+	var t0_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
+	var spawned := 0
 	# During boss phase, stop normal spawns (reads like a proper boss fight).
 	if _boss_fight_active and _boss_node != null and is_instance_valid(_boss_node):
+		if hitch_probe_enabled:
+			_probe_last_spawn_ms = float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+			_probe_last_spawn_count = 0
 		return
 	var cap := _current_max_enemies()
 	if live_enemies.size() >= cap:
+		if hitch_probe_enabled:
+			_probe_last_spawn_ms = float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+			_probe_last_spawn_count = 0
 		return
 	var burst := _current_spawn_burst()
 	for i in range(burst):
@@ -1226,6 +1272,10 @@ func _tick_spawns() -> void:
 		elite_chance *= float(_map_mod.get("elite_spawn_mult", 1.0))
 		var roll_elite := rng.randf() < elite_chance
 		_spawn_enemy(roll_elite, false, false)
+		spawned += 1
+	if hitch_probe_enabled:
+		_probe_last_spawn_ms = float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+		_probe_last_spawn_count = spawned
 
 func _ramp01() -> float:
 	var t := _elapsed_minutes()
@@ -1269,14 +1319,14 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	if player and is_instance_valid(player):
 		center = player.global_position
 
-	# Random character pool -> random enemy skin
-	var cd := CharacterRegistryUtil.build_random_character_data("enemy", rng, _elapsed_minutes(), _map_mod)
-	var south := ""
+	# Enemy spawning must stay hitch-free in combat. Use a small prewarmed visual pool
+	# instead of full registry scans/loading a brand-new character every spawn.
+	var south := _pick_enemy_visual_path()
+	if south == "":
+		return
+	var cd := UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south, _map_mod)
 	if cd == null:
-		south = PixellabUtil.pick_random_south_path(rng)
-		if south == "":
-			return
-		cd = UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south, _map_mod)
+		return
 	if is_elite:
 		cd.max_hp = int(round(float(cd.max_hp) * 1.55))
 		cd.attack_damage = int(round(float(cd.attack_damage) * 1.25))
@@ -1306,7 +1356,7 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	e.set_meta("boss", is_boss)
 	e.character_data = cd
 	e.is_elite = is_elite
-	e.pixellab_south_path = cd.sprite_path if cd != null else south
+	e.pixellab_south_path = south
 	e.ai_id = ai_id
 	e.affix_ids = affixes
 	add_child(e)
@@ -1324,6 +1374,37 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		var v := get_node_or_null("/root/VfxSystem")
 		if v and is_instance_valid(v) and v.has_method("play_event"):
 			v.play_event("enemy.elite_spawn", e.global_position, self)
+
+func _build_enemy_visual_pool() -> void:
+	_enemy_visual_pool = PackedStringArray()
+	var want := maxi(1, enemy_visual_pool_size)
+	var seen: Dictionary = {}
+	var tries := 0
+	while _enemy_visual_pool.size() < want and tries < want * 50:
+		tries += 1
+		var cd := CharacterRegistryUtil.build_random_character_data("enemy", rng, _elapsed_minutes(), _map_mod)
+		if cd == null:
+			continue
+		var p := String(cd.sprite_path)
+		if p == "":
+			continue
+		if seen.has(p):
+			continue
+		seen[p] = true
+		_enemy_visual_pool.append(p)
+		# Warm SpriteFrames cache now (one-time) instead of hitching during combat spawn.
+		PixellabUtil.walk_frames_from_south_path(p)
+
+func _pick_enemy_visual_path() -> String:
+	if _enemy_visual_pool.is_empty():
+		# Emergency fallback still stays on curated CharacterRegistry (Ludo set), not PixelLab.
+		var cd := CharacterRegistryUtil.build_random_character_data("enemy", rng, _elapsed_minutes(), _map_mod)
+		if cd != null:
+			var p := String(cd.sprite_path)
+			if p != "":
+				return p
+		return ""
+	return String(_enemy_visual_pool[rng.randi_range(0, _enemy_visual_pool.size() - 1)])
 
 func _spawn_boss() -> void:
 	_boss_spawned = true
@@ -1561,11 +1642,9 @@ func _prune_invalid_lists() -> void:
 			live_squad_units.remove_at(j)
 
 func get_cached_enemies() -> Array[Node2D]:
-	_prune_invalid_lists()
 	return live_enemies
 
 func get_cached_squad_units() -> Array[Node2D]:
-	_prune_invalid_lists()
 	return live_squad_units
 
 func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_boss: bool) -> void:
@@ -1841,18 +1920,23 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 
 	# Option 3: random recruit roll (rift improves odds via elapsed minutes bias already)
 	var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), _map_mod)
-	if cd == null:
-		var south := PixellabUtil.pick_random_south_path(rng)
-		cd = UnitFactory.build_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), south, _map_mod)
-	options.append(cd)
+	if cd != null:
+		options.append(cd)
 
 	# Ensure 3 cards
-	while options.size() < 3:
+	var fill_tries := 0
+	while options.size() < 3 and fill_tries < 24:
+		fill_tries += 1
 		var cd2 := CharacterRegistryUtil.build_random_character_data("recruit", rng, _elapsed_minutes(), _map_mod)
-		if cd2 == null:
-			var s2 := PixellabUtil.pick_random_south_path(rng)
-			cd2 = UnitFactory.build_character_data("recruit", rng, _elapsed_minutes(), s2, _map_mod)
-		options.append(cd2)
+		if cd2 != null:
+			options.append(cd2)
+	# Hard fallback: duplicate existing valid options so the UI always renders 3 cards.
+	while options.size() < 3 and not options.is_empty():
+		options.append(options[options.size() - 1])
+	if options.is_empty():
+		# As a last resort, abort draft gracefully instead of showing broken cards.
+		_close_draft(ui)
+		return
 
 	for c in options:
 		hbox.add_child(_create_character_card(c, ui))
