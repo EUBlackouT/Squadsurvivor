@@ -10,18 +10,18 @@ extends Node2D
 @export var map_fog_enabled: bool = true
 @export var map_fog_strength: float = 0.16
 
-@export var initial_enemy_count: int = 5
+@export var initial_enemy_count: int = 6
 @export var max_enemies_alive: int = 90 # legacy cap, superseded by ramp below
 @export var enemy_spawn_interval: float = 1.15 # legacy interval, superseded by ramp below
 @export var enemy_spawn_burst: int = 1 # legacy burst, superseded by ramp below
-@export var difficulty_ramp_minutes: float = 14.0
+@export var difficulty_ramp_minutes: float = 10.5
 # >1.0 makes early game chill and midgame ramp faster (e.g. 2.0–3.0 is "chill then spicy").
-@export var ramp_curve_power: float = 2.8
+@export var ramp_curve_power: float = 2.1
 # "Vampire Survivors" target: early minutes are cleanable, midgame starts to pressure hard.
-@export var spawn_interval_start: float = 2.60
-@export var spawn_interval_end: float = 0.95
-@export var max_enemies_start: int = 14
-@export var max_enemies_end: int = 120
+@export var spawn_interval_start: float = 1.95
+@export var spawn_interval_end: float = 0.58
+@export var max_enemies_start: int = 20
+@export var max_enemies_end: int = 154
 @export var spawn_radius_min: float = 900.0
 @export var spawn_radius_max: float = 1100.0
 @export var enemy_visual_pool_size: int = 16
@@ -131,6 +131,7 @@ var _selection_rect: Panel = null
 const DRAG_SELECT_THRESHOLD_PX: float = 10.0
 var _player_node_ref: Node2D = null
 var _player_cam_ref: Camera2D = null
+var _camera_unlock_mode: bool = false
 
 # Active ability unlocked by meta tree: Overclock (Q)
 var _overclock_until_s: float = 0.0
@@ -153,6 +154,14 @@ var _map_atmo_overlay: Node2D = null
 # Autosave node (ticks while paused)
 var _autosave_node: Node = null
 var _enemy_visual_pool: PackedStringArray = PackedStringArray()
+const _LIVE_SMOKE_STARTERS: Array[String] = ["insectoid", "ion_scout", "reef_medic"]
+var _live_smoke_enabled: bool = false
+var _live_smoke_case: String = ""
+var _live_smoke_clock_scale: float = 1.0
+var _live_smoke_timeout_s: float = 180.0
+var _live_smoke_started_s: float = 0.0
+var _live_smoke_last_tick_s: float = 0.0
+var _live_smoke_reported: bool = false
 
 func _ready() -> void:
 	UiSkin.apply_global_font()
@@ -161,6 +170,7 @@ func _ready() -> void:
 	run_start_time = Time.get_ticks_msec() / 1000.0
 	var uargs := OS.get_cmdline_user_args()
 	_boss_test_mode = uargs.has("boss_test")
+	_init_live_smoke_args(uargs)
 
 	# Hard-disable editor debug overlays that can make gameplay unreadable.
 	# (Some run configurations can keep these on even when the menu checkbox looks off.)
@@ -192,6 +202,8 @@ func _ready() -> void:
 		_sync_objective_event_index_from_elapsed()
 		_configure_boss_schedule()
 		_sync_boss_wave_index_from_elapsed()
+	if _live_smoke_enabled:
+		_apply_live_smoke_overrides()
 
 	_make_background()
 
@@ -245,8 +257,191 @@ func _init_rng() -> void:
 	else:
 		rng.seed = random_seed
 
+func _init_live_smoke_args(uargs: PackedStringArray) -> void:
+	var case_id := _arg_value(uargs, "live_smoke_case", "")
+	if case_id == "":
+		return
+	_live_smoke_enabled = true
+	_live_smoke_case = case_id
+	_live_smoke_clock_scale = maxf(1.0, _arg_float(uargs, "live_smoke_clock_scale", 8.0))
+	_live_smoke_timeout_s = maxf(10.0, _arg_float(uargs, "live_smoke_timeout_s", 210.0))
+	print("LIVE_SMOKE start case=%s clock_scale=%.2f timeout=%.1fs" % [_live_smoke_case, _live_smoke_clock_scale, _live_smoke_timeout_s])
+
+func _apply_live_smoke_overrides() -> void:
+	# Force a deterministic 10-minute survival harness and disable draft pauses.
+	enable_bosses = false
+	enable_rifts = false
+	run_timer_max_minutes = 10.0
+	difficulty_ramp_minutes = 10.5
+	ramp_curve_power = 2.1
+	spawn_interval_start = 1.95
+	spawn_interval_end = 0.58
+	max_enemies_start = 20
+	max_enemies_end = 154
+	autosave_enabled = false
+	draft_drop_chance_normal = 0.0
+	draft_drop_chance_elite = 0.0
+	draft_drop_pity_add_per_kill = 0.0
+	draft_drop_pity_cap = 0.0
+	draft_drop_min_seconds_between = 9999.0
+	_objective_events = PackedFloat32Array()
+	_objective_event_index = 0
+	_write_live_smoke_roster(_build_live_smoke_roster(_live_smoke_case))
+
+func _build_live_smoke_roster(case_id: String) -> Array[CharacterData]:
+	var out: Array[CharacterData] = []
+	var rr := RandomNumberGenerator.new()
+	rr.seed = 1337 if case_id == "starter" else 9001
+	var map_mod := _map_mod
+	if case_id == "starter":
+		for sid in _LIVE_SMOKE_STARTERS:
+			var cd := CharacterRegistryUtil.build_character_data_by_id(sid, "recruit", rr, 0.0, map_mod)
+			if cd == null:
+				continue
+			_apply_live_smoke_starter_nerf(cd)
+			out.append(cd)
+		return out
+
+	for _i in range(3):
+		var best: CharacterData = null
+		var best_sc := -1e18
+		for _j in range(24):
+			var c := CharacterRegistryUtil.build_random_character_data("recruit", rr, 9.5, map_mod)
+			if c == null:
+				continue
+			var sc := _live_smoke_power_score(c)
+			if sc > best_sc:
+				best_sc = sc
+				best = c
+		if best != null:
+			_apply_live_smoke_upgrade_bonus(best)
+			out.append(best)
+	if out.size() < 3:
+		return _build_live_smoke_roster("starter")
+	return out
+
+func _write_live_smoke_roster(roster: Array[CharacterData]) -> void:
+	var cm := get_node_or_null("/root/CollectionManager")
+	if cm == null or not is_instance_valid(cm):
+		return
+	var unlocked: Array[Dictionary] = []
+	var active: Array[Dictionary] = []
+	for cd in roster:
+		if cd == null:
+			continue
+		var uid := ""
+		var data: Dictionary = {}
+		if cm.has_method("_make_unlock_id"):
+			uid = String(cm._make_unlock_id(cd))
+		if cm.has_method("_cd_to_dict"):
+			data = cm._cd_to_dict(cd) as Dictionary
+		unlocked.append({"id": uid, "data": data})
+		active.append(data)
+	if "unlocked" in cm:
+		cm.unlocked = unlocked
+	if "active_roster" in cm:
+		cm.active_roster = active
+	if cm.has_method("save"):
+		cm.save()
+
+func _apply_live_smoke_starter_nerf(cd: CharacterData) -> void:
+	cd.max_hp = maxi(1, int(round(float(cd.max_hp) * 0.74)))
+	cd.attack_damage = maxi(1, int(round(float(cd.attack_damage) * 0.60)))
+	cd.attack_range = maxf(110.0, cd.attack_range * 0.82)
+	cd.attack_cooldown = maxf(0.45, cd.attack_cooldown * 1.24)
+	cd.move_speed = maxf(78.0, cd.move_speed * 0.90)
+	cd.crit_chance = minf(cd.crit_chance, 0.03)
+	if cd.passive_ids.size() > 1:
+		cd.passive_ids = PackedStringArray([String(cd.passive_ids[0])])
+
+func _apply_live_smoke_upgrade_bonus(cd: CharacterData) -> void:
+	cd.max_hp = int(round(float(cd.max_hp) * 1.34))
+	cd.attack_damage = int(round(float(cd.attack_damage) * 1.36))
+	cd.attack_cooldown = maxf(0.20, float(cd.attack_cooldown) * 0.84)
+	cd.attack_range = minf(760.0, float(cd.attack_range) * 1.14)
+	cd.move_speed = float(cd.move_speed) * 1.08
+	cd.crit_chance = clampf(cd.crit_chance + 0.08, 0.0, 0.55)
+	if cd.passive_ids.size() > 3:
+		var keep := PackedStringArray()
+		for i in range(3):
+			keep.append(String(cd.passive_ids[i]))
+		cd.passive_ids = keep
+
+func _live_smoke_power_score(cd: CharacterData) -> float:
+	var hp := float(cd.max_hp)
+	var dmg := float(cd.attack_damage)
+	var aps := 1.0 / maxf(0.15, float(cd.attack_cooldown))
+	var range_v := float(cd.attack_range)
+	var speed := float(cd.move_speed)
+	var crit := float(cd.crit_chance)
+	var crit_m := float(cd.crit_mult)
+	var crit_factor := 1.0 + crit * maxf(0.0, crit_m - 1.0)
+	var score := hp * 0.20 + dmg * aps * crit_factor * 14.0 + range_v * 0.07 + speed * 0.35
+	for pid in cd.passive_ids:
+		var tags := PassiveSystem.passive_tags(String(pid))
+		if tags.has("burst") or tags.has("execute"):
+			score += 14.0
+		if tags.has("sustain"):
+			score += 12.0
+		if tags.has("control") or tags.has("slow"):
+			score += 11.0
+		if tags.has("aoe"):
+			score += 8.0
+	return score
+
+func _arg_value(uargs: PackedStringArray, key: String, default_v: String = "") -> String:
+	var prefix := key + "="
+	for a in uargs:
+		var s := String(a)
+		if s.begins_with(prefix):
+			return s.substr(prefix.length())
+	return default_v
+
+func _arg_float(uargs: PackedStringArray, key: String, default_v: float) -> float:
+	var v := _arg_value(uargs, key, "")
+	if v == "":
+		return default_v
+	return float(v)
+
 func _elapsed_minutes() -> float:
 	return ((Time.get_ticks_msec() / 1000.0) - run_start_time) / 60.0
+
+func _tick_live_smoke(_delta: float) -> void:
+	var now_s := float(Time.get_ticks_msec()) / 1000.0
+	if _live_smoke_started_s <= 0.0:
+		_live_smoke_started_s = now_s
+		_live_smoke_last_tick_s = now_s
+	var dt := maxf(0.0, now_s - _live_smoke_last_tick_s)
+	_live_smoke_last_tick_s = now_s
+	if _live_smoke_clock_scale > 1.0:
+		run_start_time -= dt * (_live_smoke_clock_scale - 1.0)
+	if get_tree().paused:
+		get_tree().paused = false
+
+	if (_game_over or _victory) and not _live_smoke_reported:
+		_live_smoke_reported = true
+		var status := "failed" if _game_over else "cleared"
+		print("LIVE_SMOKE_RESULT case=%s status=%s survived_m=%.2f kills=%d drafts=%d elites=%d" % [
+			_live_smoke_case,
+			status,
+			_elapsed_minutes(),
+			_run_kills,
+			_run_drafts,
+			_run_elite_kills
+		])
+		get_tree().quit()
+		return
+
+	if (now_s - _live_smoke_started_s) >= _live_smoke_timeout_s and not _live_smoke_reported:
+		_live_smoke_reported = true
+		print("LIVE_SMOKE_RESULT case=%s status=timeout survived_m=%.2f kills=%d drafts=%d elites=%d" % [
+			_live_smoke_case,
+			_elapsed_minutes(),
+			_run_kills,
+			_run_drafts,
+			_run_elite_kills
+		])
+		get_tree().quit()
 
 func _configure_boss_schedule() -> void:
 	_multi_boss_schedule_enabled = false
@@ -473,14 +668,6 @@ func _spawn_player() -> void:
 		var cam := p.get_node("Camera2D") as Camera2D
 		if cam:
 			_player_cam_ref = cam
-			# Camera limits must be in *world* coordinates. If the Main scene root is offset
-			# (common when the scene is authored with a viewport-ish origin), center limits
-			# around this node's global_position instead of assuming (0,0).
-			var o := global_position
-			cam.limit_left = int(o.x - map_size.x * 0.5)
-			cam.limit_top = int(o.y - map_size.y * 0.5)
-			cam.limit_right = int(o.x + map_size.x * 0.5)
-			cam.limit_bottom = int(o.y + map_size.y * 0.5)
 
 func _spawn_initial_enemies() -> void:
 	var mult := float(_map_mod.get("initial_enemies_mult", 1.0))
@@ -500,6 +687,8 @@ func _spawn_rifts() -> void:
 		r.global_position = Vector2(cos(ang), sin(ang)) * dist
 
 func _physics_process(delta: float) -> void:
+	if _live_smoke_enabled:
+		_tick_live_smoke(delta)
 	if _game_over or _victory:
 		return
 	var frame_start_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
@@ -667,6 +856,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Ability: Class Callout (F)
 		if k.keycode == KEY_F:
 			_try_class_callout()
+		# Camera mode toggle: default follows whole squad, unlocked follows selected split group.
+		if k.keycode == KEY_C and (not k.ctrl_pressed) and (not k.alt_pressed) and (not k.shift_pressed):
+			_camera_unlock_mode = not _camera_unlock_mode
+			if toast_layer != null:
+				var msg := "Camera: UNLOCKED (manual WASD pan)" if _camera_unlock_mode else "Camera: LOCKED (auto follow)"
+				toast_layer.show_toast(msg, Color(0.65, 0.85, 1.0, 1.0))
 
 	# Player command input (ignore while paused/draft/pause menu)
 	if get_tree().paused:
@@ -700,18 +895,19 @@ func _unhandled_input(event: InputEvent) -> void:
 				if was_drag:
 					_select_units_in_screen_rect(_drag_select_start, _drag_select_end, mb.shift_pressed)
 				else:
-					_select_single_unit_at(get_global_mouse_position(), mb.shift_pressed)
+					_select_single_unit_at(_screen_to_world(mb.position), mb.shift_pressed)
 			get_viewport().set_input_as_handled()
 			return
 		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			var mouse_world := _screen_to_world(mb.position)
 			if not _selected_units.is_empty():
-				var tgt := _pick_enemy_at(get_global_mouse_position(), 72.0)
+				var tgt := _pick_enemy_at(mouse_world, 72.0)
 				if tgt != null and is_instance_valid(tgt):
 					_issue_attack_command(tgt)
 				else:
-					_issue_move_command(get_global_mouse_position())
+					_issue_move_command(mouse_world)
 			elif not _rts_command_mode_enabled:
-				_set_rally(get_global_mouse_position(), 0.85)
+				_set_rally(mouse_world, 0.85)
 			get_viewport().set_input_as_handled()
 			return
 
@@ -760,15 +956,27 @@ func _update_camera_follow(delta: float) -> void:
 		return
 	if _player_node_ref == null or not is_instance_valid(_player_node_ref):
 		return
-	var target_pos := _player_node_ref.global_position
-	if not _selected_units.is_empty():
-		var n := _selected_units[0] as Node2D
-		if n != null and is_instance_valid(n):
-			target_pos = n.global_position
-	# Camera node is child of player. Drive local offset to follow selected unit.
-	var desired_local := target_pos - _player_node_ref.global_position
-	var t := clampf(delta * 12.0, 0.0, 1.0)
-	_player_cam_ref.position = _player_cam_ref.position.lerp(desired_local, t)
+	# Locked mode: hard-follow player with zero lag.
+	if not _camera_unlock_mode:
+		var anchor_world := _camera_locked_anchor_world()
+		_player_cam_ref.position = anchor_world - _player_node_ref.global_position
+		return
+	# Unlocked mode: manual camera pan handled by Player.gd with WASD.
+	# Do not override local camera position here.
+
+func is_camera_manual_mode_enabled() -> bool:
+	return _camera_unlock_mode
+
+func _camera_locked_anchor_world() -> Vector2:
+	# Locked camera must never depend on click selection.
+	# This prevents left-click from snapping/teleporting camera anchor.
+	if _player_node_ref != null and is_instance_valid(_player_node_ref):
+		return _player_node_ref.global_position
+	for u2 in live_squad_units:
+		var n3 := u2 as Node2D
+		if n3 != null and is_instance_valid(n3):
+			return n3.global_position
+	return Vector2.ZERO
 
 func _clear_selection() -> void:
 	for u in _selected_units:
@@ -818,7 +1026,7 @@ func _select_units_in_screen_rect(a: Vector2, b: Vector2, additive: bool) -> voi
 	var p1 := Vector2(maxf(a.x, b.x), maxf(a.y, b.y))
 	var rect := Rect2(p0, p1 - p0)
 	if rect.size.length() < DRAG_SELECT_THRESHOLD_PX:
-		_select_single_unit_at(get_global_mouse_position(), additive)
+		_select_single_unit_at(_screen_to_world((a + b) * 0.5), additive)
 		return
 	if not additive:
 		_clear_selection()
@@ -832,6 +1040,19 @@ func _select_units_in_screen_rect(a: Vector2, b: Vector2, additive: bool) -> voi
 		if rect.has_point(sp) and (not _selected_units.has(n2)):
 			_selected_units.append(n2)
 			_set_unit_selected(n2, true)
+
+func _mouse_world_pos() -> Vector2:
+	var vp := get_viewport()
+	if vp != null:
+		return _screen_to_world(vp.get_mouse_position())
+	return get_global_mouse_position()
+
+func _screen_to_world(screen_pos: Vector2) -> Vector2:
+	var vp := get_viewport()
+	if vp == null:
+		return get_global_mouse_position()
+	var inv: Transform2D = vp.get_canvas_transform().affine_inverse()
+	return inv * screen_pos
 
 func _formation_offsets_for_count(count: int, spacing: float = 42.0) -> Array[Vector2]:
 	var out: Array[Vector2] = []
@@ -1314,7 +1535,7 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		return
 	var e := ENEMY_SCENE.instantiate()
 
-	var player := get_tree().get_first_node_in_group("player") as Node2D
+	var player := get_player_node()
 	var center := Vector2.ZERO
 	if player and is_instance_valid(player):
 		center = player.global_position
@@ -1405,6 +1626,15 @@ func _pick_enemy_visual_path() -> String:
 				return p
 		return ""
 	return String(_enemy_visual_pool[rng.randi_range(0, _enemy_visual_pool.size() - 1)])
+
+func get_player_node() -> Node2D:
+	if _player_node_ref != null and is_instance_valid(_player_node_ref):
+		return _player_node_ref
+	var p := get_tree().get_first_node_in_group("player") as Node2D
+	if p != null and is_instance_valid(p):
+		_player_node_ref = p
+		return p
+	return null
 
 func _spawn_boss() -> void:
 	_boss_spawned = true
@@ -1912,14 +2142,15 @@ func _show_recruit_draft() -> void:
 
 func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool) -> void:
 	var options: Array[CharacterData] = []
+	var now_m := _elapsed_minutes()
 
 	# Option 1-2: trophies from recent kills
 	_recent_trophy_pool.shuffle()
 	for i in range(mini(2, _recent_trophy_pool.size())):
 		options.append(_recent_trophy_pool[i])
 
-	# Option 3: random recruit roll (rift improves odds via elapsed minutes bias already)
-	var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, _elapsed_minutes() + (3.0 if is_rift else 0.0), _map_mod)
+	# Option 3: random recruit roll; bias upward so each draft has a "worth checking" card.
+	var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, now_m + (5.0 if is_rift else 2.0), _map_mod)
 	if cd != null:
 		options.append(cd)
 
@@ -1927,7 +2158,7 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 	var fill_tries := 0
 	while options.size() < 3 and fill_tries < 24:
 		fill_tries += 1
-		var cd2 := CharacterRegistryUtil.build_random_character_data("recruit", rng, _elapsed_minutes(), _map_mod)
+		var cd2 := CharacterRegistryUtil.build_random_character_data("recruit", rng, now_m + 1.5, _map_mod)
 		if cd2 != null:
 			options.append(cd2)
 	# Hard fallback: duplicate existing valid options so the UI always renders 3 cards.
@@ -1937,9 +2168,35 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 		# As a last resort, abort draft gracefully instead of showing broken cards.
 		_close_draft(ui)
 		return
+	# Mid-run quality floor: guarantee at least one rare+ candidate.
+	if now_m >= 4.0:
+		var has_rare_plus := false
+		for c in options:
+			if _rarity_rank(c.rarity_id) >= 1:
+				has_rare_plus = true
+				break
+		if not has_rare_plus:
+			for _i in range(14):
+				var boosted := CharacterRegistryUtil.build_random_character_data("recruit", rng, now_m + 8.0, _map_mod)
+				if boosted != null and _rarity_rank(boosted.rarity_id) >= 1:
+					options[options.size() - 1] = boosted
+					break
 
 	for c in options:
 		hbox.add_child(_create_character_card(c, ui))
+
+func _rarity_rank(rarity_id: String) -> int:
+	match rarity_id:
+		"mythic":
+			return 4
+		"legendary":
+			return 3
+		"epic":
+			return 2
+		"rare":
+			return 1
+		_:
+			return 0
 
 func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	var card := PanelContainer.new()

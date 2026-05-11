@@ -6,6 +6,7 @@ extends CharacterBody2D
 @export var zoom_min: float = 0.42
 @export var zoom_max: float = 2.20
 @export var zoom_step: float = 0.10
+@export var manual_camera_pan_speed: float = 760.0
 
 @onready var cam: Camera2D = get_node_or_null("Camera2D")
 
@@ -205,6 +206,14 @@ func _physics_process(_delta: float) -> void:
 		if not is_instance_valid(squad_units[i]):
 			squad_units.remove_at(i)
 
+	var manual_cam_mode := false
+	if _main and is_instance_valid(_main) and _main.has_method("is_camera_manual_mode_enabled"):
+		manual_cam_mode = bool(_main.is_camera_manual_mode_enabled())
+	if manual_cam_mode:
+		_pan_camera_manual(delta)
+		velocity = Vector2.ZERO
+		return
+
 	var dir := Vector2.ZERO
 	dir.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
 	dir.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
@@ -234,6 +243,16 @@ func _physics_process(_delta: float) -> void:
 	# Targeting hotkey
 	if Input.is_action_just_pressed("ui_t"):
 		_set_target_mode((_target_mode + 1) % TARGET_MODE_COUNT)
+
+func _pan_camera_manual(delta: float) -> void:
+	if cam == null:
+		return
+	var pan := Vector2.ZERO
+	pan.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
+	pan.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
+	if pan.length() > 1.0:
+		pan = pan.normalized()
+	cam.position += pan * manual_camera_pan_speed * delta
 
 # Dash ability removed - was causing issues
 

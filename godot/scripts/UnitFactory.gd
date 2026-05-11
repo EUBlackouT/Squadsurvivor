@@ -82,11 +82,11 @@ static func build_character_data(context: String, rng: RandomNumberGenerator, el
 	elif context == "recruit":
 		# Draft scaling should NOT make Map 1 the main power farm.
 		# So: per-map caps from maps.json control how spicy drafts can get.
-		var scale_mins := float(map_mod.get("recruit_scale_minutes", 12.0))
+		var scale_mins := float(map_mod.get("recruit_scale_minutes", 8.0))
 		var t := clampf(elapsed_minutes / maxf(0.1, scale_mins), 0.0, 1.0)
 		var curved := pow(t, 1.20)
-		var hp_bonus_max := float(map_mod.get("recruit_hp_bonus_max", 0.10))
-		var dmg_bonus_max := float(map_mod.get("recruit_dmg_bonus_max", 0.18))
+		var hp_bonus_max := float(map_mod.get("recruit_hp_bonus_max", 0.16))
+		var dmg_bonus_max := float(map_mod.get("recruit_dmg_bonus_max", 0.30))
 		hp *= 1.0 + hp_bonus_max * curved
 		dmg *= 1.0 + dmg_bonus_max * curved
 
@@ -191,13 +191,13 @@ static func roll_rarity_id(context: String, rng: RandomNumberGenerator, elapsed_
 		var bonus := 0
 		if context == "recruit":
 			if id == "rare":
-				bonus = int(floor(eff_minutes * 0.4))
+				bonus = int(floor(eff_minutes * 0.6))
 			elif id == "epic":
-				bonus = int(floor(eff_minutes * 0.2))
+				bonus = int(floor(eff_minutes * 0.32))
 			elif id == "legendary":
-				bonus = int(floor(eff_minutes * 0.08))
+				bonus = int(floor(eff_minutes * 0.14))
 			elif id == "mythic":
-				bonus = int(floor(eff_minutes * 0.03))
+				bonus = int(floor(eff_minutes * 0.06))
 		var w := w0 + bonus
 		if w <= 0:
 			continue
@@ -302,7 +302,7 @@ static func _apply_attack_style_random(cd: CharacterData, rng: RandomNumberGener
 		cd.max_hp = int(round(float(cd.max_hp) * 1.12))
 	else:
 		cd.attack_style = CharacterData.AttackStyle.RANGED
-		cd.attack_range = clampf(cd.attack_range * 1.05, 240.0, 680.0)
+		cd.attack_range = clampf(cd.attack_range * 1.12, 260.0, 760.0)
 		cd.attack_damage = int(round(float(cd.attack_damage) * 1.0))
 
 static func _roll_passives(cd: CharacterData, rng: RandomNumberGenerator, _context: String, _elapsed_minutes: float) -> void:

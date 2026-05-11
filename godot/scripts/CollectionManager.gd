@@ -4,7 +4,12 @@ extends Node
 # Saved at: user://collection.json
 
 const SAVE_PATH := "user://collection.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 3
+const STARTER_CHARACTER_IDS: Array[String] = [
+	"insectoid",
+	"ion_scout",
+	"reef_medic"
+]
 
 var unlocked: Array[Dictionary] = [] # each: { "id": String, "data": Dictionary }
 var active_roster: Array[Dictionary] = [] # each: saved CharacterData dict
@@ -17,7 +22,7 @@ func _make_unlock_id(cd: CharacterData) -> String:
 	# Unique per "variant" so builds can exist.
 	var pid := cd.pixellab_id if cd.pixellab_id != "" else cd.sprite_path
 	var pass_str := ",".join(cd.passive_ids)
-	return "%s|%s|%s|%s|%s" % [
+	return "%s|%s|%s|%s|%s|%s" % [
 		pid,
 		cd.rarity_id,
 		cd.archetype_id,
@@ -202,22 +207,72 @@ func _is_old_model_dict(d: Dictionary) -> bool:
 
 func _build_starter_roster(map_mod: Dictionary, rng: RandomNumberGenerator, count: int = 3) -> Array:
 	var starters: Array[Dictionary] = []
-	var tries: int = 0
-	while starters.size() < count and tries < 50:
-		tries += 1
-		var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0, map_mod)
+	CharacterRegistryUtil.ensure_loaded()
+	UnitFactory.ensure_loaded()
+	for cid in STARTER_CHARACTER_IDS:
+		var cd := CharacterRegistryUtil.build_character_data_by_id(String(cid), "recruit", rng, 0.0, map_mod)
 		if cd == null:
 			continue
+		_apply_starter_nerf(cd)
 		var uid := _make_unlock_id(cd)
+		starters.append({"id": uid, "data": _cd_to_dict(cd)})
+	if starters.size() >= count:
+		return starters.slice(0, count)
+	# Safety fallback if a configured id goes missing.
+	var tries: int = 0
+	while starters.size() < count and tries < 80:
+		tries += 1
+		var cd2 := CharacterRegistryUtil.build_random_character_data("recruit", rng, 0.0, map_mod)
+		if cd2 == null:
+			continue
+		_apply_starter_nerf(cd2)
+		var uid2 := _make_unlock_id(cd2)
 		var dup := false
 		for s in starters:
-			if String(s.get("id", "")) == uid:
+			if String((s as Dictionary).get("id", "")) == uid2:
 				dup = true
 				break
 		if dup:
 			continue
-		starters.append({"id": uid, "data": _cd_to_dict(cd)})
+		starters.append({"id": uid2, "data": _cd_to_dict(cd2)})
 	return starters
+
+func _apply_starter_nerf(cd: CharacterData) -> void:
+	if cd == null:
+		return
+	cd.max_hp = maxi(1, int(round(float(cd.max_hp) * 0.74)))
+	cd.attack_damage = maxi(1, int(round(float(cd.attack_damage) * 0.60)))
+	cd.attack_range = maxf(110.0, cd.attack_range * 0.82)
+	cd.attack_cooldown = maxf(0.45, cd.attack_cooldown * 1.24)
+	cd.move_speed = maxf(78.0, cd.move_speed * 0.90)
+	cd.crit_chance = minf(cd.crit_chance, 0.03)
+	if cd.passive_ids.size() > 1:
+		var keep := String(cd.passive_ids[0])
+		var keep_w := _starter_passive_weight(keep)
+		for pid in cd.passive_ids:
+			var p := String(pid)
+			var w := _starter_passive_weight(p)
+			if w < keep_w:
+				keep = p
+				keep_w = w
+		cd.passive_ids = PackedStringArray([keep])
+
+func _starter_passive_weight(pid: String) -> float:
+	var tags := PassiveSystem.passive_tags(pid)
+	var w := 1.0
+	if tags.has("burst") or tags.has("execute"):
+		w += 1.2
+	if tags.has("sustain"):
+		w += 1.0
+	if tags.has("aoe"):
+		w += 0.9
+	if tags.has("proc"):
+		w += 0.8
+	if tags.has("control") or tags.has("slow"):
+		w += 0.4
+	if tags.has("dot"):
+		w += 0.4
+	return w
 
 func get_active_roster_character_data() -> Array[CharacterData]:
 	var out: Array[CharacterData] = []
@@ -255,9 +310,11 @@ func load_save() -> void:
 		return
 	var text := f.get_as_text()
 	var parsed: Variant = JSON.parse_string(text)
-	if typeof(parsed) != TYPE_DICTIONARY:
+	var root: Dictionary = parsed as Dictionary if typeof(parsed) == TYPE_DICTIONARY else {}
+	var loaded_version := int(root.get("version", 0))
+	if loaded_version != SAVE_VERSION:
+		_reset_to_starter_pack()
 		return
-	var root: Dictionary = parsed
 	unlocked = []
 	var uarr: Array = root.get("unlocked", [])
 	for e in uarr:
@@ -300,6 +357,27 @@ func load_save() -> void:
 				active_roster.append(data2)
 			unlocked.append(entry2)
 		save()
+
+func _reset_to_starter_pack() -> void:
+	unlocked = []
+	active_roster = []
+	PixellabUtil.ensure_loaded()
+	CharacterRegistryUtil.ensure_loaded()
+	UnitFactory.ensure_loaded()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1337
+	var map_mod: Dictionary = {}
+	var rc := get_node_or_null("/root/RunConfig")
+	if rc and is_instance_valid(rc) and rc.has_method("get_selected_map"):
+		map_mod = rc.get_selected_map()
+	var starters := _build_starter_roster(map_mod, rng, 3)
+	for entry in starters:
+		var entry_d: Dictionary = entry as Dictionary
+		unlocked.append(entry_d)
+		var data_d: Dictionary = entry_d.get("data", {}) as Dictionary
+		if typeof(data_d) == TYPE_DICTIONARY:
+			active_roster.append(data_d)
+	save()
 
 func save() -> void:
 	var root := {

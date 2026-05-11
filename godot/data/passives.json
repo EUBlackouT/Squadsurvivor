@@ -18,15 +18,15 @@
     {
       "id": "frost_tag",
       "name": "Frostbite",
-      "description": "Hits chill enemies, slowing them by 35% for 2 seconds. Chilled enemies take +10% damage.",
+      "description": "Hits chill enemies, slowing them by 40% for 2.2 seconds. Chilled enemies take +14% damage.",
       "tags": [
         "control",
         "slow"
       ],
       "params": {
-        "slow_mult": 0.65,
-        "duration": 2.0,
-        "damage_amp": 0.1
+        "slow_mult": 0.60,
+        "duration": 2.2,
+        "damage_amp": 0.14
       }
     },
     {
@@ -70,14 +70,14 @@
     {
       "id": "shockwave",
       "name": "Shockwave",
-      "description": "Melee impacts release a crushing wave that hits all enemies within 150px for 35% damage.",
+      "description": "Melee impacts release a crushing wave that hits all enemies within 165px for 40% damage.",
       "tags": [
         "melee",
         "aoe"
       ],
       "params": {
-        "radius": 150,
-        "damage_mult": 0.35
+        "radius": 165,
+        "damage_mult": 0.40
       }
     },
     {
@@ -203,7 +203,7 @@
     {
       "id": "overload",
       "name": "Overcharge",
-      "description": "Every 4th hit releases a massive arc to 2 random nearby enemies for 45% damage each.",
+      "description": "Every 4th hit releases a massive arc to 3 random nearby enemies for 42% damage each.",
       "tags": [
         "lightning",
         "proc"
@@ -211,8 +211,8 @@
       "params": {
         "interval": 4,
         "radius": 260,
-        "damage_mult": 0.45,
-        "chains": 2
+        "damage_mult": 0.42,
+        "chains": 3
       }
     },
     {
@@ -231,7 +231,7 @@
     {
       "id": "vortex_tag",
       "name": "Gravity Well",
-      "description": "Hits create vortex zones. When 3+ enemies cluster in a zone, they take 35% AoE damage.",
+      "description": "Hits create vortex zones. When 3+ enemies cluster in a zone, they take 52% AoE damage.",
       "tags": [
         "aoe",
         "setup"
@@ -239,20 +239,20 @@
       "params": {
         "radius": 160,
         "cluster_count": 3,
-        "damage_mult": 0.35,
-        "cooldown": 0.4
+        "damage_mult": 0.52,
+        "cooldown": 0.30
       }
     },
     {
       "id": "cinder_brand",
       "name": "Inferno Brand",
-      "description": "Attacks ignite enemies, burning them for 20% of attack damage per second for 4 seconds.",
+      "description": "Attacks ignite enemies, burning them for 24% of attack damage per second for 4 seconds.",
       "tags": [
         "dot",
         "burn"
       ],
       "params": {
-        "damage_mult": 0.2,
+        "damage_mult": 0.24,
         "duration": 4.0,
         "tick_interval": 0.5
       }
@@ -273,7 +273,7 @@
     {
       "id": "doomstack",
       "name": "Doom Mark",
-      "description": "Attacks stack Doom (max 4). At 4 stacks, detonate for 100% bonus damage + AoE explosion.",
+      "description": "Attacks stack Doom (max 4). At 4 stacks, detonate for 85% bonus damage + AoE explosion.",
       "tags": [
         "setup",
         "aoe",
@@ -282,7 +282,7 @@
       "params": {
         "stacks": 4,
         "window": 2.5,
-        "damage_mult": 1.0,
+        "damage_mult": 0.85,
         "radius": 140
       }
     },
@@ -316,7 +316,7 @@
     {
       "id": "berserker",
       "name": "Berserker",
-      "description": "Below 50% HP, gain +40% attack speed and +20% damage. The lower your HP, the stronger.",
+      "description": "Below 50% HP, gain +32% attack speed and +16% damage. The lower your HP, the stronger.",
       "tags": [
         "melee",
         "burst",
@@ -324,8 +324,8 @@
       ],
       "params": {
         "hp_threshold": 0.5,
-        "attack_speed_mult": 1.4,
-        "damage_mult": 1.2
+        "attack_speed_mult": 1.32,
+        "damage_mult": 1.16
       }
     },
     {
@@ -399,14 +399,14 @@
     {
       "id": "chain_master",
       "name": "Chain Master",
-      "description": "Chain Lightning weapons bounce 2 extra times with 15% less decay.",
+      "description": "Chain Lightning weapons bounce 2 extra times with 10% less decay.",
       "tags": [
         "lightning",
         "chain"
       ],
       "params": {
         "extra_chains": 2,
-        "decay_reduction": 0.15
+        "decay_reduction": 0.10
       }
     },
     {
@@ -480,7 +480,7 @@
     {
       "id": "poison_mastery",
       "name": "Virulent Plague",
-      "description": "Poison DOTs spread to nearby enemies and deal 30% more damage.",
+      "description": "Poison DOTs spread to nearby enemies and deal 24% more damage.",
       "tags": [
         "dot",
         "poison",
@@ -488,13 +488,13 @@
       ],
       "params": {
         "spread_radius": 100,
-        "damage_mult": 1.3
+        "damage_mult": 1.24
       }
     },
     {
       "id": "fire_mastery",
       "name": "Wildfire",
-      "description": "Fire damage spreads to 2 nearby enemies. Burning enemies take 25% more damage.",
+      "description": "Fire damage spreads to 2 nearby enemies. Burning enemies take 18% more damage.",
       "tags": [
         "burn",
         "spread",
@@ -503,7 +503,7 @@
       "params": {
         "spread_count": 2,
         "spread_radius": 120,
-        "damage_amp": 0.25
+        "damage_amp": 0.18
       }
     },
     {
@@ -593,22 +593,22 @@
     {
       "id": "web_snare",
       "name": "Silken Snare",
-      "description": "Hits entangle enemies, slowing them by 55% for 1.2s. Cannot trigger more than once every 0.35s.",
+      "description": "Hits entangle enemies, slowing them by 50% for 1.1s. Cannot trigger more than once every 0.35s.",
       "tags": [
         "control",
         "slow",
         "arachnid"
       ],
       "params": {
-        "slow_mult": 0.45,
-        "duration": 1.2,
+        "slow_mult": 0.50,
+        "duration": 1.1,
         "cooldown": 0.35
       }
     },
     {
       "id": "spore_bloom",
       "name": "Spore Bloom",
-      "description": "On hit, release a spore burst that poisons nearby enemies for 22% damage per second for 3s.",
+      "description": "On hit, release a spore burst that poisons nearby enemies for 26% damage per second for 3s.",
       "tags": [
         "dot",
         "aoe",
@@ -616,7 +616,7 @@
       ],
       "params": {
         "radius": 160,
-        "damage_mult": 0.22,
+        "damage_mult": 0.26,
         "duration": 3.0,
         "tick_interval": 0.6,
         "cooldown": 0.6
@@ -625,7 +625,7 @@
     {
       "id": "gel_mitosis",
       "name": "Gel Mitosis",
-      "description": "Every 4th hit splits into 2 gel bolts that strike nearby enemies for 45% damage.",
+      "description": "Every 4th hit splits into 2 gel bolts that strike nearby enemies for 50% damage.",
       "tags": [
         "proc",
         "ranged",
@@ -635,7 +635,7 @@
         "interval": 4,
         "extra_targets": 2,
         "radius": 240,
-        "damage_mult": 0.45
+        "damage_mult": 0.50
       }
     }
   ]

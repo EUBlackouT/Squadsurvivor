@@ -71,7 +71,7 @@ var _move_speed_mult: float = 1.0
 var _dmg_mult: float = 1.0
 var _hp_mult: float = 1.0
 var _scale_mult: float = 1.0
-const TARGET_SPRITE_HEIGHT: float = 10.0
+const TARGET_SPRITE_HEIGHT: float = 14.0
 const ENEMY_WORLD_SPEED_MULT: float = 0.20
 const TARGET_SEPARATION_RADIUS: float = 26.0
 const ACTOR_SEPARATION_RADIUS: float = 24.0
@@ -149,7 +149,7 @@ func _apply_visuals() -> void:
 		if _scale_mult_cache.has(pixellab_south_path):
 			scale_mult = float(_scale_mult_cache.get(pixellab_south_path, 1.0))
 		else:
-			scale_mult = PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.20, 0.42)
+			scale_mult = PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.22, 0.72)
 			_scale_mult_cache[pixellab_south_path] = scale_mult
 		anim.scale = base_scale * scale_mult
 		anim.sprite_frames = frames
@@ -167,7 +167,7 @@ func _apply_visuals() -> void:
 		base = 1.28
 	elif is_elite:
 		base = 1.06
-	anim.scale = _anim_base_scale * base * _scale_mult
+	anim.scale = _anim_base_scale * base * _scale_mult * _enemy_presence_mult()
 	# Mild tint for readability by archetype/affix
 	if ai_id == "swarmer":
 		anim.modulate = Color(0.85, 0.95, 0.90, 1.0)
@@ -189,6 +189,33 @@ func _apply_visuals() -> void:
 		enemy_outline = Color(1.0, 0.70, 0.35, 1.0)
 	var outline_px := 2.2 if is_boss else 1.4
 	anim.material = _get_outline_material(enemy_outline, outline_px)
+
+func _enemy_presence_mult() -> float:
+	var mult := 1.0
+	match ai_id:
+		"brute":
+			mult *= 1.20
+		"charger":
+			mult *= 1.12
+		"bomber":
+			mult *= 1.08
+		"swarmer":
+			mult *= 0.92
+		"spitter":
+			mult *= 0.90
+		_:
+			pass
+	if character_data != null:
+		var hp := character_data.max_hp
+		if hp >= 260:
+			mult *= 1.16
+		elif hp >= 200:
+			mult *= 1.10
+		elif hp <= 85:
+			mult *= 0.92
+		if character_data.origin == CharacterData.Origin.DEMON or character_data.origin == CharacterData.Origin.BEAST:
+			mult *= 1.08
+	return clampf(mult, 0.80, 1.75)
 
 static func _get_outline_material(color: Color, px: float) -> ShaderMaterial:
 	var key := "%s|%.2f" % [color.to_html(true), px]
@@ -289,7 +316,11 @@ func _resolve_actor_overlap() -> void:
 		return
 	var r2 := ACTOR_SEPARATION_RADIUS * ACTOR_SEPARATION_RADIUS
 	# Player first
-	var player := get_tree().get_first_node_in_group("player") as Node2D
+	var player: Node2D = null
+	if _main.has_method("get_player_node"):
+		player = _main.get_player_node()
+	if player == null or not is_instance_valid(player):
+		player = get_tree().get_first_node_in_group("player") as Node2D
 	if player != null and is_instance_valid(player):
 		var d := global_position - player.global_position
 		var d2 := d.length_squared()
@@ -588,14 +619,15 @@ func _apply_archetype_and_affixes() -> void:
 
 func _find_target() -> Node2D:
 	var nearest: Node2D = null
-	var nearest_dist := aggression_radius
+	var nearest_dist := INF
 
+	# Always chase nearest valid squad unit anywhere on the map.
+	# Do not gate by aggression_radius; that caused center-map idling.
 	var squad: Array = []
 	if _main and is_instance_valid(_main) and _main.has_method("get_cached_squad_units"):
 		squad = _main.get_cached_squad_units()
 	else:
 		squad = get_tree().get_nodes_in_group("squad_units")
-
 	for u in squad:
 		if not is_instance_valid(u):
 			continue
@@ -607,14 +639,27 @@ func _find_target() -> Node2D:
 			nearest_dist = d
 			nearest = n2
 
-	if nearest != null:
-		return nearest
-
-	var player := get_tree().get_first_node_in_group("player") as Node2D
+	# Player is always a valid fallback target (no radius gate).
+	var player: Node2D = null
+	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_node"):
+		player = _main.get_player_node()
+	if player == null or not is_instance_valid(player):
+		player = get_tree().get_first_node_in_group("player") as Node2D
 	if player != null and is_instance_valid(player):
 		var d2 := global_position.distance_to(player.global_position)
-		if d2 < aggression_radius:
-			return player
+		if d2 < nearest_dist:
+			nearest = player
+			nearest_dist = d2
+
+	if nearest != null:
+		return nearest
+	if player != null and is_instance_valid(player):
+		return player
+	# Last fallback to avoid null-target idle loops in edge cases.
+	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_node"):
+		var p2: Node2D = _main.get_player_node() as Node2D
+		if p2 != null and is_instance_valid(p2):
+			return p2
 	return null
 
 func _update_anim_from_motion(motion: Vector2, look_dir: Vector2) -> void:

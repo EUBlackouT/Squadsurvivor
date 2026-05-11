@@ -129,6 +129,8 @@ static func _fire_standard_projectile(attacker: Node2D, target: Node2D, damage: 
 	var proj := proj_scene.instantiate()
 	main_node.add_child(proj)
 	proj.global_position = attacker.global_position
+	if proj.has_method("set_visual_profile"):
+		proj.set_visual_profile("bolt")
 	if proj.has_method("setup_target"):
 		proj.setup_target(target, damage, is_crit, cd.passive_ids if cd else [], cd, attacker)
 	_play_sfx(main_node, "player.shot", attacker.global_position)
@@ -283,6 +285,8 @@ static func _fire_piercing_shot(attacker: Node2D, target: Node2D, damage: int, i
 		proj.add_pierce(pierce)
 	if proj.has_method("set_speed"):
 		proj.set_speed(float(w.get("projectile_speed", 750)))
+	if proj.has_method("set_visual_profile"):
+		proj.set_visual_profile("pierce")
 	if proj.has_method("setup_target"):
 		proj.setup_target(target, damage, is_crit, cd.passive_ids if cd else [], cd, attacker)
 	_play_sfx(main_node, "weapon.pierce", attacker.global_position)
@@ -312,6 +316,10 @@ static func _fire_scatter_shot(attacker: Node2D, target: Node2D, damage: int, is
 		var proj := proj_scene.instantiate()
 		main_node.add_child(proj)
 		proj.global_position = attacker.global_position
+		if proj.has_method("set_visual_profile"):
+			proj.set_visual_profile("scatter")
+		if proj.has_method("set_speed"):
+			proj.set_speed(float(w.get("projectile_speed", 660)))
 		if proj.has_method("setup_direction"):
 			proj.setup_direction(Vector2.from_angle(angle), int(float(damage) * dmg_per), is_crit and i == proj_count / 2, cd, attacker)
 		elif proj.has_method("setup_target"):

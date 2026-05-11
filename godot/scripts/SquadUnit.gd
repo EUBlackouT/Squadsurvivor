@@ -45,7 +45,8 @@ enum TargetMode { NEAREST, LOWEST_HP, ELITES_FIRST }
 var _formation_mode: int = FormationMode.TIGHT
 var _target_mode: int = TargetMode.NEAREST
 const TARGET_MODE_COUNT: int = 3
-const TARGET_SPRITE_HEIGHT: float = 10.0
+const TARGET_SPRITE_HEIGHT: float = 12.0
+const RANGED_RANGE_MULT: float = 1.30
 
 var _current_anim: String = "walk_south"
 var _anim_cooldown: float = 0.0
@@ -109,7 +110,8 @@ func _apply_visuals() -> void:
 		var frames := PixellabUtil.walk_frames_from_south_path(character_data.sprite_path)
 		if frames != null:
 			var base_scale := anim.scale
-			var scale_mult := PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.20, 0.42)
+			var scale_mult := PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.22, 0.62)
+			scale_mult *= _character_size_presence_mult()
 			anim.scale = base_scale * scale_mult
 			anim.sprite_frames = frames
 			_current_anim = "walk_south"
@@ -138,6 +140,30 @@ func _apply_visuals() -> void:
 		# Slightly brighter so it reads on dark maps.
 		health_bar.modulate = Color(1.0, 1.0, 1.0, 0.92)
 	_ensure_selection_ring()
+
+func _character_size_presence_mult() -> float:
+	if character_data == null:
+		return 1.0
+	var mult := 1.0
+	var hp := character_data.max_hp
+	if hp >= 280:
+		mult *= 1.30
+	elif hp >= 240:
+		mult *= 1.22
+	elif hp >= 200:
+		mult *= 1.14
+	elif hp <= 100:
+		mult *= 0.92
+	match character_data.origin:
+		CharacterData.Origin.DEMON, CharacterData.Origin.BEAST:
+			mult *= 1.10
+		CharacterData.Origin.ELEMENTAL:
+			mult *= 1.06
+		_:
+			pass
+	if character_data.class_type == CharacterData.Class.GUARDIAN:
+		mult *= 1.08
+	return clampf(mult, 0.84, 1.55)
 
 func set_squad_leader(leader: Node2D, offset: Vector2) -> void:
 	_leader = leader
@@ -215,12 +241,14 @@ func _combat_step(_delta: float) -> void:
 	var tgt := _target_enemy
 	var dist := global_position.distance_to(tgt.global_position)
 	var attack_range := character_data.attack_range if character_data != null else 300.0
+	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
+	if not is_melee:
+		attack_range *= RANGED_RANGE_MULT
 	var move_speed := _get_effective_move_speed()
 	# Overclock: speed burst (meta ability)
 	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
 		move_speed *= float(_main.get_overclock_move_speed_mult())
 
-	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
 	var desired_range := 26.0 if is_melee else attack_range * 0.70
 
 	# Movement: melee sticks, ranged kites slightly
@@ -452,6 +480,9 @@ func _find_target_in_range() -> Node2D:
 	var best: Node2D = null
 	var best_d2: float = INF
 	var attack_range := character_data.attack_range if character_data != null else 300.0
+	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
+	if not is_melee:
+		attack_range *= RANGED_RANGE_MULT
 	var r2 := attack_range * attack_range
 	for e in enemies:
 		if not is_instance_valid(e):

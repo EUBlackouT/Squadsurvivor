@@ -153,23 +153,23 @@ const _FEATURED_SIGNATURE_BY_ID: Dictionary = {
 
 const _RACE_STAT_BIAS: Dictionary = {
 	# Soft stat signatures (multipliers): hp, dmg, move, range, cooldown
-	"HUMANOID": {"hp": 1.05, "dmg": 1.06, "move": 1.00, "range": 1.00, "cd": 0.98},
-	"MACHINE": {"hp": 1.12, "dmg": 1.04, "move": 0.93, "range": 1.00, "cd": 1.02},
-	"ALIEN": {"hp": 0.94, "dmg": 1.08, "move": 1.15, "range": 1.03, "cd": 0.95},
-	"DEMON": {"hp": 1.00, "dmg": 1.12, "move": 1.02, "range": 1.00, "cd": 0.96},
-	"DRACONIC": {"hp": 1.10, "dmg": 1.10, "move": 0.95, "range": 0.98, "cd": 1.00},
-	"ELEMENTAL": {"hp": 0.96, "dmg": 1.08, "move": 1.06, "range": 1.04, "cd": 0.96},
-	"CELESTIAL": {"hp": 1.02, "dmg": 1.05, "move": 1.03, "range": 1.08, "cd": 0.94},
-	"UNDEAD": {"hp": 1.10, "dmg": 0.98, "move": 0.90, "range": 1.00, "cd": 1.04},
-	"AQUATIC": {"hp": 0.98, "dmg": 1.02, "move": 1.10, "range": 1.05, "cd": 0.97},
-	"FAE": {"hp": 0.90, "dmg": 1.04, "move": 1.16, "range": 1.06, "cd": 0.94},
-	"CRYSTALLINE": {"hp": 1.08, "dmg": 1.06, "move": 0.92, "range": 1.07, "cd": 1.00},
-	"SHADOWBORN": {"hp": 0.95, "dmg": 1.10, "move": 1.12, "range": 1.00, "cd": 0.95},
-	"AVIAN": {"hp": 0.92, "dmg": 1.02, "move": 1.18, "range": 1.05, "cd": 0.96},
-	"ARACHNID": {"hp": 1.04, "dmg": 1.07, "move": 1.06, "range": 0.97, "cd": 0.98},
-	"PLANTOID": {"hp": 1.12, "dmg": 0.98, "move": 0.88, "range": 1.06, "cd": 1.02},
-	"SLIMEKIN": {"hp": 1.06, "dmg": 1.00, "move": 1.04, "range": 1.00, "cd": 1.00},
-	"MUTANT": {"hp": 1.03, "dmg": 1.08, "move": 1.06, "range": 0.98, "cd": 0.99}
+	"HUMANOID": {"hp": 1.03, "dmg": 1.04, "move": 1.00, "range": 1.00, "cd": 0.99},
+	"MACHINE": {"hp": 1.08, "dmg": 1.03, "move": 0.96, "range": 1.00, "cd": 1.01},
+	"ALIEN": {"hp": 0.97, "dmg": 1.05, "move": 1.08, "range": 1.02, "cd": 0.97},
+	"DEMON": {"hp": 1.00, "dmg": 1.07, "move": 1.01, "range": 1.00, "cd": 0.98},
+	"DRACONIC": {"hp": 1.07, "dmg": 1.06, "move": 0.97, "range": 0.99, "cd": 1.00},
+	"ELEMENTAL": {"hp": 0.98, "dmg": 1.05, "move": 1.04, "range": 1.03, "cd": 0.97},
+	"CELESTIAL": {"hp": 1.01, "dmg": 1.04, "move": 1.02, "range": 1.05, "cd": 0.96},
+	"UNDEAD": {"hp": 1.07, "dmg": 0.99, "move": 0.94, "range": 1.00, "cd": 1.02},
+	"AQUATIC": {"hp": 0.99, "dmg": 1.02, "move": 1.06, "range": 1.04, "cd": 0.98},
+	"FAE": {"hp": 0.94, "dmg": 1.03, "move": 1.08, "range": 1.04, "cd": 0.96},
+	"CRYSTALLINE": {"hp": 1.06, "dmg": 1.04, "move": 0.95, "range": 1.04, "cd": 1.00},
+	"SHADOWBORN": {"hp": 0.97, "dmg": 1.07, "move": 1.06, "range": 1.00, "cd": 0.96},
+	"AVIAN": {"hp": 0.95, "dmg": 1.02, "move": 1.09, "range": 1.04, "cd": 0.97},
+	"ARACHNID": {"hp": 1.03, "dmg": 1.05, "move": 1.04, "range": 0.98, "cd": 0.99},
+	"PLANTOID": {"hp": 1.08, "dmg": 0.99, "move": 0.94, "range": 1.04, "cd": 1.01},
+	"SLIMEKIN": {"hp": 1.04, "dmg": 1.00, "move": 1.03, "range": 1.00, "cd": 1.00},
+	"MUTANT": {"hp": 1.02, "dmg": 1.05, "move": 1.04, "range": 0.99, "cd": 0.99}
 }
 
 const _ROLE_STAT_BIAS: Dictionary = {
@@ -190,12 +190,12 @@ const _ROLE_STAT_BIAS: Dictionary = {
 }
 
 const _CLASS_STAT_BIAS: Dictionary = {
-	"WARRIOR": {"hp": 1.10, "dmg": 1.06, "move": 0.96, "range": 0.94, "cd": 1.00},
-	"MAGE": {"hp": 0.92, "dmg": 1.10, "move": 1.02, "range": 1.12, "cd": 0.95},
-	"ROGUE": {"hp": 0.92, "dmg": 1.08, "move": 1.12, "range": 1.00, "cd": 0.94},
-	"GUARDIAN": {"hp": 1.18, "dmg": 0.95, "move": 0.88, "range": 0.94, "cd": 1.05},
-	"HEALER": {"hp": 0.98, "dmg": 0.90, "move": 1.04, "range": 1.08, "cd": 0.92},
-	"SUMMONER": {"hp": 0.96, "dmg": 1.03, "move": 1.00, "range": 1.06, "cd": 0.95}
+	"WARRIOR": {"hp": 1.06, "dmg": 1.04, "move": 0.97, "range": 0.96, "cd": 1.00},
+	"MAGE": {"hp": 0.95, "dmg": 1.06, "move": 1.02, "range": 1.08, "cd": 0.96},
+	"ROGUE": {"hp": 0.95, "dmg": 1.05, "move": 1.08, "range": 1.01, "cd": 0.96},
+	"GUARDIAN": {"hp": 1.10, "dmg": 0.97, "move": 0.93, "range": 0.96, "cd": 1.03},
+	"HEALER": {"hp": 1.00, "dmg": 0.93, "move": 1.03, "range": 1.05, "cd": 0.95},
+	"SUMMONER": {"hp": 0.98, "dmg": 1.02, "move": 1.00, "range": 1.04, "cd": 0.96}
 }
 
 const _ORIGIN_ASPECTS_BY_RACE: Dictionary = {
@@ -366,7 +366,9 @@ static func _build_character_data_from_entry(entry: Dictionary, context: String,
 	var overrides: Dictionary = {}
 
 	var rarity_id := String(entry.get("rarity_id", ""))
-	if rarity_id != "":
+	# Keep authored rarity for enemies, but let recruits roll rarity at runtime
+	# so draft quality can scale with elapsed time/meta progression.
+	if rarity_id != "" and context != "recruit":
 		overrides["rarity_id"] = rarity_id
 	var archetype_id := String(entry.get("archetype_id", ""))
 	if archetype_id != "":
