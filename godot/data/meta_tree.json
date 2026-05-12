@@ -58,7 +58,22 @@
     { "id": "oc_barrage", "name": "Barrage Mode", "desc": "Overclock grants more attack speed but slightly less duration.", "cost": 1100, "pos": [-170, 390], "prereq": ["oc_keystone"], "mods": { "overclock_attack_speed_mult": 1.12, "overclock_duration_mult": 0.92 } },
     { "id": "oc_discharge", "name": "Arc Discharge", "desc": "Overclock activation damages nearby enemies (tradeoff: slightly longer cooldown).", "cost": 1400, "pos": [0, 470], "prereq": ["oc_tune"], "tags": ["keystone"], "mods": { "overclock_burst_damage_add": 10, "overclock_burst_radius_add": 120, "overclock_cooldown_mult": 1.10 } },
     { "id": "oc_hunter", "name": "Hunter Protocol", "desc": "While Overclock is active, focus-fire becomes much stronger.", "cost": 1400, "pos": [240, 470], "prereq": ["oc_adrenal"], "mods": { "overclock_focus_bias_mult": 0.35 } },
-    { "id": "oc_lethal", "name": "Lethal Voltage", "desc": "While Overclock is active, squad deals more damage.", "cost": 1400, "pos": [-240, 470], "prereq": ["oc_barrage"], "mods": { "overclock_damage_mult": 1.12 } }
+    { "id": "oc_lethal", "name": "Lethal Voltage", "desc": "While Overclock is active, squad deals more damage.", "cost": 1400, "pos": [-240, 470], "prereq": ["oc_barrage"], "mods": { "overclock_damage_mult": 1.12 } },
+
+    { "id": "hp_boost_4", "name": "Vitality IV", "desc": "+14% Squad HP", "cost": 1100, "pos": [-640, -220], "prereq": ["hp_boost_3"], "mods": { "squad_hp_mult": 1.14 } },
+    { "id": "dmg_boost_4", "name": "Power IV", "desc": "+15% Squad Damage", "cost": 1200, "pos": [640, -220], "prereq": ["dmg_boost_3"], "mods": { "squad_damage_mult": 1.15 } },
+    { "id": "crit_3", "name": "Precision III", "desc": "+4% Crit Chance", "cost": 900, "pos": [-320, -430], "prereq": ["crit_2"], "mods": { "squad_crit_add": 0.04 } },
+    { "id": "essence_3", "name": "Harvest III", "desc": "+18% Essence Gain", "cost": 950, "pos": [320, -430], "prereq": ["essence_2"], "mods": { "essence_mult": 1.18 } },
+    { "id": "draft_luck_2", "name": "Fortune II", "desc": "Further improves rarity odds in drafts.", "cost": 1250, "pos": [0, -520], "prereq": ["draft_luck"], "mods": { "draft_rarity_boost": 0.12 } },
+    { "id": "starting_unit_2", "name": "Reinforcement II", "desc": "+1 Starting Squad Member (total +2).", "cost": 2200, "pos": [0, -610], "tags": ["keystone"], "prereq": ["starting_unit"], "mods": { "starting_squad_add": 1 } },
+
+    { "id": "focus_3", "name": "Targeting Drills III", "desc": "Focus lasts even longer.", "cost": 1000, "pos": [390, -130], "prereq": ["focus_2"], "mods": { "focus_duration_mult": 1.14 } },
+    { "id": "rally_3", "name": "Signal Beacons III", "desc": "Rally lasts even longer.", "cost": 1000, "pos": [390, 130], "prereq": ["rally_2"], "mods": { "rally_duration_mult": 1.14 } },
+    { "id": "squad_3", "name": "Tactical Spacing III", "desc": "Squad responds to rally faster.", "cost": 1150, "pos": [-390, 130], "prereq": ["squad_2"], "mods": { "rally_follow_mult": 1.18 } },
+
+    { "id": "dash_3", "name": "Kinetic Boots III", "desc": "Dash cooldown reduced further.", "cost": 1100, "pos": [-390, -130], "prereq": ["dash_2"], "mods": { "dash_cooldown_mult": 0.88 } },
+    { "id": "dash_longstep", "name": "Longstep Module", "desc": "Dash covers more distance.", "cost": 1300, "pos": [-560, -130], "prereq": ["dash_3"], "mods": { "dash_distance_mult": 1.18 } },
+    { "id": "dash_strider", "name": "Strider Link", "desc": "Slight global speed increase and shorter dash cooldown.", "cost": 1600, "pos": [-720, -130], "tags": ["keystone"], "prereq": ["dash_longstep"], "mods": { "squad_speed_mult": 1.08, "dash_cooldown_mult": 0.90 } }
   ],
   "edges": [
     ["core_0", "focus_1"], ["focus_1", "focus_2"], ["focus_2", "focus_keystone"],
@@ -68,7 +83,11 @@
 
     ["core_0", "oc_1"], ["oc_1", "oc_2"], ["oc_2", "oc_keystone"],
     ["oc_keystone", "oc_tune"], ["oc_keystone", "oc_adrenal"], ["oc_keystone", "oc_barrage"],
-    ["oc_tune", "oc_discharge"], ["oc_adrenal", "oc_hunter"], ["oc_barrage", "oc_lethal"]
+    ["oc_tune", "oc_discharge"], ["oc_adrenal", "oc_hunter"], ["oc_barrage", "oc_lethal"],
+    ["hp_boost_3", "hp_boost_4"], ["dmg_boost_3", "dmg_boost_4"], ["crit_2", "crit_3"], ["essence_2", "essence_3"],
+    ["draft_luck", "draft_luck_2"], ["starting_unit", "starting_unit_2"],
+    ["focus_2", "focus_3"], ["rally_2", "rally_3"], ["squad_2", "squad_3"],
+    ["dash_2", "dash_3"], ["dash_3", "dash_longstep"], ["dash_longstep", "dash_strider"]
   ]
 }
 

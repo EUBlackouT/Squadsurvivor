@@ -26,6 +26,7 @@ var _dash_cd: float = 0.0
 var _dash_t: float = 0.0
 var _dash_dir: Vector2 = Vector2.ZERO
 var _dash_speed_mult: float = 1.0
+var _dash_key_prev_down: bool = false
 var _main: Node2D = null
 
 func get_dash_cd_left() -> float:
@@ -219,6 +220,10 @@ func _physics_process(_delta: float) -> void:
 	dir.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
 	if dir.length() > 1.0:
 		dir = dir.normalized()
+	var dash_key_down := Input.is_key_pressed(KEY_SHIFT)
+	if dash_key_down and (not _dash_key_prev_down):
+		_try_dash(dir)
+	_dash_key_prev_down = dash_key_down
 	# Dash movement - feels punchy and fast
 	if _dash_t > 0.0:
 		velocity = _dash_dir * (move_speed * 5.5 * _dash_speed_mult)
@@ -255,6 +260,26 @@ func _pan_camera_manual(delta: float) -> void:
 	cam.position += pan * manual_camera_pan_speed * delta
 
 # Dash ability removed - was causing issues
+func _try_dash(input_dir: Vector2) -> void:
+	if _dash_t > 0.0 or _dash_cd > 0.0:
+		return
+	var dir := input_dir
+	if dir.length() <= 0.01:
+		dir = velocity.normalized()
+	if dir.length() <= 0.01:
+		return
+	var cd_mult := 1.0
+	var dist_mult := 1.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		cd_mult = float(mp.get_mod("dash_cooldown_mult", 1.0))
+		dist_mult = float(mp.get_mod("dash_distance_mult", 1.0))
+	cd_mult = clampf(cd_mult, 0.35, 2.5)
+	dist_mult = clampf(dist_mult, 0.70, 1.80)
+	_dash_dir = dir.normalized()
+	_dash_speed_mult = dist_mult
+	_dash_t = 0.17 * dist_mult
+	_dash_cd = 2.4 * cd_mult
 
 func _set_formation_mode(mode: int) -> void:
 	_formation_mode = mode

@@ -35,16 +35,16 @@ var _last_unlocked_map_id: String = "graveyard"
 const COLLECTION_BG_PATH: String = "res://assets/ui/mockups/collection.webp"
 const USE_UI_MOCKUPS: bool = false
 
-# Vine/fantasy skin (same vibe as main menu)
-const BG_FANTASY_PATH := "res://assets/ui/wood_menu/bg_fantasy_1920x1080.jpg"
-const KIT_DIR := "res://assets/ui/vine_menu/kit/"
-const TEX_PANEL := KIT_DIR + "panel_mossstone_9slice.png"
-const TEX_BTN_P := KIT_DIR + "button_primary_vine_9slice.png"
-const TEX_BTN_S := KIT_DIR + "button_secondary_vine_9slice.png"
-const TEX_CARD := KIT_DIR + "card_moss_9slice.png"
-const TEX_CHIP := KIT_DIR + "chip_leaf_9slice.png"
-const TEX_SPARKLE := KIT_DIR + "sparkle_leaf_16.png"
-const TEX_DIVIDER := KIT_DIR + "divider_vine.png"
+# Tactical/dark skin (shared with revamped main menu)
+const BG_FANTASY_PATH := "res://assets/ui/revamp/menu_bg.png"
+const KIT_DIR := ""
+const TEX_PANEL := ""
+const TEX_BTN_P := ""
+const TEX_BTN_S := ""
+const TEX_CARD := ""
+const TEX_CHIP := ""
+const TEX_SPARKLE := ""
+const TEX_DIVIDER := ""
 
 # === Readability palette (dark UI content over fantasy background) ===
 const TEXT_LIGHT := Color(0.95, 0.93, 0.88, 1.0)
@@ -198,7 +198,7 @@ func _sb_card(selected: bool, accent_color: Color = Color(0.45, 0.55, 0.35, 0.7)
 	f.border_width_right = 1
 	f.border_width_top = 1
 	f.border_width_bottom = 1
-	f.border_color = BORDER_SUBTLE
+	f.border_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.45)
 	f.corner_radius_top_left = 12
 	f.corner_radius_top_right = 12
 	f.corner_radius_bottom_left = 12
@@ -208,7 +208,7 @@ func _sb_card(selected: bool, accent_color: Color = Color(0.45, 0.55, 0.35, 0.7)
 		f.border_width_right = 2
 		f.border_width_top = 2
 		f.border_width_bottom = 2
-		f.border_color = accent_color
+		f.border_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.9)
 		f.shadow_size = 10
 		f.shadow_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.18)
 	return f
@@ -1470,8 +1470,7 @@ func _refresh_collection() -> void:
 		card_ref.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var selected_pid := String(_selected_unlock.get("pixellab_id", ""))
 		var is_selected := (selected_pid != "" and selected_pid == String(data_ref.get("pixellab_id", "")))
-		card_ref.add_theme_stylebox_override("panel", _sb_card(is_selected, UnitFactory.rarity_color(rarity) if is_selected else Color(0.45, 0.55, 0.35, 0.7)))
-		_add_rarity_sparkle(card_ref, _rarity_rank(rarity))
+		card_ref.add_theme_stylebox_override("panel", _sb_card(is_selected, UnitFactory.rarity_color(rarity)))
 		collection_box.add_child(card_ref)
 
 		if is_selected:
@@ -1524,9 +1523,10 @@ func _refresh_collection() -> void:
 		row.add_child(mid)
 
 		var name := Label.new()
+		var race_name := _race_name_from_data(data_ref)
 		var show_arch := (arch.strip_edges().to_lower() != cls_tag)
 		var name_base := "%s • %s%s" % [
-			UnitFactory.rarity_name(rarity),
+			race_name,
 			cls_name,
 			(" • %s" % arch) if show_arch else ""
 		]
@@ -1718,7 +1718,7 @@ func _refresh_roster() -> void:
 			name_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
 			name_lbl.clip_text = true
 			name_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			name_lbl.text = "%s • %s" % [UnitFactory.rarity_name(String(d.get("rarity_id", "common"))), cls_name]
+			name_lbl.text = "%s • %s" % [_race_name_from_data(d), cls_name]
 			name_lbl.add_theme_font_size_override("font_size", 13)
 			name_lbl.add_theme_color_override("font_color", TEXT_LIGHT)
 			info_vbox.add_child(name_lbl)
@@ -1774,15 +1774,14 @@ func _add_unlock_to_roster(data: Dictionary) -> void:
 		return
 	cm.add_to_roster(cd)
 	if _toast:
-		var rarity := String(data.get("rarity_id", "common"))
 		var arch := String(data.get("archetype_id", "bruiser"))
 		var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
 		var cls_name := _class_name(cls)
 		var cls_tag := _class_tag(cls)
 		var show_arch := (arch.strip_edges().to_lower() != cls_tag)
 		_toast.show_toast(
-			"Added to roster: %s • %s%s" % [UnitFactory.rarity_name(rarity), cls_name, (" • %s" % arch) if show_arch else ""],
-			UnitFactory.rarity_color(rarity)
+			"Added to roster: %s • %s%s" % [_race_name_from_data(data), cls_name, (" • %s" % arch) if show_arch else ""],
+			UnitFactory.rarity_color(String(data.get("rarity_id", "common")))
 		)
 	_refresh()
 
@@ -1806,14 +1805,14 @@ func _refresh_inspector() -> void:
 		_inspector_primary_btn.disabled = true
 		return
 
-	var rarity := String(_selected_unlock.get("rarity_id", "common"))
 	var arch := String(_selected_unlock.get("archetype_id", "bruiser"))
 	var cls := int(_selected_unlock.get("class_type", int(CharacterData.Class.WARRIOR)))
 	var cls_name := _class_name(cls)
+	var race_name := _race_name_from_data(_selected_unlock)
 	var cls_tag := _class_tag(cls)
 	var show_arch := (arch.strip_edges().to_lower() != cls_tag)
 	# Compact name line (light text on dark card)
-	_inspector_name.text = "● %s • %s%s" % [UnitFactory.rarity_name(rarity), cls_name, (" • %s" % arch) if show_arch else ""]
+	_inspector_name.text = "● %s • %s%s" % [race_name, cls_name, (" • %s" % arch) if show_arch else ""]
 	_inspector_name.add_theme_color_override("font_color", TEXT_LIGHT)
 	_inspector_name.add_theme_color_override("font_outline_color", OUTLINE_DARK)
 	_inspector_name.add_theme_constant_override("outline_size", 2)
@@ -2398,6 +2397,15 @@ static func _class_tag(c: int) -> String:
 		CharacterData.Class.HEALER: return "healer"
 		CharacterData.Class.SUMMONER: return "summoner"
 		_: return "unknown"
+
+static func _race_name_from_data(data: Dictionary) -> String:
+	var race := String(data.get("race_id", "")).strip_edges()
+	if race != "":
+		return race.capitalize()
+	var origin_id := String(data.get("origin_id", "")).strip_edges()
+	if origin_id != "":
+		return origin_id.capitalize()
+	return "Unknown"
 
 static func _class_color(c: int) -> Color:
 	# Matches the projectile tint mapping in SquadUnit (keeps the UI consistent with combat colors).

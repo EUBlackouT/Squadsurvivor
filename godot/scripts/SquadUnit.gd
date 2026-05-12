@@ -449,8 +449,11 @@ func _find_target() -> Node2D:
 
 	# Focus-fire command: bias target selection toward the marked enemy (still distance-aware).
 	var focus: Node2D = null
+	var focus_bias_mult := 1.0
 	if _main and is_instance_valid(_main) and _main.has_method("get_focus_target"):
 		focus = _main.get_focus_target()
+	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_focus_bias_mult"):
+		focus_bias_mult = float(_main.get_overclock_focus_bias_mult())
 
 	for e in enemies:
 		if not is_instance_valid(e):
@@ -461,7 +464,7 @@ func _find_target() -> Node2D:
 		var dist2 := global_position.distance_squared_to(n2.global_position)
 		var score := dist2
 		if focus != null and n2 == focus:
-			score *= 0.03
+			score *= 0.03 * clampf(focus_bias_mult, 0.15, 1.0)
 		if _target_mode == TargetMode.ELITES_FIRST and bool(n2.is_elite):
 			score *= 0.65
 		if _target_mode == TargetMode.LOWEST_HP and n2.has_method("get_hp_ratio"):

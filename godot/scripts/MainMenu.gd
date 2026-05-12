@@ -1,6 +1,6 @@
 extends Control
 
-# Main Menu - fantasy meadow theme with animated layered backdrop.
+# Main Menu - dark tactical sci-fi theme.
 # Behavior (scene changes, signals, logic) stays the same.
 
 var _menu_root: Control
@@ -34,6 +34,7 @@ var _selected_map_locked: bool = false
 var _bg_far: TextureRect = null
 var _bg_near: TextureRect = null
 var _bg_light: ColorRect = null
+var _bg_reactor_ring: Node2D = null
 var _menu_anim_t: float = 0.0
 
 var _crowd_prev_visible: bool = true
@@ -47,21 +48,22 @@ var _info_details: RichTextLabel = null
 var _info_hint: Label = null
 var _info_entries: Array[Dictionary] = []
 
-@export var game_title: String = "Character Collection"
-@export var game_tagline: String = "Collect • Upgrade • Build your dream team"
-@export var footer_text: String = "v0.1 • Cozy collection run"
+@export var game_title: String = "SQUADSURVIVOR"
+@export var game_tagline: String = "Recruit • Draft • Survive"
+@export var footer_text: String = "Build 4.4 • Tactical Operations"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ASSETS (put the generated PNGs here)
 # ─────────────────────────────────────────────────────────────────────────────
-const BG_PATH: String = "res://assets/ui/meadow_menu/bg_meadow_base.webp"
-const BG_NEAR_PATH: String = "res://assets/ui/meadow_menu/bg_meadow_foreground.webp"
-const ASSET_PANEL: String = "res://assets/ui/meadow_menu/panel_ornate.webp"
+const BG_PATH: String = "res://assets/ui/revamp/menu_factory_bg.png"
+const BG_NEAR_PATH: String = ""
+const ASSET_PANEL: String = "res://assets/ui/revamp/codex_panel.png"
+const CODEX_PANEL_PATH: String = "res://assets/ui/revamp/codex_panel.png"
 
-const BTN_NORMAL: String = "res://assets/ui/meadow_menu/button_normal.webp"
-const BTN_HOVER: String = "res://assets/ui/meadow_menu/button_hover.webp"
-const BTN_PRESSED: String = "res://assets/ui/meadow_menu/button_pressed.webp"
-const BTN_DISABLED: String = "res://assets/ui/meadow_menu/button_disabled.webp"
+const BTN_NORMAL: String = ""
+const BTN_HOVER: String = ""
+const BTN_PRESSED: String = ""
+const BTN_DISABLED: String = ""
 
 const TAB_NORMAL: String = "res://assets/ui/wood_menu/tab_wood_normal_384x128.png"
 const TAB_HOVER: String = "res://assets/ui/wood_menu/tab_wood_hover_384x128.png"
@@ -77,20 +79,20 @@ const USE_UI_MOCKUPS: bool = false
 # ─────────────────────────────────────────────────────────────────────────────
 # COLORS (fallback / text)
 # ─────────────────────────────────────────────────────────────────────────────
-const TITLE_COLOR: Color = Color(1.0, 0.96, 0.86, 1.0)
-const SUBTITLE_COLOR: Color = Color(0.96, 0.92, 0.82, 0.92)
-const TEXT_DARK: Color = Color(0.12, 0.08, 0.06, 1.0)
+const TITLE_COLOR: Color = Color(0.92, 0.97, 1.0, 1.0)
+const SUBTITLE_COLOR: Color = Color(0.70, 0.86, 1.0, 0.92)
+const TEXT_DARK: Color = Color(0.06, 0.09, 0.14, 1.0)
 
-const ACCENT_LEAF: Color = Color(0.42, 0.86, 0.52, 1.0)
-const ACCENT_SUN: Color = Color(1.0, 0.83, 0.44, 1.0)
-const ACCENT_BERRY: Color = Color(0.86, 0.55, 0.88, 1.0)
+const ACCENT_LEAF: Color = Color(0.35, 0.95, 0.85, 1.0)
+const ACCENT_SUN: Color = Color(1.0, 0.72, 0.38, 1.0)
+const ACCENT_BERRY: Color = Color(0.58, 0.72, 1.0, 1.0)
 
 # Readability surfaces for map overlay
-const SURFACE_BG := Color(0.07, 0.06, 0.05, 0.90)
-const SURFACE_BG_SOFT := Color(0.06, 0.05, 0.04, 0.82)
-const SURFACE_BORDER := Color(1, 1, 1, 0.12)
-const LOCKED_FG := Color(0.90, 0.86, 0.76, 0.45)
-const NORMAL_FG := Color(0.98, 0.96, 0.90, 1.0)
+const SURFACE_BG := Color(0.04, 0.06, 0.10, 0.92)
+const SURFACE_BG_SOFT := Color(0.03, 0.05, 0.08, 0.86)
+const SURFACE_BORDER := Color(0.50, 0.74, 1.0, 0.28)
+const LOCKED_FG := Color(0.72, 0.80, 0.90, 0.45)
+const NORMAL_FG := Color(0.93, 0.97, 1.0, 1.0)
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -114,6 +116,7 @@ func _ready() -> void:
 		mm.play("menu", 1.0)
 
 	_build_menu()
+	_spawn_menu_crowd()
 	_build_map_overlay()
 	_connect_signals()
 
@@ -121,8 +124,8 @@ func _process(delta: float) -> void:
 	_menu_anim_t += delta
 	if _bg_far != null and is_instance_valid(_bg_far):
 		_bg_far.position = Vector2(
-			sin(_menu_anim_t * 0.10) * 18.0,
-			cos(_menu_anim_t * 0.07) * 6.0
+			sin(_menu_anim_t * 0.16) * 20.0,
+			cos(_menu_anim_t * 0.11) * 9.0
 		)
 	if _bg_near != null and is_instance_valid(_bg_near):
 		_bg_near.position = Vector2(
@@ -131,8 +134,14 @@ func _process(delta: float) -> void:
 		)
 	if _bg_light != null and is_instance_valid(_bg_light):
 		_bg_light.modulate.a = 0.26 + sin(_menu_anim_t * 0.32) * 0.07
+	if _bg_reactor_ring != null and is_instance_valid(_bg_reactor_ring):
+		var vp_size := get_viewport_rect().size
+		_bg_reactor_ring.position = Vector2(vp_size.x * 0.70, vp_size.y * 0.52) + Vector2(
+			sin(_menu_anim_t * 0.28) * 8.0,
+			cos(_menu_anim_t * 0.24) * 5.0
+		)
 	if _card != null and is_instance_valid(_card):
-		_card.rotation = sin(_menu_anim_t * 0.42) * 0.004
+		_card.rotation = sin(_menu_anim_t * 0.55) * 0.002
 
 func _apply_menu_art() -> void:
 	var bg := get_node_or_null("MenuBackground") as TextureRect
@@ -150,8 +159,6 @@ func _apply_menu_art() -> void:
 	_bg_far = bg
 
 	var t := _load_tex(BG_PATH)
-	if t == null:
-		push_error("MainMenu: BG texture missing: " + BG_PATH)
 	_bg_far.texture = t
 
 	var near := get_node_or_null("MenuBackgroundNear") as TextureRect
@@ -181,6 +188,13 @@ func _apply_menu_art() -> void:
 		add_child(light)
 		move_child(light, 2)
 	_bg_light = light
+
+	if _bg_reactor_ring == null or not is_instance_valid(_bg_reactor_ring):
+		var ring := preload("res://scripts/MainMenuReactorRing.gd").new()
+		ring.name = "MenuReactorRing"
+		add_child(ring)
+		move_child(ring, 3)
+		_bg_reactor_ring = ring
 
 	# Hide purple overlays when we have a BG (otherwise they draw on top)
 	var bds := get_node_or_null("BackdropShader") as CanvasItem
@@ -221,7 +235,7 @@ func _spawn_menu_crowd() -> void:
 	var bds := get_node_or_null("BackdropShader") as CanvasItem
 	if bds:
 		bds.z_index = -90
-	var c := preload("res://scripts/MainMenuCrowd.gd").new()
+	var c := preload("res://scripts/MainMenuAmbientLife.gd").new()
 	c.name = "MenuCrowd"
 	add_child(c)
 	if c is CanvasItem:
@@ -240,7 +254,7 @@ func _load_tex(path: String) -> Texture2D:
 	return load(path) as Texture2D
 
 func _build_menu() -> void:
-	# Main wooden panel card (left-ish like your preferred concept)
+	# Main tactical panel card.
 	_card = PanelContainer.new()
 	_card.name = "MenuCard"
 	_card.set_anchors_preset(Control.PRESET_CENTER_LEFT)
@@ -297,16 +311,16 @@ func _build_menu() -> void:
 	_resume_btn.visible = false
 	vbox.add_child(_resume_btn)
 
-	_play_btn = _make_menu_button("▶ Start", true)
+	_play_btn = _make_menu_button("▶ Deploy", true)
 	vbox.add_child(_play_btn)
 
-	_armory_btn = _make_menu_button("Collection / Setup", false)
+	_armory_btn = _make_menu_button("Collection / Squad", false)
 	vbox.add_child(_armory_btn)
 
-	_protocol_btn = _make_menu_button("★ Progression", false, ACCENT_BERRY)
+	_protocol_btn = _make_menu_button("Protocol Grid", false, ACCENT_BERRY)
 	vbox.add_child(_protocol_btn)
 
-	_info_btn = _make_menu_button("Info / Codex", false)
+	_info_btn = _make_menu_button("Codex", false)
 	vbox.add_child(_info_btn)
 
 	_settings_btn = _make_menu_button("Settings", false)
@@ -352,18 +366,18 @@ func _make_panel_style() -> StyleBox:
 
 	# Fallback
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.22, 0.15, 0.10, 0.95)
+	sb.bg_color = Color(0.08, 0.11, 0.18, 0.96)
 	sb.border_width_left = 4
 	sb.border_width_right = 4
 	sb.border_width_top = 4
 	sb.border_width_bottom = 4
-	sb.border_color = Color(0.10, 0.06, 0.03, 0.8)
+	sb.border_color = Color(0.25, 0.55, 0.9, 0.45)
 	sb.corner_radius_top_left = 22
 	sb.corner_radius_top_right = 22
 	sb.corner_radius_bottom_left = 22
 	sb.corner_radius_bottom_right = 22
-	sb.shadow_color = Color(0, 0, 0, 0.5)
-	sb.shadow_size = 20
+	sb.shadow_color = Color(0.05, 0.12, 0.22, 0.35)
+	sb.shadow_size = 24
 	return sb
 
 func _stylebox_from(tex_path: String, tm: int, cm_v: int, cm_h: int) -> StyleBoxTexture:
@@ -392,44 +406,10 @@ func _make_menu_button(text: String, is_primary: bool, accent: Color = ACCENT_SU
 	btn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_apply_font(btn)
 
-	# Wooden button textures (separate states)
-	var normal := _stylebox_from(BTN_NORMAL, 64, 22, 36)
-	var hover := _stylebox_from(BTN_HOVER, 64, 22, 36)
-	var pressed := _stylebox_from(BTN_PRESSED, 64, 24, 36)
-	var disabled := _stylebox_from(BTN_DISABLED, 64, 22, 36)
-
-	if normal != null:
-		btn.add_theme_stylebox_override("normal", normal)
-		btn.add_theme_stylebox_override("hover", hover if hover != null else normal)
-		btn.add_theme_stylebox_override("pressed", pressed if pressed != null else normal)
-		btn.add_theme_stylebox_override("focus", hover if hover != null else normal)
-		btn.add_theme_stylebox_override("disabled", disabled if disabled != null else normal)
-
-		# Text styling
-		btn.add_theme_color_override("font_color", TITLE_COLOR)
-		btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
-		btn.add_theme_color_override("font_pressed_color", TITLE_COLOR)
-		btn.add_theme_color_override("font_disabled_color", Color(0.9, 0.9, 0.9, 0.55))
-		btn.add_theme_color_override("font_outline_color", Color(0.10, 0.07, 0.04, 1))
-		btn.add_theme_constant_override("outline_size", 4)
+	if is_primary:
+		UiSkin.style_primary_button(btn, accent)
 	else:
-		# Fallback flat
-		var sb := StyleBoxFlat.new()
-		sb.corner_radius_top_left = 14
-		sb.corner_radius_top_right = 14
-		sb.corner_radius_bottom_left = 14
-		sb.corner_radius_bottom_right = 14
-		sb.border_width_left = 2
-		sb.border_width_right = 2
-		sb.border_width_top = 2
-		sb.border_width_bottom = 2
-		sb.bg_color = Color(0.42, 0.28, 0.16, 1.0)
-		sb.border_color = Color(accent.r, accent.g, accent.b, 0.75)
-		btn.add_theme_stylebox_override("normal", sb)
-		btn.add_theme_stylebox_override("hover", sb.duplicate())
-		btn.add_theme_stylebox_override("pressed", sb.duplicate())
-		btn.add_theme_stylebox_override("focus", sb.duplicate())
-		btn.add_theme_color_override("font_color", TITLE_COLOR)
+		UiSkin.style_secondary_button(btn, accent)
 
 	# Subtle bouncy hover (keeps your existing behavior vibe)
 	btn.mouse_entered.connect(func():
@@ -442,6 +422,22 @@ func _make_menu_button(text: String, is_primary: bool, accent: Color = ACCENT_SU
 	)
 
 	return btn
+
+func _make_codex_panel_style() -> StyleBox:
+	var tex := _load_tex(CODEX_PANEL_PATH)
+	if tex != null:
+		var sbt := StyleBoxTexture.new()
+		sbt.texture = tex
+		sbt.texture_margin_left = 42
+		sbt.texture_margin_right = 42
+		sbt.texture_margin_top = 42
+		sbt.texture_margin_bottom = 42
+		sbt.content_margin_left = 20
+		sbt.content_margin_right = 20
+		sbt.content_margin_top = 16
+		sbt.content_margin_bottom = 16
+		return sbt
+	return _make_panel_style()
 
 func _apply_font(c: Control) -> void:
 	var f := UiSkin.get_font()
@@ -994,9 +990,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 			if _protocol_overlay and _protocol_overlay.visible:
-				_protocol_overlay.visible = false
-				if _play_btn:
-					_play_btn.grab_focus()
+				_close_protocol_overlay()
 				get_viewport().set_input_as_handled()
 				return
 
@@ -1070,7 +1064,7 @@ func _create_info_overlay() -> void:
 	panel.offset_top = -350
 	panel.offset_right = 620
 	panel.offset_bottom = 350
-	panel.add_theme_stylebox_override("panel", _make_panel_style())
+	panel.add_theme_stylebox_override("panel", _make_codex_panel_style())
 	_info_overlay.add_child(panel)
 
 	var pad := MarginContainer.new()
@@ -1085,7 +1079,7 @@ func _create_info_overlay() -> void:
 	pad.add_child(v)
 
 	var title := Label.new()
-	title.text = "Info Codex"
+	title.text = "TACTICAL CODEX"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", TITLE_COLOR)
@@ -1095,7 +1089,7 @@ func _create_info_overlay() -> void:
 	v.add_child(title)
 
 	var sub := Label.new()
-	sub.text = "Search passives, synergies, weapons, stats and tuning."
+	sub.text = "Search races, passives, synergies, weapons, and live tuning."
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_font_size_override("font_size", 14)
 	sub.add_theme_color_override("font_color", SUBTITLE_COLOR)
@@ -1114,6 +1108,7 @@ func _create_info_overlay() -> void:
 	_info_section.add_item("Passives", 3)
 	_info_section.add_item("Synergies", 4)
 	_info_section.add_item("Weapons", 5)
+	_info_section.add_item("Races", 6)
 	_info_section.selected = 0
 	filter_row.add_child(_info_section)
 
@@ -1319,6 +1314,21 @@ func _reload_info_entries() -> void:
 			"text": txt2
 		})
 
+	var cr := _load_json_dict("res://data/character_registry.json")
+	var races := cr.get("races", {}) as Dictionary
+	for rk in races.keys():
+		var rv: Variant = races.get(rk, {})
+		if typeof(rv) != TYPE_DICTIONARY:
+			continue
+		var rd := rv as Dictionary
+		_info_entries.append({
+			"section": "Races",
+			"title": String(rk),
+			"id": String(rk).to_lower(),
+			"search": _join_string_array(rd.get("passive_slots", []) as Array),
+			"text": String(rd.get("description", ""))
+		})
+
 	_update_info_list()
 
 func _info_section_name() -> String:
@@ -1393,26 +1403,15 @@ func _open_settings() -> void:
 
 var _protocol_overlay: Control = null
 var _protocol_nodes: Array[Dictionary] = []
-
-const PROTOCOL_UPGRADES := [
-	{"id": "hp_boost_1", "name": "Vitality I", "desc": "+10% Squad HP", "cost": 50, "icon": "♥", "row": 0, "col": 1, "color": "#ff6060", "prereq": []},
-	{"id": "dmg_boost_1", "name": "Power I", "desc": "+8% Squad Damage", "cost": 60, "icon": "⚔", "row": 0, "col": 3, "color": "#ffa040", "prereq": []},
-	{"id": "speed_1", "name": "Agility I", "desc": "+5% Move Speed", "cost": 40, "icon": "»", "row": 0, "col": 2, "color": "#60ff90", "prereq": []},
-	{"id": "hp_boost_2", "name": "Vitality II", "desc": "+15% Squad HP", "cost": 180, "icon": "♥♥", "row": 1, "col": 0, "color": "#ff4040", "prereq": ["hp_boost_1"]},
-	{"id": "dmg_boost_2", "name": "Power II", "desc": "+12% Squad Damage", "cost": 200, "icon": "⚔⚔", "row": 1, "col": 4, "color": "#ff8020", "prereq": ["dmg_boost_1"]},
-	{"id": "speed_2", "name": "Agility II", "desc": "+8% Move Speed", "cost": 150, "icon": "»»", "row": 1, "col": 2, "color": "#40ff70", "prereq": ["speed_1"]},
-	{"id": "crit_1", "name": "Precision I", "desc": "+3% Crit Chance", "cost": 120, "icon": "✧", "row": 1, "col": 1, "color": "#ffff60", "prereq": ["hp_boost_1"]},
-	{"id": "essence_1", "name": "Harvest I", "desc": "+10% Essence Gain", "cost": 100, "icon": "◆", "row": 1, "col": 3, "color": "#60d0ff", "prereq": ["dmg_boost_1"]},
-	{"id": "hp_boost_3", "name": "Vitality III", "desc": "+20% Squad HP", "cost": 450, "icon": "♥♥♥", "row": 2, "col": 0, "color": "#ff2020", "prereq": ["hp_boost_2"]},
-	{"id": "dmg_boost_3", "name": "Power III", "desc": "+18% Squad Damage", "cost": 500, "icon": "⚔⚔⚔", "row": 2, "col": 4, "color": "#ff6000", "prereq": ["dmg_boost_2"]},
-	{"id": "crit_2", "name": "Precision II", "desc": "+5% Crit Chance", "cost": 350, "icon": "✧✧", "row": 2, "col": 1, "color": "#ffff40", "prereq": ["crit_1"]},
-	{"id": "essence_2", "name": "Harvest II", "desc": "+15% Essence Gain", "cost": 300, "icon": "◆◆", "row": 2, "col": 3, "color": "#40b0ff", "prereq": ["essence_1"]},
-	{"id": "draft_luck", "name": "Fortune", "desc": "+Higher Rarity Drafts", "cost": 400, "icon": "★", "row": 2, "col": 2, "color": "#c080ff", "prereq": ["speed_2"]},
-	{"id": "starting_unit", "name": "Reinforcement", "desc": "+1 Starting Squad", "cost": 800, "icon": "☗", "row": 3, "col": 2, "color": "#ff80c0", "prereq": ["draft_luck", "crit_2", "essence_2"]},
-]
+var _protocol_upgrades_runtime: Array[Dictionary] = []
 
 func _open_protocol_grid() -> void:
 	if _protocol_overlay != null and is_instance_valid(_protocol_overlay):
+		if _crowd != null and is_instance_valid(_crowd):
+			_crowd_prev_visible = _crowd.visible
+			_crowd_prev_process_mode = _crowd.process_mode
+			_crowd.visible = false
+			_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 		_protocol_overlay.visible = true
 		_update_protocol_grid()
 		return
@@ -1471,14 +1470,20 @@ func _create_protocol_overlay() -> void:
 	_apply_font(sub)
 	vbox.add_child(sub)
 
+	var scroll := ScrollContainer.new()
+	scroll.name = "ProtocolScroll"
+	scroll.custom_minimum_size = Vector2(860, 440)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+
 	var grid_wrap := Control.new()
 	grid_wrap.name = "GridWrap"
-	grid_wrap.custom_minimum_size = Vector2(850, 420)
-	grid_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(grid_wrap)
+	grid_wrap.custom_minimum_size = Vector2(1380, 840)
+	scroll.add_child(grid_wrap)
 
 	_protocol_nodes.clear()
-	for upgrade in PROTOCOL_UPGRADES:
+	_protocol_upgrades_runtime = _protocol_data()
+	for upgrade in _protocol_upgrades_runtime:
 		var node := _create_protocol_node(upgrade)
 		grid_wrap.add_child(node["panel"])
 		_protocol_nodes.append(node)
@@ -1494,11 +1499,13 @@ func _create_protocol_overlay() -> void:
 	back_btn.custom_minimum_size = Vector2(160, 44)
 	back_btn.pressed.connect(func():
 		_play_ui("ui.cancel")
-		_protocol_overlay.visible = false
+		_close_protocol_overlay()
 	)
 	btn_row.add_child(back_btn)
 
 func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
+	var graph_pos: Vector2 = upgrade.get("graph_pos", Vector2.ZERO) as Vector2
+	var has_graph_pos := typeof(graph_pos) == TYPE_VECTOR2
 	var col := int(upgrade.get("col", 0))
 	var row := int(upgrade.get("row", 0))
 	var node_color := Color.from_string(String(upgrade.get("color", "#ffffff")), Color.WHITE)
@@ -1506,7 +1513,10 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	var panel := PanelContainer.new()
 	panel.name = String(upgrade.get("id", "node"))
 	panel.custom_minimum_size = Vector2(140, 92)
-	panel.position = Vector2(80.0 + float(col) * 160.0, 20.0 + float(row) * 100.0)
+	if has_graph_pos:
+		panel.position = graph_pos as Vector2
+	else:
+		panel.position = Vector2(80.0 + float(col) * 160.0, 20.0 + float(row) * 100.0)
 
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.18, 0.12, 0.08, 0.95)
@@ -1559,6 +1569,7 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	panel.add_child(btn_overlay)
 
 	var upgrade_id := String(upgrade.get("id", ""))
+	panel.tooltip_text = String(upgrade.get("desc", ""))
 	btn_overlay.pressed.connect(func(): _on_protocol_node_clicked(upgrade_id))
 	btn_overlay.mouse_entered.connect(func(): _on_protocol_node_hovered(upgrade_id, true))
 	btn_overlay.mouse_exited.connect(func(): _on_protocol_node_hovered(upgrade_id, false))
@@ -1650,7 +1661,7 @@ func _on_protocol_node_clicked(upgrade_id: String) -> void:
 	if mp == null or not is_instance_valid(mp):
 		return
 	var upgrade: Dictionary = {}
-	for u in PROTOCOL_UPGRADES:
+	for u in _protocol_upgrades_runtime:
 		if String(u.get("id", "")) == upgrade_id:
 			upgrade = u
 			break
@@ -1684,3 +1695,127 @@ func _on_protocol_node_hovered(upgrade_id: String, hovered: bool) -> void:
 				var t := panel.create_tween()
 				t.tween_property(panel, "scale", Vector2(1.08, 1.08) if hovered else Vector2(1, 1), 0.10)
 			break
+
+func _close_protocol_overlay() -> void:
+	if _protocol_overlay == null:
+		return
+	_protocol_overlay.visible = false
+	if _crowd != null and is_instance_valid(_crowd):
+		_crowd.visible = _crowd_prev_visible
+		_crowd.process_mode = _crowd_prev_process_mode
+	if _play_btn:
+		_play_btn.grab_focus()
+
+func _protocol_data() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("tree_data")):
+		return out
+	var tree: Dictionary = mp.tree_data()
+	var nodes: Array = tree.get("nodes", []) as Array
+	var minp := Vector2(INF, INF)
+	var maxp := Vector2(-INF, -INF)
+	var filtered: Array[Dictionary] = []
+	for n in nodes:
+		if typeof(n) != TYPE_DICTIONARY:
+			continue
+		var d := n as Dictionary
+		var id := String(d.get("id", ""))
+		if id == "" or id == "core_0":
+			continue
+		var pos_arr := d.get("pos", [0, 0]) as Array
+		var px := float(pos_arr[0]) if pos_arr.size() > 0 else 0.0
+		var py := float(pos_arr[1]) if pos_arr.size() > 1 else 0.0
+		d["__pos_v2"] = Vector2(px, py)
+		filtered.append(d)
+		minp.x = minf(minp.x, px)
+		minp.y = minf(minp.y, py)
+		maxp.x = maxf(maxp.x, px)
+		maxp.y = maxf(maxp.y, py)
+	if filtered.is_empty():
+		return out
+	var graph_size := Vector2(1380, 840)
+	var margin := Vector2(90, 90)
+	var span := maxp - minp
+	var inv_span := Vector2(1.0 / maxf(1.0, span.x), 1.0 / maxf(1.0, span.y))
+	for d2 in filtered:
+		var id2 := String(d2.get("id", ""))
+		var name2 := String(d2.get("name", id2))
+		var desc2 := String(d2.get("desc", ""))
+		var cost2 := int(d2.get("cost", 0))
+		var prereq_raw := d2.get("prereq", []) as Array
+		var prereq: Array[String] = []
+		for p in prereq_raw:
+			var ps := String(p)
+			if ps != "" and ps != "core_0":
+				prereq.append(ps)
+		var pos_v: Vector2 = d2.get("__pos_v2", Vector2.ZERO) as Vector2
+		var nx := (pos_v.x - minp.x) * inv_span.x
+		var ny := (pos_v.y - minp.y) * inv_span.y
+		var gp := Vector2(
+			margin.x + nx * (graph_size.x - margin.x * 2.0),
+			margin.y + ny * (graph_size.y - margin.y * 2.0)
+		)
+		out.append({
+			"id": id2,
+			"name": name2,
+			"desc": desc2,
+			"cost": cost2,
+			"icon": _protocol_icon_for_node(d2),
+			"color": _protocol_color_for_node(d2),
+			"prereq": prereq,
+			"graph_pos": gp
+		})
+	return out
+
+func _protocol_icon_for_node(node: Dictionary) -> String:
+	var tags := node.get("tags", []) as Array
+	for t in tags:
+		if String(t) == "keystone":
+			return "✦"
+	var id := String(node.get("id", ""))
+	if id.find("hp_") >= 0:
+		return "♥"
+	if id.find("dmg_") >= 0:
+		return "⚔"
+	if id.find("speed") >= 0 or id.find("dash") >= 0:
+		return "»"
+	if id.find("crit") >= 0:
+		return "✧"
+	if id.find("essence") >= 0:
+		return "◆"
+	if id.find("focus") >= 0:
+		return "◎"
+	if id.find("rally") >= 0:
+		return "⚑"
+	if id.find("squad") >= 0:
+		return "☗"
+	if id.find("oc_") >= 0 or id.find("overclock") >= 0:
+		return "⚡"
+	return "★"
+
+func _protocol_color_for_node(node: Dictionary) -> String:
+	var tags := node.get("tags", []) as Array
+	for t in tags:
+		if String(t) == "keystone":
+			return "#ffd36b"
+	var id := String(node.get("id", ""))
+	if id.find("hp_") >= 0:
+		return "#ff6464"
+	if id.find("dmg_") >= 0:
+		return "#ff9850"
+	if id.find("speed") >= 0 or id.find("dash") >= 0:
+		return "#66ff9a"
+	if id.find("crit") >= 0:
+		return "#ffe066"
+	if id.find("essence") >= 0:
+		return "#66d2ff"
+	if id.find("focus") >= 0:
+		return "#9a8cff"
+	if id.find("rally") >= 0:
+		return "#5ec6ff"
+	if id.find("squad") >= 0:
+		return "#7dffcb"
+	if id.find("oc_") >= 0 or id.find("overclock") >= 0:
+		return "#c288ff"
+	return "#9eb8ff"

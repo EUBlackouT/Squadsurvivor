@@ -50,7 +50,7 @@ const TILE_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TileMapWorld.gd")
 const TMX_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TmxMapWorld.gd")
 const VFX_ARC_SCENE: PackedScene = preload("res://scenes/VfxArcLightning.tscn")
 const HUD_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
-const DRAFT_BG_PATH: String = "res://assets/ui/mockups/draft_picks.webp"
+const DRAFT_BG_PATH: String = "res://assets/ui/revamp/draft_bg.png"
 const USE_UI_MOCKUPS: bool = false
 
 var damage_numbers: Node = null
@@ -968,14 +968,20 @@ func is_camera_manual_mode_enabled() -> bool:
 	return _camera_unlock_mode
 
 func _camera_locked_anchor_world() -> Vector2:
-	# Locked camera must never depend on click selection.
-	# This prevents left-click from snapping/teleporting camera anchor.
+	# Locked camera auto-follows the squad group, but never uses click selection.
+	var sum := Vector2.ZERO
+	var count := 0
 	if _player_node_ref != null and is_instance_valid(_player_node_ref):
-		return _player_node_ref.global_position
+		sum += _player_node_ref.global_position
+		count += 1
 	for u2 in live_squad_units:
 		var n3 := u2 as Node2D
-		if n3 != null and is_instance_valid(n3):
-			return n3.global_position
+		if n3 == null or not is_instance_valid(n3):
+			continue
+		sum += n3.global_position
+		count += 1
+	if count > 0:
+		return sum / float(count)
 	return Vector2.ZERO
 
 func _clear_selection() -> void:
@@ -1399,6 +1405,14 @@ func get_overclock_damage_mult() -> float:
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		dmg_mult *= float(mp.get_mod("overclock_damage_mult", 1.0))
 	return dmg_mult
+
+func get_overclock_focus_bias_mult() -> float:
+	if not is_overclock_active():
+		return 1.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		return clampf(float(mp.get_mod("overclock_focus_bias_mult", 1.0)), 0.15, 1.0)
+	return 1.0
 
 func _try_overclock() -> void:
 	if get_tree().paused or _game_over or _victory:
@@ -2014,8 +2028,8 @@ func _show_recruit_draft() -> void:
 	draft_ui.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	add_child(draft_ui)
 
-	# Background art for the draft screen (optional mockup).
-	if USE_UI_MOCKUPS and ResourceLoader.exists(DRAFT_BG_PATH):
+	# Background art for the draft screen.
+	if ResourceLoader.exists(DRAFT_BG_PATH):
 		var draft_bg := TextureRect.new()
 		draft_bg.name = "DraftBgArt"
 		draft_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2069,14 +2083,14 @@ func _show_recruit_draft() -> void:
 	pad.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "Recruit Draft"
+	title.text = "RECRUIT DRAFT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "Choose 1 reward. Unlocks go to your Collection (not auto-added)."
+	subtitle.text = "Choose one recruit. Review race, origin, class, weapon, and passives before committing."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	subtitle.add_theme_font_size_override("font_size", 14)
@@ -2198,6 +2212,40 @@ func _rarity_rank(rarity_id: String) -> int:
 		_:
 			return 0
 
+func _draft_class_name(class_type: int) -> String:
+	match class_type:
+		CharacterData.Class.WARRIOR:
+			return "WARRIOR"
+		CharacterData.Class.MAGE:
+			return "MAGE"
+		CharacterData.Class.ROGUE:
+			return "ROGUE"
+		CharacterData.Class.GUARDIAN:
+			return "GUARDIAN"
+		CharacterData.Class.HEALER:
+			return "HEALER"
+		CharacterData.Class.SUMMONER:
+			return "SUMMONER"
+		_:
+			return "UNKNOWN"
+
+func _draft_origin_name(origin: int) -> String:
+	match origin:
+		CharacterData.Origin.UNDEAD:
+			return "UNDEAD"
+		CharacterData.Origin.MACHINE:
+			return "MACHINE"
+		CharacterData.Origin.BEAST:
+			return "BEAST"
+		CharacterData.Origin.DEMON:
+			return "DEMON"
+		CharacterData.Origin.ELEMENTAL:
+			return "ELEMENTAL"
+		CharacterData.Origin.HUMAN:
+			return "HUMAN"
+		_:
+			return "UNKNOWN"
+
 func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(330, 310)
@@ -2238,6 +2286,19 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	arch.add_theme_font_size_override("font_size", 14)
 	arch.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 0.95))
 	header.add_child(arch)
+
+	var ident := Label.new()
+	var race_name := String(cd.race_id).to_upper()
+	if race_name == "":
+		race_name = _draft_origin_name(cd.origin)
+	var origin_name := String(cd.origin_id).to_upper()
+	if origin_name == "":
+		origin_name = _draft_origin_name(cd.origin)
+	ident.text = "RACE %s   ORIGIN %s   CLASS %s" % [race_name, origin_name, _draft_class_name(cd.class_type)]
+	ident.add_theme_font_size_override("font_size", 12)
+	ident.add_theme_color_override("font_color", Color(0.76, 0.92, 1.0, 0.95))
+	ident.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ident)
 
 	# Portrait (PixelLab south rotation)
 	var portrait_frame := PanelContainer.new()
