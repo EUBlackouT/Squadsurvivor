@@ -1398,20 +1398,37 @@ func _open_settings() -> void:
 	add_child(sm)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PROTOCOL GRID (logic unchanged; small fix: node VBox named so lookups work)
+# PROTOCOL GRID (large draggable planner, PoE-inspired hierarchy)
 # ─────────────────────────────────────────────────────────────────────────────
+
+const PROTOCOL_GRID_BG_PATH: String = "res://assets/ui/revamp/protocol_grid_bg.png"
 
 var _protocol_overlay: Control = null
 var _protocol_nodes: Array[Dictionary] = []
+var _protocol_node_by_id: Dictionary = {}
+var _protocol_edges: Array[Dictionary] = []
 var _protocol_upgrades_runtime: Array[Dictionary] = []
+var _protocol_selected_id: String = ""
+var _protocol_sel_title: Label = null
+var _protocol_sel_desc: Label = null
+var _protocol_sel_cost: Label = null
+var _protocol_buy_btn: Button = null
+var _protocol_sigils_lbl: Label = null
+var _protocol_graph_view: Control = null
+var _protocol_graph_root: Control = null
+var _protocol_dragging: bool = false
+var _protocol_drag_candidate: bool = false
+var _protocol_drag_start: Vector2 = Vector2.ZERO
+var _protocol_drag_last: Vector2 = Vector2.ZERO
+var _protocol_pan: Vector2 = Vector2.ZERO
 
 func _open_protocol_grid() -> void:
+	if _crowd != null and is_instance_valid(_crowd):
+		_crowd_prev_visible = _crowd.visible
+		_crowd_prev_process_mode = _crowd.process_mode
+		_crowd.visible = false
+		_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 	if _protocol_overlay != null and is_instance_valid(_protocol_overlay):
-		if _crowd != null and is_instance_valid(_crowd):
-			_crowd_prev_visible = _crowd.visible
-			_crowd_prev_process_mode = _crowd.process_mode
-			_crowd.visible = false
-			_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 		_protocol_overlay.visible = true
 		_update_protocol_grid()
 		return
@@ -1427,68 +1444,151 @@ func _create_protocol_overlay() -> void:
 
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.08, 0.06, 0.05, 0.92)
+	bg.color = Color(0.02, 0.03, 0.06, 0.95)
 	_protocol_overlay.add_child(bg)
 
 	var panel := PanelContainer.new()
 	panel.name = "PanelContainer"
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(900, 650)
-	panel.position = Vector2(-450, -325)
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.offset_left = 26
+	panel.offset_top = 26
+	panel.offset_right = -26
+	panel.offset_bottom = -26
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	_protocol_overlay.add_child(panel)
 
+	var pad := MarginContainer.new()
+	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pad.add_theme_constant_override("margin_left", 16)
+	pad.add_theme_constant_override("margin_right", 16)
+	pad.add_theme_constant_override("margin_top", 14)
+	pad.add_theme_constant_override("margin_bottom", 14)
+	panel.add_child(pad)
+
 	var vbox := VBoxContainer.new()
 	vbox.name = "VBoxContainer"
-	vbox.add_theme_constant_override("separation", 16)
-	panel.add_child(vbox)
+	vbox.add_theme_constant_override("separation", 12)
+	pad.add_child(vbox)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 20)
 	vbox.add_child(header)
 
 	var title := Label.new()
-	title.text = "★ Progression ★"
+	title.text = "★ Protocol Grid"
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", ACCENT_BERRY)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_apply_font(title)
 	header.add_child(title)
 
-	var sigils_lbl := Label.new()
-	sigils_lbl.name = "SigilsLabel"
-	sigils_lbl.text = "★ 0"
-	sigils_lbl.add_theme_font_size_override("font_size", 24)
-	sigils_lbl.add_theme_color_override("font_color", ACCENT_SUN)
-	_apply_font(sigils_lbl)
-	header.add_child(sigils_lbl)
+	_protocol_sigils_lbl = Label.new()
+	_protocol_sigils_lbl.name = "SigilsLabel"
+	_protocol_sigils_lbl.text = "★ 0"
+	_protocol_sigils_lbl.add_theme_font_size_override("font_size", 24)
+	_protocol_sigils_lbl.add_theme_color_override("font_color", ACCENT_SUN)
+	_apply_font(_protocol_sigils_lbl)
+	header.add_child(_protocol_sigils_lbl)
 
 	var sub := Label.new()
-	sub.text = "Permanent upgrades that persist across all runs"
+	sub.text = "Drag with Left Mouse to explore your full progression web."
 	sub.add_theme_font_size_override("font_size", 14)
 	sub.add_theme_color_override("font_color", SUBTITLE_COLOR)
 	_apply_font(sub)
 	vbox.add_child(sub)
 
-	var scroll := ScrollContainer.new()
-	scroll.name = "ProtocolScroll"
-	scroll.custom_minimum_size = Vector2(860, 440)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(scroll)
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(body)
 
-	var grid_wrap := Control.new()
-	grid_wrap.name = "GridWrap"
-	grid_wrap.custom_minimum_size = Vector2(1380, 840)
-	scroll.add_child(grid_wrap)
+	var graph_frame := PanelContainer.new()
+	graph_frame.custom_minimum_size = Vector2(1210, 700)
+	graph_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	graph_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	graph_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.88))
+	body.add_child(graph_frame)
 
-	_protocol_nodes.clear()
-	_protocol_upgrades_runtime = _protocol_data()
-	for upgrade in _protocol_upgrades_runtime:
-		var node := _create_protocol_node(upgrade)
-		grid_wrap.add_child(node["panel"])
-		_protocol_nodes.append(node)
+	var graph_bg := TextureRect.new()
+	graph_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	graph_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	graph_bg.stretch_mode = TextureRect.STRETCH_SCALE
+	graph_bg.texture = _load_tex(PROTOCOL_GRID_BG_PATH)
+	graph_bg.modulate = Color(1, 1, 1, 0.82)
+	graph_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	graph_frame.add_child(graph_bg)
 
-	_draw_protocol_lines(grid_wrap)
+	_protocol_graph_view = Control.new()
+	_protocol_graph_view.name = "GraphView"
+	_protocol_graph_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_protocol_graph_view.clip_contents = true
+	_protocol_graph_view.mouse_filter = Control.MOUSE_FILTER_STOP
+	graph_frame.add_child(_protocol_graph_view)
+
+	_protocol_graph_root = Control.new()
+	_protocol_graph_root.name = "GraphRoot"
+	_protocol_graph_root.custom_minimum_size = Vector2(4200, 3200)
+	_protocol_graph_view.add_child(_protocol_graph_root)
+
+	var side := PanelContainer.new()
+	side.custom_minimum_size = Vector2(310, 620)
+	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_theme_stylebox_override("panel", _sb_inset(12, 0.92))
+	body.add_child(side)
+
+	var side_pad := MarginContainer.new()
+	side_pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	side_pad.add_theme_constant_override("margin_left", 10)
+	side_pad.add_theme_constant_override("margin_right", 10)
+	side_pad.add_theme_constant_override("margin_top", 10)
+	side_pad.add_theme_constant_override("margin_bottom", 10)
+	side.add_child(side_pad)
+
+	var sv := VBoxContainer.new()
+	sv.add_theme_constant_override("separation", 10)
+	side_pad.add_child(sv)
+
+	_protocol_sel_title = Label.new()
+	_protocol_sel_title.text = "Select a node"
+	_protocol_sel_title.add_theme_font_size_override("font_size", 20)
+	_protocol_sel_title.add_theme_color_override("font_color", TITLE_COLOR)
+	_apply_font(_protocol_sel_title)
+	sv.add_child(_protocol_sel_title)
+
+	_protocol_sel_desc = Label.new()
+	_protocol_sel_desc.text = "Travel nodes are small. Keystone nodes are large build changers."
+	_protocol_sel_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_protocol_sel_desc.add_theme_font_size_override("font_size", 13)
+	_protocol_sel_desc.add_theme_color_override("font_color", SUBTITLE_COLOR)
+	_apply_font(_protocol_sel_desc)
+	sv.add_child(_protocol_sel_desc)
+
+	_protocol_sel_cost = Label.new()
+	_protocol_sel_cost.add_theme_font_size_override("font_size", 16)
+	_protocol_sel_cost.add_theme_color_override("font_color", ACCENT_SUN)
+	_apply_font(_protocol_sel_cost)
+	sv.add_child(_protocol_sel_cost)
+
+	var legend := RichTextLabel.new()
+	legend.bbcode_enabled = true
+	legend.scroll_active = false
+	legend.fit_content = true
+	legend.text = "[color=#66ff99]● Owned[/color]  [color=#aee1ff]● Available[/color]  [color=#55657a]● Locked[/color]  [color=#ffd36b]⬢ Keystone[/color]"
+	legend.add_theme_font_size_override("normal_font_size", 12)
+	legend.add_theme_color_override("default_color", Color(0.74, 0.84, 0.95, 0.9))
+	sv.add_child(legend)
+
+	sv.add_spacer(true)
+
+	_protocol_buy_btn = _make_menu_button("Unlock Node", true)
+	_protocol_buy_btn.custom_minimum_size = Vector2(0, 48)
+	_protocol_buy_btn.pressed.connect(func():
+		if _protocol_selected_id == "":
+			_play_ui("ui.error")
+			return
+		_unlock_protocol_node(_protocol_selected_id)
+	)
+	sv.add_child(_protocol_buy_btn)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1496,71 +1596,80 @@ func _create_protocol_overlay() -> void:
 	vbox.add_child(btn_row)
 
 	var back_btn := _make_menu_button("← Back", false)
-	back_btn.custom_minimum_size = Vector2(160, 44)
+	back_btn.custom_minimum_size = Vector2(180, 44)
 	back_btn.pressed.connect(func():
 		_play_ui("ui.cancel")
 		_close_protocol_overlay()
 	)
 	btn_row.add_child(back_btn)
 
+	_build_protocol_graph()
+	_update_protocol_grid()
+	call_deferred("_focus_protocol_graph")
+
+func _build_protocol_graph() -> void:
+	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
+		return
+	for c in _protocol_graph_root.get_children():
+		c.queue_free()
+	_protocol_nodes.clear()
+	_protocol_edges.clear()
+	_protocol_node_by_id.clear()
+	_protocol_upgrades_runtime = _protocol_data()
+	for upgrade in _protocol_upgrades_runtime:
+		var node := _create_protocol_node(upgrade)
+		_protocol_graph_root.add_child(node["panel"])
+		_protocol_nodes.append(node)
+		_protocol_node_by_id[node["id"]] = node
+	_draw_protocol_lines(_protocol_graph_root)
+	_layout_protocol_tree(_protocol_graph_root)
+
 func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	var graph_pos: Vector2 = upgrade.get("graph_pos", Vector2.ZERO) as Vector2
-	var has_graph_pos := typeof(graph_pos) == TYPE_VECTOR2
-	var col := int(upgrade.get("col", 0))
-	var row := int(upgrade.get("row", 0))
 	var node_color := Color.from_string(String(upgrade.get("color", "#ffffff")), Color.WHITE)
+	var is_keystone := bool(upgrade.get("is_keystone", false))
+	var is_major := bool(upgrade.get("is_major", false))
+
+	var node_size := Vector2(52, 52)
+	if is_major:
+		node_size = Vector2(78, 78)
+	if is_keystone:
+		node_size = Vector2(116, 116)
 
 	var panel := PanelContainer.new()
 	panel.name = String(upgrade.get("id", "node"))
-	panel.custom_minimum_size = Vector2(140, 92)
-	if has_graph_pos:
-		panel.position = graph_pos as Vector2
-	else:
-		panel.position = Vector2(80.0 + float(col) * 160.0, 20.0 + float(row) * 100.0)
+	panel.custom_minimum_size = node_size
+	panel.position = graph_pos - node_size * 0.5
+	panel.z_index = 4
 
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.18, 0.12, 0.08, 0.95)
-	sb.border_color = Color(node_color.r, node_color.g, node_color.b, 0.65)
-	sb.corner_radius_top_left = 14
-	sb.corner_radius_top_right = 14
-	sb.corner_radius_bottom_left = 14
-	sb.corner_radius_bottom_right = 14
+	sb.bg_color = Color(0.08, 0.10, 0.13, 0.96)
+	sb.border_color = Color(node_color.r, node_color.g, node_color.b, 0.82)
+	var radius := int(node_size.y * 0.5)
+	sb.corner_radius_top_left = radius
+	sb.corner_radius_top_right = radius
+	sb.corner_radius_bottom_left = radius
+	sb.corner_radius_bottom_right = radius
 	sb.border_width_left = 2
 	sb.border_width_right = 2
 	sb.border_width_top = 2
 	sb.border_width_bottom = 2
 	panel.add_theme_stylebox_override("panel", sb)
 
-	var content := VBoxContainer.new()
-	content.name = "VBoxContainer" # fixes later lookups
-	content.add_theme_constant_override("separation", 2)
-	panel.add_child(content)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(center)
 
 	var icon_lbl := Label.new()
-	icon_lbl.text = String(upgrade.get("icon", "?"))
-	icon_lbl.add_theme_font_size_override("font_size", 22)
+	icon_lbl.text = String(upgrade.get("icon", "•"))
+	icon_lbl.add_theme_font_size_override("font_size", 16 if not is_major else 22)
+	if is_keystone:
+		icon_lbl.add_theme_font_size_override("font_size", 28)
 	icon_lbl.add_theme_color_override("font_color", node_color)
 	icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_apply_font(icon_lbl)
-	content.add_child(icon_lbl)
-
-	var name_lbl := Label.new()
-	name_lbl.name = "Name"
-	name_lbl.text = String(upgrade.get("name", "?"))
-	name_lbl.add_theme_font_size_override("font_size", 13)
-	name_lbl.add_theme_color_override("font_color", TITLE_COLOR)
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_apply_font(name_lbl)
-	content.add_child(name_lbl)
-
-	var cost_lbl := Label.new()
-	cost_lbl.name = "Cost"
-	cost_lbl.text = "★ %d" % int(upgrade.get("cost", 0))
-	cost_lbl.add_theme_font_size_override("font_size", 12)
-	cost_lbl.add_theme_color_override("font_color", ACCENT_SUN)
-	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_apply_font(cost_lbl)
-	content.add_child(cost_lbl)
+	center.add_child(icon_lbl)
 
 	var btn_overlay := Button.new()
 	btn_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1569,35 +1678,69 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	panel.add_child(btn_overlay)
 
 	var upgrade_id := String(upgrade.get("id", ""))
-	panel.tooltip_text = String(upgrade.get("desc", ""))
-	btn_overlay.pressed.connect(func(): _on_protocol_node_clicked(upgrade_id))
+	panel.tooltip_text = "%s\n%s\nCost: ★ %d" % [
+		String(upgrade.get("name", upgrade_id)),
+		String(upgrade.get("desc", "")),
+		int(upgrade.get("cost", 0))
+	]
+	btn_overlay.pressed.connect(func():
+		_protocol_selected_id = upgrade_id
+		_update_protocol_grid()
+	)
 	btn_overlay.mouse_entered.connect(func(): _on_protocol_node_hovered(upgrade_id, true))
 	btn_overlay.mouse_exited.connect(func(): _on_protocol_node_hovered(upgrade_id, false))
 
-	return {"id": upgrade_id, "panel": panel, "color": node_color, "upgrade": upgrade}
+	return {
+		"id": upgrade_id,
+		"panel": panel,
+		"color": node_color,
+		"upgrade": upgrade,
+		"is_keystone": is_keystone,
+		"is_major": is_major
+	}
 
 func _draw_protocol_lines(container: Control) -> void:
+	for ch in container.get_children():
+		if ch is Line2D:
+			ch.queue_free()
+		elif ch is Control and String(ch.name).begins_with("EdgeDot_"):
+			ch.queue_free()
+	_protocol_edges.clear()
 	for node in _protocol_nodes:
 		var upgrade: Dictionary = node.get("upgrade", {})
 		var prereqs: Array = upgrade.get("prereq", [])
 		var panel: Control = node.get("panel")
 		if panel == null:
 			continue
-		var to_pos := panel.position + Vector2(70, 0)
+		var to_pos := panel.position + panel.size * 0.5
 		for prereq_id in prereqs:
-			for pnode in _protocol_nodes:
-				if String(pnode.get("id", "")) == String(prereq_id):
-					var from_panel: Control = pnode.get("panel")
-					if from_panel == null:
-						continue
-					var from_pos := from_panel.position + Vector2(70, 92)
-					var line := Line2D.new()
-					line.width = 2.0
-					line.default_color = Color(0.75, 0.55, 0.35, 0.45)
-					line.points = [from_pos, to_pos]
-					line.z_index = -1
-					container.add_child(line)
-					break
+			var from: Dictionary = _protocol_node_by_id.get(String(prereq_id), {}) as Dictionary
+			var from_panel: Control = from.get("panel", null) as Control
+			if from_panel == null:
+				continue
+			var from_pos := from_panel.position + from_panel.size * 0.5
+			var line := Line2D.new()
+			line.width = 5.0
+			line.default_color = Color(0.53, 0.76, 1.0, 0.55)
+			line.antialiased = true
+			line.points = [from_pos, to_pos]
+			line.z_index = 2
+			container.add_child(line)
+			# Add small "travel beads" so paths read as continuous build routes.
+			var segment_len := from_pos.distance_to(to_pos)
+			var bead_count := maxi(1, int(segment_len / 120.0))
+			for bi in range(1, bead_count):
+				var t := float(bi) / float(bead_count)
+				var bp := from_pos.lerp(to_pos, t)
+				var dot := ColorRect.new()
+				dot.name = "EdgeDot_%s_%s_%d" % [String(prereq_id), String(node.get("id", "")), bi]
+				dot.color = Color(0.62, 0.84, 1.0, 0.72)
+				dot.custom_minimum_size = Vector2(6, 6)
+				dot.position = bp - Vector2(3, 3)
+				dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				dot.z_index = 3
+				container.add_child(dot)
+			_protocol_edges.append({"from": String(prereq_id), "to": String(node.get("id", "")), "line": line})
 
 func _update_protocol_grid() -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
@@ -1609,25 +1752,12 @@ func _update_protocol_grid() -> void:
 		if mp.has_method("get_unlocked_upgrades"):
 			unlocked = mp.get_unlocked_upgrades()
 
-	if _protocol_overlay:
-		var sigils_lbl := _protocol_overlay.get_node_or_null("PanelContainer/VBoxContainer/HBoxContainer/SigilsLabel") as Label
-		if sigils_lbl == null:
-			for child in _protocol_overlay.get_children():
-				if child is PanelContainer:
-					for c2 in child.get_children():
-						if c2 is VBoxContainer:
-							for c3 in c2.get_children():
-								if c3 is HBoxContainer:
-									for c4 in c3.get_children():
-										if c4 is Label and c4.name == "SigilsLabel":
-											sigils_lbl = c4
-											break
-		if sigils_lbl:
-			sigils_lbl.text = "★ %d" % sigils
+	if _protocol_sigils_lbl != null and is_instance_valid(_protocol_sigils_lbl):
+		_protocol_sigils_lbl.text = "★ %d" % sigils
 
 	for node in _protocol_nodes:
 		var id := String(node.get("id", ""))
-		var panel: PanelContainer = node.get("panel")
+		var panel: PanelContainer = node.get("panel", null) as PanelContainer
 		var upgrade: Dictionary = node.get("upgrade", {})
 		if panel == null:
 			continue
@@ -1642,29 +1772,62 @@ func _update_protocol_grid() -> void:
 
 		var cost := int(upgrade.get("cost", 0))
 		var can_afford := sigils >= cost
-
 		if is_unlocked:
-			panel.modulate = Color(1, 1, 1, 1)
-			var cost_lbl := panel.get_node_or_null("VBoxContainer/Cost") as Label
-			if cost_lbl:
-				cost_lbl.text = "✓ OWNED"
-				cost_lbl.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65, 1.0))
+			panel.modulate = Color(0.70, 1.0, 0.78, 1.0)
 		elif prereqs_met and can_afford:
-			panel.modulate = Color(1, 1, 1, 1)
+			panel.modulate = Color(0.92, 0.97, 1.0, 1.0)
 		elif prereqs_met:
-			panel.modulate = Color(0.75, 0.75, 0.75, 1)
+			panel.modulate = Color(0.72, 0.80, 0.90, 0.92)
 		else:
-			panel.modulate = Color(0.45, 0.45, 0.45, 0.75)
+			panel.modulate = Color(0.45, 0.52, 0.62, 0.78)
+		panel.scale = Vector2(1.08, 1.08) if id == _protocol_selected_id else Vector2.ONE
 
-func _on_protocol_node_clicked(upgrade_id: String) -> void:
+	for e in _protocol_edges:
+		var line := e.get("line", null) as Line2D
+		if line == null:
+			continue
+		var from_id := String(e.get("from", ""))
+		var to_id := String(e.get("to", ""))
+		var from_owned := from_id in unlocked
+		var to_owned := to_id in unlocked
+		var to_available := from_owned and (not to_owned)
+		if from_owned and to_owned:
+			line.default_color = Color(0.55, 1.0, 0.70, 0.84)
+			line.width = 5.6
+		elif to_available:
+			line.default_color = Color(0.57, 0.85, 1.0, 0.72)
+			line.width = 5.0
+		else:
+			line.default_color = Color(0.42, 0.54, 0.72, 0.46)
+			line.width = 4.4
+
+	if _protocol_sel_title != null and _protocol_sel_desc != null and _protocol_sel_cost != null:
+		var nd := _protocol_find_upgrade(_protocol_selected_id)
+		if nd.is_empty():
+			_protocol_sel_title.text = "Select a node"
+			_protocol_sel_desc.text = "Choose a path node to plan your build."
+			_protocol_sel_cost.text = ""
+			if _protocol_buy_btn:
+				_protocol_buy_btn.disabled = true
+		else:
+			_protocol_sel_title.text = String(nd.get("name", _protocol_selected_id))
+			_protocol_sel_desc.text = String(nd.get("desc", ""))
+			var cst := int(nd.get("cost", 0))
+			var owned := _protocol_selected_id in unlocked
+			_protocol_sel_cost.text = "Owned" if owned else ("Cost: ★ %d" % cst)
+			if _protocol_buy_btn:
+				var pre_ok := true
+				for pr in nd.get("prereq", []):
+					if not String(pr) in unlocked:
+						pre_ok = false
+						break
+				_protocol_buy_btn.disabled = owned or (not pre_ok) or (sigils < cst)
+
+func _unlock_protocol_node(upgrade_id: String) -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
 		return
-	var upgrade: Dictionary = {}
-	for u in _protocol_upgrades_runtime:
-		if String(u.get("id", "")) == upgrade_id:
-			upgrade = u
-			break
+	var upgrade := _protocol_find_upgrade(upgrade_id)
 	if upgrade.is_empty():
 		return
 	var unlocked: Array = mp.get_unlocked_upgrades() if mp.has_method("get_unlocked_upgrades") else []
@@ -1687,24 +1850,93 @@ func _on_protocol_node_clicked(upgrade_id: String) -> void:
 	_play_ui("ui.levelup")
 	_update_protocol_grid()
 
+func _protocol_find_upgrade(id: String) -> Dictionary:
+	for u in _protocol_upgrades_runtime:
+		if String(u.get("id", "")) == id:
+			return u
+	return {}
+
 func _on_protocol_node_hovered(upgrade_id: String, hovered: bool) -> void:
 	for node in _protocol_nodes:
-		if String(node.get("id", "")) == upgrade_id:
-			var panel: Control = node.get("panel")
-			if panel:
-				var t := panel.create_tween()
-				t.tween_property(panel, "scale", Vector2(1.08, 1.08) if hovered else Vector2(1, 1), 0.10)
+		if String(node.get("id", "")) != upgrade_id:
+			continue
+		var panel: Control = node.get("panel", null) as Control
+		if panel == null:
 			break
+		var target_scale := Vector2(1.08, 1.08) if String(node.get("id", "")) == _protocol_selected_id else Vector2.ONE
+		if hovered:
+			target_scale = Vector2(1.12, 1.12)
+		var t := panel.create_tween()
+		t.tween_property(panel, "scale", target_scale, 0.10)
+		break
 
 func _close_protocol_overlay() -> void:
 	if _protocol_overlay == null:
 		return
 	_protocol_overlay.visible = false
+	_protocol_drag_candidate = false
+	_protocol_dragging = false
 	if _crowd != null and is_instance_valid(_crowd):
 		_crowd.visible = _crowd_prev_visible
 		_crowd.process_mode = _crowd_prev_process_mode
 	if _play_btn:
 		_play_btn.grab_focus()
+
+func _layout_protocol_tree(root: Control) -> void:
+	if root == null or not is_instance_valid(root):
+		return
+	if _protocol_nodes.is_empty():
+		return
+	var minp := Vector2(INF, INF)
+	var maxp := Vector2(-INF, -INF)
+	for n in _protocol_nodes:
+		var panel := n.get("panel", null) as Control
+		if panel == null:
+			continue
+		var center := panel.position + panel.size * 0.5
+		minp.x = minf(minp.x, center.x)
+		minp.y = minf(minp.y, center.y)
+		maxp.x = maxf(maxp.x, center.x)
+		maxp.y = maxf(maxp.y, center.y)
+	var padding := Vector2(260, 240)
+	root.custom_minimum_size = Vector2(
+		maxf(2200.0, (maxp.x - minp.x) + padding.x * 2.0),
+		maxf(1600.0, (maxp.y - minp.y) + padding.y * 2.0)
+	)
+	var shift := Vector2(padding.x - minp.x, padding.y - minp.y)
+	for n2 in _protocol_nodes:
+		var panel2 := n2.get("panel", null) as Control
+		if panel2 == null:
+			continue
+		panel2.position += shift
+	_draw_protocol_lines(root)
+	_clamp_protocol_pan()
+	_apply_protocol_pan()
+
+func _focus_protocol_graph() -> void:
+	if _protocol_graph_view == null or not is_instance_valid(_protocol_graph_view):
+		return
+	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
+		return
+	var target := Vector2(_protocol_graph_root.custom_minimum_size.x * 0.5, _protocol_graph_root.custom_minimum_size.y * 0.5)
+	var mp := get_node_or_null("/root/MetaProgression")
+	var unlocked: Array = []
+	if mp and is_instance_valid(mp) and mp.has_method("get_unlocked_upgrades"):
+		unlocked = mp.get_unlocked_upgrades()
+	for n in _protocol_nodes:
+		var id := String(n.get("id", ""))
+		if id in unlocked:
+			var panel := n.get("panel", null) as Control
+			if panel != null:
+				target = panel.position + panel.size * 0.5
+				if _protocol_selected_id == "":
+					_protocol_selected_id = id
+				break
+	var viewport_size := _protocol_graph_view.size
+	_protocol_pan = viewport_size * 0.5 - target
+	_clamp_protocol_pan()
+	_apply_protocol_pan()
+	_update_protocol_grid()
 
 func _protocol_data() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -1713,60 +1945,135 @@ func _protocol_data() -> Array[Dictionary]:
 		return out
 	var tree: Dictionary = mp.tree_data()
 	var nodes: Array = tree.get("nodes", []) as Array
-	var minp := Vector2(INF, INF)
-	var maxp := Vector2(-INF, -INF)
+	var node_by_id: Dictionary = {}
 	var filtered: Array[Dictionary] = []
 	for n in nodes:
 		if typeof(n) != TYPE_DICTIONARY:
 			continue
 		var d := n as Dictionary
 		var id := String(d.get("id", ""))
-		if id == "" or id == "core_0":
+		if id == "":
 			continue
-		var pos_arr := d.get("pos", [0, 0]) as Array
-		var px := float(pos_arr[0]) if pos_arr.size() > 0 else 0.0
-		var py := float(pos_arr[1]) if pos_arr.size() > 1 else 0.0
-		d["__pos_v2"] = Vector2(px, py)
+		node_by_id[id] = d
 		filtered.append(d)
-		minp.x = minf(minp.x, px)
-		minp.y = minf(minp.y, py)
-		maxp.x = maxf(maxp.x, px)
-		maxp.y = maxf(maxp.y, py)
 	if filtered.is_empty():
 		return out
-	var graph_size := Vector2(1380, 840)
-	var margin := Vector2(90, 90)
-	var span := maxp - minp
-	var inv_span := Vector2(1.0 / maxf(1.0, span.x), 1.0 / maxf(1.0, span.y))
+
+	var center := Vector2(2100, 1520)
+	var angle_by_family := {
+		"vitality": deg_to_rad(-150.0),
+		"dash": deg_to_rad(-115.0),
+		"squad": deg_to_rad(145.0),
+		"overclock": deg_to_rad(90.0),
+		"rally": deg_to_rad(30.0),
+		"focus": deg_to_rad(-15.0),
+		"offense": deg_to_rad(-55.0),
+		"mobility": deg_to_rad(-90.0),
+		"core": deg_to_rad(0.0),
+		"misc": deg_to_rad(180.0)
+	}
+	var depth_cache: Dictionary = {}
+	var records: Array[Dictionary] = []
+	var group_count: Dictionary = {}
 	for d2 in filtered:
 		var id2 := String(d2.get("id", ""))
-		var name2 := String(d2.get("name", id2))
-		var desc2 := String(d2.get("desc", ""))
-		var cost2 := int(d2.get("cost", 0))
-		var prereq_raw := d2.get("prereq", []) as Array
+		var family := _protocol_family_key(id2)
+		var depth := _protocol_node_depth(id2, node_by_id, depth_cache)
+		var gk := "%s|%d" % [family, depth]
+		group_count[gk] = int(group_count.get(gk, 0)) + 1
+		records.append({"id": id2, "family": family, "depth": depth, "node": d2})
+	var group_idx: Dictionary = {}
+	for rec in records:
+		var id3 := String(rec.get("id", ""))
+		var family2 := String(rec.get("family", "misc"))
+		var depth2 := int(rec.get("depth", 0))
+		var node3 := rec.get("node", {}) as Dictionary
+		var gk2 := "%s|%d" % [family2, depth2]
+		var idx := int(group_idx.get(gk2, 0))
+		group_idx[gk2] = idx + 1
+		var count := int(group_count.get(gk2, 1))
+		var base_angle := float(angle_by_family.get(family2, angle_by_family["misc"]))
+		var spread := 0.20
+		if count > 1:
+			base_angle += (float(idx) - float(count - 1) * 0.5) * spread
+		var dist := 80.0 + float(depth2) * 220.0
+		var wobble := sin(float(idx) * 1.3 + float(depth2) * 0.7) * 34.0
+		var gp := center + Vector2(cos(base_angle), sin(base_angle)) * (dist + wobble)
+		if id3 == "core_0":
+			gp = center
+
+		var name3 := String(node3.get("name", id3))
+		var desc3 := String(node3.get("desc", ""))
+		var cost3 := int(node3.get("cost", 0))
+		var prereq_raw := node3.get("prereq", []) as Array
 		var prereq: Array[String] = []
 		for p in prereq_raw:
 			var ps := String(p)
-			if ps != "" and ps != "core_0":
+			if ps != "":
 				prereq.append(ps)
-		var pos_v: Vector2 = d2.get("__pos_v2", Vector2.ZERO) as Vector2
-		var nx := (pos_v.x - minp.x) * inv_span.x
-		var ny := (pos_v.y - minp.y) * inv_span.y
-		var gp := Vector2(
-			margin.x + nx * (graph_size.x - margin.x * 2.0),
-			margin.y + ny * (graph_size.y - margin.y * 2.0)
-		)
 		out.append({
-			"id": id2,
-			"name": name2,
-			"desc": desc2,
-			"cost": cost2,
-			"icon": _protocol_icon_for_node(d2),
-			"color": _protocol_color_for_node(d2),
+			"id": id3,
+			"name": name3,
+			"desc": desc3,
+			"cost": cost3,
+			"icon": _protocol_icon_for_node(node3),
+			"color": _protocol_color_for_node(node3),
+			"is_keystone": _protocol_is_keystone(node3),
+			"is_major": _protocol_is_major(node3),
 			"prereq": prereq,
 			"graph_pos": gp
 		})
 	return out
+
+func _apply_protocol_pan() -> void:
+	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
+		return
+	_protocol_graph_root.position = _protocol_pan
+
+func _clamp_protocol_pan() -> void:
+	if _protocol_graph_view == null or not is_instance_valid(_protocol_graph_view):
+		return
+	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
+		return
+	var view_size := _protocol_graph_view.size
+	var root_size := _protocol_graph_root.custom_minimum_size
+	var min_x := minf(0.0, view_size.x - root_size.x)
+	var min_y := minf(0.0, view_size.y - root_size.y)
+	_protocol_pan.x = clampf(_protocol_pan.x, min_x, 0.0)
+	_protocol_pan.y = clampf(_protocol_pan.y, min_y, 0.0)
+
+func _input(event: InputEvent) -> void:
+	if _protocol_overlay == null or not is_instance_valid(_protocol_overlay) or (not _protocol_overlay.visible):
+		return
+	if _protocol_graph_view == null or not is_instance_valid(_protocol_graph_view):
+		return
+	var graph_rect := _protocol_graph_view.get_global_rect()
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed and graph_rect.has_point(mb.position):
+				_protocol_drag_candidate = true
+				_protocol_dragging = false
+				_protocol_drag_start = mb.position
+				_protocol_drag_last = mb.position
+			elif not mb.pressed:
+				if _protocol_dragging:
+					get_viewport().set_input_as_handled()
+				_protocol_drag_candidate = false
+				_protocol_dragging = false
+		elif (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN) and graph_rect.has_point(mb.position):
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion and _protocol_drag_candidate:
+		var mm := event as InputEventMouseMotion
+		var moved := mm.position.distance_to(_protocol_drag_start)
+		if moved > 8.0:
+			_protocol_dragging = true
+		if _protocol_dragging:
+			_protocol_pan += mm.relative
+			_clamp_protocol_pan()
+			_apply_protocol_pan()
+			_protocol_drag_last = mm.position
+			get_viewport().set_input_as_handled()
 
 func _protocol_icon_for_node(node: Dictionary) -> String:
 	var tags := node.get("tags", []) as Array
@@ -1819,3 +2126,62 @@ func _protocol_color_for_node(node: Dictionary) -> String:
 	if id.find("oc_") >= 0 or id.find("overclock") >= 0:
 		return "#c288ff"
 	return "#9eb8ff"
+
+func _protocol_is_keystone(node: Dictionary) -> bool:
+	var tags := node.get("tags", []) as Array
+	for t in tags:
+		if String(t) == "keystone":
+			return true
+	return false
+
+func _protocol_family_key(id: String) -> String:
+	if id == "core_0":
+		return "core"
+	if id.begins_with("hp_") or id.begins_with("crit_"):
+		return "vitality"
+	if id.begins_with("dmg_") or id.begins_with("essence_") or id.begins_with("draft_") or id.begins_with("starting_"):
+		return "offense"
+	if id.begins_with("focus_"):
+		return "focus"
+	if id.begins_with("rally_"):
+		return "rally"
+	if id.begins_with("squad_"):
+		return "squad"
+	if id.begins_with("dash_"):
+		return "dash"
+	if id.begins_with("oc_"):
+		return "overclock"
+	if id.begins_with("speed_"):
+		return "mobility"
+	return "misc"
+
+func _protocol_node_depth(id: String, node_by_id: Dictionary, cache: Dictionary) -> int:
+	if cache.has(id):
+		return int(cache[id])
+	if id == "core_0":
+		cache[id] = 0
+		return 0
+	var node := node_by_id.get(id, {}) as Dictionary
+	var prereq := node.get("prereq", []) as Array
+	if prereq.is_empty():
+		cache[id] = 1
+		return 1
+	var best := 0
+	for p in prereq:
+		var pid := String(p)
+		if pid == "":
+			continue
+		best = maxi(best, _protocol_node_depth(pid, node_by_id, cache))
+	cache[id] = best + 1
+	return best + 1
+
+func _protocol_is_major(node: Dictionary) -> bool:
+	if _protocol_is_keystone(node):
+		return false
+	var tags := node.get("tags", []) as Array
+	for t in tags:
+		if String(t) == "notable" or String(t) == "major":
+			return true
+	var cost := int(node.get("cost", 0))
+	var prereq := node.get("prereq", []) as Array
+	return cost >= 450 or prereq.size() >= 2

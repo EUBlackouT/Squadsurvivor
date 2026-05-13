@@ -47,18 +47,18 @@ const TEX_SPARKLE := ""
 const TEX_DIVIDER := ""
 
 # === Readability palette (dark UI content over fantasy background) ===
-const TEXT_LIGHT := Color(0.95, 0.93, 0.88, 1.0)
-const TEXT_SOFT := Color(0.78, 0.76, 0.70, 0.92)
-const TEXT_DIM := Color(0.58, 0.56, 0.52, 0.90)
-const TITLE_GOLD := Color(0.92, 0.78, 0.48, 1.0)
-const BORDER_SUBTLE := Color(0.18, 0.16, 0.14, 0.25)
-const SURFACE_INSET := Color(0.04, 0.04, 0.035, 0.70)
-const SURFACE_CARD := Color(0.06, 0.055, 0.05, 0.84)
-const SURFACE_CARD_OPAQUE := Color(0.06, 0.055, 0.05, 0.92)
+const TEXT_LIGHT := Color(0.93, 0.97, 1.0, 1.0)
+const TEXT_SOFT := Color(0.78, 0.88, 1.0, 0.92)
+const TEXT_DIM := Color(0.58, 0.68, 0.78, 0.90)
+const TITLE_GOLD := Color(0.95, 0.78, 0.44, 1.0)
+const BORDER_SUBTLE := Color(0.20, 0.46, 0.72, 0.32)
+const SURFACE_INSET := Color(0.02, 0.04, 0.07, 0.76)
+const SURFACE_CARD := Color(0.04, 0.06, 0.10, 0.88)
+const SURFACE_CARD_OPAQUE := Color(0.04, 0.06, 0.10, 0.95)
 # Dark ink for inputs (light textbox)
-const INK_DARK := Color(0.14, 0.11, 0.08, 1.0)
-const INK_DARK_SOFT := Color(0.22, 0.17, 0.12, 0.92)
-const PLACEHOLDER := Color(0.35, 0.30, 0.25, 0.85)
+const INK_DARK := Color(0.11, 0.13, 0.18, 1.0)
+const INK_DARK_SOFT := Color(0.18, 0.22, 0.30, 0.92)
+const PLACEHOLDER := Color(0.42, 0.56, 0.72, 0.85)
 # Accents (status / actions)
 const ACCENT_FULL := Color(0.35, 0.55, 0.35, 1.0)      # squad full ok
 const ACCENT_REMOVE := Color(0.9, 0.4, 0.35, 1.0)     # remove button
@@ -2031,7 +2031,7 @@ func _show_details(data: Dictionary) -> void:
 
 	var t := Label.new()
 	t.text = "%s • %s%s • %s" % [
-		UnitFactory.rarity_name(rarity),
+		_race_name_from_data(data),
 		cls_name,
 		(" • %s" % arch) if show_arch else "",
 		weapon_name
