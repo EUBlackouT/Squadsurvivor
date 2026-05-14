@@ -1373,9 +1373,11 @@ static func _class_name(c: int) -> String:
 		_: return "Unknown"
 
 func is_overclock_active() -> bool:
-	return _overclock_until_s > 0.0
+	return _overclock_until_s > 0.0 or _overclock_always_on_enabled()
 
 func get_overclock_cd_left() -> float:
+	if _overclock_always_on_enabled():
+		return 0.0
 	return _overclock_cd_s
 
 func get_overclock_rate_mult() -> float:
@@ -1417,6 +1419,8 @@ func get_overclock_focus_bias_mult() -> float:
 func get_overclock_chain_chance() -> float:
 	if not is_overclock_active():
 		return 0.0
+	if _overclock_always_on_enabled():
+		return 0.0
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
 		return clampf(float(mp.get_add("overclock_chain_chance_add", 0.0)), 0.0, 0.95)
@@ -1425,6 +1429,8 @@ func get_overclock_chain_chance() -> float:
 func get_overclock_chain_jumps() -> int:
 	if not is_overclock_active():
 		return 0
+	if _overclock_always_on_enabled():
+		return 0
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
 		return maxi(0, int(round(float(mp.get_add("overclock_chain_jumps_add", 0.0)))))
@@ -1432,6 +1438,8 @@ func get_overclock_chain_jumps() -> int:
 
 func get_overclock_chain_damage_mult() -> float:
 	if not is_overclock_active():
+		return 0.0
+	if _overclock_always_on_enabled():
 		return 0.0
 	var mp := get_node_or_null("/root/MetaProgression")
 	var base := 0.24
@@ -1442,11 +1450,19 @@ func get_overclock_chain_damage_mult() -> float:
 func get_overclock_chain_radius() -> float:
 	if not is_overclock_active():
 		return 0.0
+	if _overclock_always_on_enabled():
+		return 0.0
 	var mp := get_node_or_null("/root/MetaProgression")
 	var base := 170.0
 	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
 		base += float(mp.get_add("overclock_chain_radius_add", 0.0))
 	return clampf(base, 80.0, 520.0)
+
+func _overclock_always_on_enabled() -> bool:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		return float(mp.get_add("overclock_always_on_add", 0.0)) >= 1.0
+	return false
 
 func _try_overclock() -> void:
 	if get_tree().paused or _game_over or _victory:
@@ -1454,6 +1470,8 @@ func _try_overclock() -> void:
 	if has_node("RecruitDraftUI") or has_node("PauseMenu"):
 		return
 	if not _overclock_unlocked():
+		return
+	if _overclock_always_on_enabled():
 		return
 	if _overclock_cd_s > 0.0:
 		return
@@ -2008,6 +2026,15 @@ func _apply_meta_on_kill_heal() -> void:
 			continue
 		if u.has_method("heal"):
 			u.heal(heal_amt)
+
+func try_absorb_damage_with_essence(amount: int) -> int:
+	if amount <= 0:
+		return 0
+	var absorbed := mini(amount, essence)
+	if absorbed <= 0:
+		return 0
+	essence -= absorbed
+	return absorbed
 
 func _on_draft_ready() -> void:
 	# Autosave immediately before pausing (so resume is reliable).

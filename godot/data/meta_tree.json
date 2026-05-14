@@ -32,21 +32,21 @@
 
     { "id": "starting_unit", "name": "Reinforcement", "desc": "+1 Starting Squad Member", "cost": 800, "pos": [0, -440], "prereq": ["draft_luck", "crit_2", "essence_2"], "tags": ["keystone"], "mods": { "starting_squad_add": 1 } },
 
-    { "id": "focus_1", "name": "Targeting Drills I", "desc": "Focus lasts longer.", "cost": 250, "pos": [140, -40], "prereq": ["core_0"], "mods": { "focus_duration_mult": 1.10 } },
-    { "id": "focus_2", "name": "Targeting Drills II", "desc": "Focus lasts longer.", "cost": 600, "pos": [270, -60], "prereq": ["focus_1"], "mods": { "focus_duration_mult": 1.12 } },
-    { "id": "focus_keystone", "name": "Kill Order", "desc": "Focus lasts much longer, but focus switch has a short lockout.", "cost": 1600, "pos": [420, -40], "prereq": ["focus_2"], "tags": ["keystone"], "mods": { "focus_duration_mult": 1.25, "focus_lockout_s": 1.0 } },
+    { "id": "focus_1", "name": "Assault Doctrine I", "desc": "Squad attacks faster.", "cost": 250, "pos": [140, -40], "prereq": ["core_0"], "mods": { "squad_attack_speed_mult": 1.06 } },
+    { "id": "focus_2", "name": "Assault Doctrine II", "desc": "Squad deals more damage and attacks faster.", "cost": 600, "pos": [270, -60], "prereq": ["focus_1"], "mods": { "squad_attack_speed_mult": 1.06, "squad_damage_mult": 1.05 } },
+    { "id": "focus_keystone", "name": "Berserker Grid", "desc": "Aggressive doctrine: higher DPS and sustain, but you take more damage.", "cost": 1600, "pos": [420, -40], "prereq": ["focus_2"], "tags": ["keystone"], "mods": { "squad_attack_speed_mult": 1.10, "on_kill_heal_add": 1, "squad_damage_taken_mult": 1.06 } },
 
-    { "id": "rally_1", "name": "Signal Beacons I", "desc": "Rally lasts longer.", "cost": 250, "pos": [140, 40], "prereq": ["core_0"], "mods": { "rally_duration_mult": 1.12 } },
-    { "id": "rally_2", "name": "Signal Beacons II", "desc": "Rally lasts longer.", "cost": 600, "pos": [270, 60], "prereq": ["rally_1"], "mods": { "rally_duration_mult": 1.12 } },
-    { "id": "rally_keystone", "name": "Battle Standard", "desc": "Rally lasts much longer and grants a small speed burst while active.", "cost": 1600, "pos": [420, 40], "prereq": ["rally_2"], "tags": ["keystone"], "mods": { "rally_duration_mult": 1.25, "rally_speed_mult": 1.10 } },
+    { "id": "rally_1", "name": "Bulwark Link I", "desc": "Squad takes less incoming damage.", "cost": 250, "pos": [140, 40], "prereq": ["core_0"], "mods": { "squad_damage_taken_mult": 0.96 } },
+    { "id": "rally_2", "name": "Bulwark Link II", "desc": "Further reduces incoming squad damage.", "cost": 600, "pos": [270, 60], "prereq": ["rally_1"], "mods": { "squad_damage_taken_mult": 0.94 } },
+    { "id": "rally_keystone", "name": "Juggernaut Net", "desc": "Massive survivability, but reduced attack speed.", "cost": 1600, "pos": [420, 40], "prereq": ["rally_2"], "tags": ["keystone"], "mods": { "squad_hp_mult": 1.15, "squad_damage_taken_mult": 0.90, "squad_attack_speed_mult": 0.93 } },
 
-    { "id": "dash_1", "name": "Kinetic Boots I", "desc": "Dash cooldown reduced.", "cost": 300, "pos": [-140, -40], "prereq": ["core_0"], "mods": { "dash_cooldown_mult": 0.93 } },
-    { "id": "dash_2", "name": "Kinetic Boots II", "desc": "Dash cooldown reduced.", "cost": 750, "pos": [-270, -60], "prereq": ["dash_1"], "mods": { "dash_cooldown_mult": 0.92 } },
-    { "id": "dash_keystone", "name": "Phase Runner", "desc": "Dash cooldown reduced further, but dash distance slightly reduced.", "cost": 1650, "pos": [-420, -40], "prereq": ["dash_2"], "tags": ["keystone"], "mods": { "dash_cooldown_mult": 0.86, "dash_distance_mult": 0.90 } },
+    { "id": "dash_1", "name": "Kinetic Flow I", "desc": "Squad moves faster.", "cost": 300, "pos": [-140, -40], "prereq": ["core_0"], "mods": { "squad_speed_mult": 1.05 } },
+    { "id": "dash_2", "name": "Kinetic Flow II", "desc": "Further movement speed and attack cadence.", "cost": 750, "pos": [-270, -60], "prereq": ["dash_1"], "mods": { "squad_speed_mult": 1.06, "squad_attack_speed_mult": 1.04 } },
+    { "id": "dash_keystone", "name": "Warp Aggression", "desc": "High tempo doctrine with added risk.", "cost": 1650, "pos": [-420, -40], "prereq": ["dash_2"], "tags": ["keystone"], "mods": { "squad_speed_mult": 1.08, "squad_attack_speed_mult": 1.08, "squad_damage_taken_mult": 1.05 } },
 
-    { "id": "squad_1", "name": "Tactical Spacing I", "desc": "Squad follows rally more aggressively.", "cost": 300, "pos": [-140, 40], "prereq": ["core_0"], "mods": { "rally_follow_mult": 1.15 } },
-    { "id": "squad_2", "name": "Tactical Spacing II", "desc": "Squad follows rally more aggressively.", "cost": 750, "pos": [-270, 60], "prereq": ["squad_1"], "mods": { "rally_follow_mult": 1.15 } },
-    { "id": "squad_keystone", "name": "On Your Six", "desc": "Squad keeps up during dash even better.", "cost": 1700, "pos": [-420, 40], "prereq": ["squad_2"], "tags": ["keystone"], "mods": { "dash_follow_mult": 1.35 } }
+    { "id": "squad_1", "name": "Formation Discipline I", "desc": "Squad attacks faster.", "cost": 300, "pos": [-140, 40], "prereq": ["core_0"], "mods": { "squad_attack_speed_mult": 1.05 } },
+    { "id": "squad_2", "name": "Formation Discipline II", "desc": "Balanced offense upgrade.", "cost": 750, "pos": [-270, 60], "prereq": ["squad_1"], "mods": { "squad_attack_speed_mult": 1.06, "squad_damage_mult": 1.04 } },
+    { "id": "squad_keystone", "name": "Pack Hunter", "desc": "High aggression with kill sustain.", "cost": 1700, "pos": [-420, 40], "prereq": ["squad_2"], "tags": ["keystone"], "mods": { "squad_damage_mult": 1.12, "on_kill_heal_add": 1 } }
     ,
 
     { "id": "oc_1", "name": "Capacitor Banks I", "desc": "Preps Overclock. Slightly reduces Overclock cooldown.", "cost": 450, "pos": [0, 160], "prereq": ["core_0"], "mods": { "overclock_cooldown_mult": 0.96 } },
@@ -57,7 +57,7 @@
     { "id": "oc_adrenal", "name": "Adrenal Surge", "desc": "Overclock grants more move speed but slightly less attack speed.", "cost": 1100, "pos": [170, 390], "prereq": ["oc_keystone"], "mods": { "overclock_move_speed_mult": 1.12, "overclock_attack_speed_mult": 0.96 } },
     { "id": "oc_barrage", "name": "Barrage Mode", "desc": "Overclock grants more attack speed but slightly less duration.", "cost": 1100, "pos": [-170, 390], "prereq": ["oc_keystone"], "mods": { "overclock_attack_speed_mult": 1.12, "overclock_duration_mult": 0.92 } },
     { "id": "oc_discharge", "name": "Arc Discharge", "desc": "Overclock activation damages nearby enemies (tradeoff: slightly longer cooldown).", "cost": 1400, "pos": [0, 470], "prereq": ["oc_tune"], "tags": ["keystone"], "mods": { "overclock_burst_damage_add": 10, "overclock_burst_radius_add": 120, "overclock_cooldown_mult": 1.10 } },
-    { "id": "oc_hunter", "name": "Hunter Protocol", "desc": "While Overclock is active, focus-fire becomes much stronger.", "cost": 1400, "pos": [240, 470], "prereq": ["oc_adrenal"], "mods": { "overclock_focus_bias_mult": 0.35 } },
+    { "id": "oc_hunter", "name": "Hunter Protocol", "desc": "While Overclock is active, chain chance is higher.", "cost": 1400, "pos": [240, 470], "prereq": ["oc_adrenal"], "mods": { "overclock_chain_chance_add": 0.14 } },
     { "id": "oc_lethal", "name": "Lethal Voltage", "desc": "While Overclock is active, squad deals more damage.", "cost": 1400, "pos": [-240, 470], "prereq": ["oc_barrage"], "mods": { "overclock_damage_mult": 1.12 } },
 
     { "id": "hp_boost_4", "name": "Vitality IV", "desc": "+14% Squad HP", "cost": 1100, "pos": [-640, -220], "prereq": ["hp_boost_3"], "mods": { "squad_hp_mult": 1.14 } },
@@ -67,13 +67,13 @@
     { "id": "draft_luck_2", "name": "Fortune II", "desc": "Further improves rarity odds in drafts.", "cost": 1250, "pos": [0, -520], "prereq": ["draft_luck"], "mods": { "draft_rarity_boost": 0.12 } },
     { "id": "starting_unit_2", "name": "Reinforcement II", "desc": "+1 Starting Squad Member (total +2).", "cost": 2200, "pos": [0, -610], "tags": ["keystone"], "prereq": ["starting_unit"], "mods": { "starting_squad_add": 1 } },
 
-    { "id": "focus_3", "name": "Targeting Drills III", "desc": "Focus lasts even longer.", "cost": 1000, "pos": [390, -130], "prereq": ["focus_2"], "mods": { "focus_duration_mult": 1.14 } },
-    { "id": "rally_3", "name": "Signal Beacons III", "desc": "Rally lasts even longer.", "cost": 1000, "pos": [390, 130], "prereq": ["rally_2"], "mods": { "rally_duration_mult": 1.14 } },
-    { "id": "squad_3", "name": "Tactical Spacing III", "desc": "Squad responds to rally faster.", "cost": 1150, "pos": [-390, 130], "prereq": ["squad_2"], "mods": { "rally_follow_mult": 1.18 } },
+    { "id": "focus_3", "name": "Assault Doctrine III", "desc": "Further attack cadence and damage.", "cost": 1000, "pos": [390, -130], "prereq": ["focus_2"], "mods": { "squad_attack_speed_mult": 1.08, "squad_damage_mult": 1.05 } },
+    { "id": "rally_3", "name": "Bulwark Link III", "desc": "Further improves team survivability.", "cost": 1000, "pos": [390, 130], "prereq": ["rally_2"], "mods": { "squad_damage_taken_mult": 0.92 } },
+    { "id": "squad_3", "name": "Formation Discipline III", "desc": "Strong all-round offensive spike.", "cost": 1150, "pos": [-390, 130], "prereq": ["squad_2"], "mods": { "squad_attack_speed_mult": 1.05, "squad_damage_mult": 1.06 } },
 
-    { "id": "dash_3", "name": "Kinetic Boots III", "desc": "Dash cooldown reduced further.", "cost": 1100, "pos": [-390, -130], "prereq": ["dash_2"], "mods": { "dash_cooldown_mult": 0.88 } },
-    { "id": "dash_longstep", "name": "Longstep Module", "desc": "Dash covers more distance.", "cost": 1300, "pos": [-560, -130], "prereq": ["dash_3"], "mods": { "dash_distance_mult": 1.18 } },
-    { "id": "dash_strider", "name": "Strider Link", "desc": "Slight global speed increase and shorter dash cooldown.", "cost": 1600, "pos": [-720, -130], "tags": ["keystone"], "prereq": ["dash_longstep"], "mods": { "squad_speed_mult": 1.08, "dash_cooldown_mult": 0.90 } },
+    { "id": "dash_3", "name": "Kinetic Flow III", "desc": "Further movement and tempo.", "cost": 1100, "pos": [-390, -130], "prereq": ["dash_2"], "mods": { "squad_speed_mult": 1.07, "squad_attack_speed_mult": 1.05 } },
+    { "id": "dash_longstep", "name": "Longstep Module", "desc": "Extends engagement reach for ranged squads.", "cost": 1300, "pos": [-560, -130], "prereq": ["dash_3"], "mods": { "squad_range_mult": 1.08 } },
+    { "id": "dash_strider", "name": "Strider Doctrine", "desc": "Fast tempo doctrine with mixed offense.", "cost": 1600, "pos": [-720, -130], "tags": ["keystone"], "prereq": ["dash_longstep"], "mods": { "squad_speed_mult": 1.10, "squad_attack_speed_mult": 1.07 } },
 
     { "id": "armor_1", "name": "Reactive Plating I", "desc": "Squad takes less incoming damage.", "cost": 650, "pos": [-620, -320], "prereq": ["hp_boost_2"], "mods": { "squad_damage_taken_mult": 0.93 } },
     { "id": "armor_2", "name": "Reactive Plating II", "desc": "Further reduces incoming squad damage.", "cost": 1200, "pos": [-760, -360], "prereq": ["armor_1"], "mods": { "squad_damage_taken_mult": 0.90 } },
@@ -100,29 +100,49 @@
     { "id": "oc_chain_3", "name": "Arc Relay III", "desc": "Chain arcs hit harder and from farther away.", "cost": 2100, "pos": [420, 760], "prereq": ["oc_chain_2"], "mods": { "overclock_chain_damage_mult": 1.25, "overclock_chain_radius_add": 50 } },
     { "id": "oc_storm_keystone", "name": "Storm Protocol", "desc": "Overclock becomes a chain-lightning build centerpiece.", "cost": 3200, "pos": [620, 860], "tags": ["keystone"], "prereq": ["oc_chain_3"], "mods": { "overclock_chain_jumps_add": 1, "overclock_chain_damage_mult": 1.35, "overclock_chain_radius_add": 80, "overclock_cooldown_mult": 1.06 } },
 
-    { "id": "predator_1", "name": "Predator Mark I", "desc": "Focused targets take more squad damage.", "cost": 850, "pos": [560, -80], "prereq": ["focus_2"], "mods": { "focus_mark_damage_mult": 1.08 } },
-    { "id": "predator_2", "name": "Predator Mark II", "desc": "Further increases focus target damage taken.", "cost": 1450, "pos": [700, -20], "prereq": ["predator_1"], "mods": { "focus_mark_damage_mult": 1.10 } },
-    { "id": "execution_net", "name": "Execution Net", "desc": "Focus marks become deadly, but focus duration is shorter.", "cost": 2600, "pos": [860, 40], "tags": ["keystone"], "prereq": ["predator_2"], "mods": { "focus_mark_damage_mult": 1.14, "focus_duration_mult": 0.85 } },
+    { "id": "predator_1", "name": "Predator Mark I", "desc": "Execution branch with stronger general damage.", "cost": 850, "pos": [560, -80], "prereq": ["focus_2"], "mods": { "squad_damage_mult": 1.06 } },
+    { "id": "predator_2", "name": "Predator Mark II", "desc": "Execution branch with stronger crit finishers.", "cost": 1450, "pos": [700, -20], "prereq": ["predator_1"], "mods": { "squad_damage_mult": 1.05, "squad_crit_add": 0.04 } },
+    { "id": "execution_net", "name": "Execution Net", "desc": "High execution doctrine with extra crit and damage at some risk.", "cost": 2600, "pos": [860, 40], "tags": ["keystone"], "prereq": ["predator_2"], "mods": { "squad_crit_add": 0.05, "squad_damage_mult": 1.08, "squad_damage_taken_mult": 1.05 } },
 
     { "id": "brawler_1", "name": "Close Quarters I", "desc": "Converts ranged squad members into melee fighters.", "cost": 1000, "pos": [-520, -520], "prereq": ["ballistics_1"], "mods": { "ranged_to_melee_add": 1 } },
     { "id": "brawler_2", "name": "Close Quarters II", "desc": "Ranged-oriented buffs now strengthen melee conversion.", "cost": 1650, "pos": [-680, -600], "prereq": ["brawler_1"], "mods": { "ranged_transfer_melee_mult": 1.18 } },
     { "id": "point_blank_oath", "name": "Point Blank Oath", "desc": "Full ranged-to-melee doctrine: stronger converted damage, but less movement speed.", "cost": 2900, "pos": [-860, -700], "tags": ["keystone"], "prereq": ["brawler_2"], "mods": { "ranged_transfer_melee_mult": 1.25, "squad_speed_mult": 0.94 } },
 
-    { "id": "bridge_1", "name": "Signal-Arc Bridge", "desc": "Hybrid bridge between rally and overclock clusters.", "cost": 800, "pos": [260, 250], "prereq": ["rally_2", "oc_1"], "mods": { "rally_duration_mult": 1.08, "overclock_duration_mult": 1.06 } },
-    { "id": "bridge_2", "name": "Predator Bridge", "desc": "Hybrid bridge between focus and overclock clusters.", "cost": 950, "pos": [300, 120], "prereq": ["focus_2", "oc_1"], "mods": { "focus_duration_mult": 1.08, "overclock_attack_speed_mult": 1.05 } },
-    { "id": "bridge_3", "name": "Vanguard Bridge", "desc": "Hybrid bridge between tank and squad-control clusters.", "cost": 900, "pos": [-420, -20], "prereq": ["armor_1", "squad_1"], "mods": { "squad_damage_taken_mult": 0.95, "rally_follow_mult": 1.08 } },
+    { "id": "bridge_1", "name": "Signal-Arc Bridge", "desc": "Hybrid bridge between defense and overclock clusters.", "cost": 800, "pos": [260, 250], "prereq": ["rally_2", "oc_1"], "mods": { "squad_damage_taken_mult": 0.96, "overclock_duration_mult": 1.06 } },
+    { "id": "bridge_2", "name": "Predator Bridge", "desc": "Hybrid bridge between assault and overclock clusters.", "cost": 950, "pos": [300, 120], "prereq": ["focus_2", "oc_1"], "mods": { "squad_attack_speed_mult": 1.05, "overclock_attack_speed_mult": 1.05 } },
+    { "id": "bridge_3", "name": "Vanguard Bridge", "desc": "Hybrid bridge between tank and formation clusters.", "cost": 900, "pos": [-420, -20], "prereq": ["armor_1", "squad_1"], "mods": { "squad_damage_taken_mult": 0.95, "squad_attack_speed_mult": 1.04 } },
 
-    { "id": "surge_1", "name": "Surge Line I", "desc": "Boosts both overclock uptime and rally control.", "cost": 1150, "pos": [420, 280], "prereq": ["bridge_1"], "mods": { "overclock_duration_mult": 1.08, "rally_follow_mult": 1.08 } },
-    { "id": "surge_2", "name": "Surge Line II", "desc": "Further boosts overclock uptime and focus target control.", "cost": 1700, "pos": [520, 360], "prereq": ["surge_1", "bridge_2"], "mods": { "overclock_duration_mult": 1.10, "focus_mark_damage_mult": 1.08 } },
-    { "id": "conductor_oath", "name": "Conductor Oath", "desc": "Hybrid command doctrine: stronger overclock chains and focus execution, but weaker dash follow.", "cost": 3000, "pos": [690, 430], "tags": ["keystone"], "prereq": ["surge_2"], "mods": { "overclock_chain_damage_mult": 1.20, "focus_mark_damage_mult": 1.10, "dash_follow_mult": 0.90 } },
+    { "id": "surge_1", "name": "Surge Line I", "desc": "Boosts overclock uptime and team cadence.", "cost": 1150, "pos": [420, 280], "prereq": ["bridge_1"], "mods": { "overclock_duration_mult": 1.08, "squad_attack_speed_mult": 1.05 } },
+    { "id": "surge_2", "name": "Surge Line II", "desc": "Further boosts overclock uptime and chain pressure.", "cost": 1700, "pos": [520, 360], "prereq": ["surge_1", "bridge_2"], "mods": { "overclock_duration_mult": 1.10, "overclock_chain_chance_add": 0.10 } },
+    { "id": "conductor_oath", "name": "Conductor Oath", "desc": "Hybrid command doctrine: stronger overclock chains and execution damage at extra risk.", "cost": 3000, "pos": [690, 430], "tags": ["keystone"], "prereq": ["surge_2"], "mods": { "overclock_chain_damage_mult": 1.20, "squad_damage_mult": 1.08, "squad_damage_taken_mult": 1.06 } },
 
-    { "id": "anchor_1", "name": "Anchor Line I", "desc": "Tank-control bridge node.", "cost": 1050, "pos": [-540, 40], "prereq": ["bridge_3"], "mods": { "squad_damage_taken_mult": 0.94, "rally_follow_mult": 1.10 } },
-    { "id": "anchor_2", "name": "Anchor Line II", "desc": "Further improves formation stability.", "cost": 1650, "pos": [-670, 120], "prereq": ["anchor_1", "squad_3"], "mods": { "squad_damage_taken_mult": 0.92, "dash_follow_mult": 1.10 } },
-    { "id": "phalanx_protocol", "name": "Phalanx Protocol", "desc": "Defensive formation doctrine: massive cohesion and durability, but lower attack speed.", "cost": 3100, "pos": [-860, 190], "tags": ["keystone"], "prereq": ["anchor_2"], "mods": { "squad_damage_taken_mult": 0.86, "dash_follow_mult": 1.18, "squad_attack_speed_mult": 0.92 } },
+    { "id": "anchor_1", "name": "Anchor Line I", "desc": "Tank bridge node with extra durability.", "cost": 1050, "pos": [-540, 40], "prereq": ["bridge_3"], "mods": { "squad_damage_taken_mult": 0.94, "squad_hp_mult": 1.06 } },
+    { "id": "anchor_2", "name": "Anchor Line II", "desc": "Further improves formation stability and bulk.", "cost": 1650, "pos": [-670, 120], "prereq": ["anchor_1", "squad_3"], "mods": { "squad_damage_taken_mult": 0.92, "squad_hp_mult": 1.08 } },
+    { "id": "phalanx_protocol", "name": "Phalanx Protocol", "desc": "Defensive formation doctrine: massive durability, but lower attack speed.", "cost": 3100, "pos": [-860, 190], "tags": ["keystone"], "prereq": ["anchor_2"], "mods": { "squad_damage_taken_mult": 0.86, "squad_hp_mult": 1.14, "squad_attack_speed_mult": 0.92 } },
 
     { "id": "crit_weave_1", "name": "Crit Weave I", "desc": "Precision branch with attack cadence.", "cost": 1200, "pos": [-40, -780], "prereq": ["tempo_1", "crit_3"], "mods": { "squad_crit_add": 0.03, "squad_attack_speed_mult": 1.05 } },
     { "id": "crit_weave_2", "name": "Crit Weave II", "desc": "Further precision/cadence amplification.", "cost": 1900, "pos": [40, -930], "prereq": ["crit_weave_1"], "mods": { "squad_crit_add": 0.04, "squad_attack_speed_mult": 1.07 } },
-    { "id": "headhunter_grid", "name": "Headhunter Grid", "desc": "Aggressive crit doctrine with lower survivability.", "cost": 3200, "pos": [140, -1080], "tags": ["keystone"], "prereq": ["crit_weave_2"], "mods": { "squad_crit_add": 0.08, "squad_damage_mult": 1.12, "squad_damage_taken_mult": 1.10 } }
+    { "id": "headhunter_grid", "name": "Headhunter Grid", "desc": "Aggressive crit doctrine with lower survivability.", "cost": 3200, "pos": [140, -1080], "tags": ["keystone"], "prereq": ["crit_weave_2"], "mods": { "squad_crit_add": 0.08, "squad_damage_mult": 1.12, "squad_damage_taken_mult": 1.10 } },
+
+    { "id": "fusion_1", "name": "Fusion Circuit I", "desc": "Hybrid bridge between offense and overclock.", "cost": 1300, "pos": [980, 30], "prereq": ["dmg_as_1", "bridge_2"], "mods": { "squad_damage_mult": 1.06, "overclock_attack_speed_mult": 1.06 } },
+    { "id": "fusion_2", "name": "Fusion Circuit II", "desc": "Hybrid bridge that amplifies execution and chains.", "cost": 2000, "pos": [1120, 120], "prereq": ["fusion_1", "predator_2"], "mods": { "squad_damage_mult": 1.06, "overclock_chain_chance_add": 0.12 } },
+    { "id": "fusion_overload", "name": "Fusion Overload", "desc": "Massive hybrid burst doctrine with extra risk.", "cost": 3400, "pos": [1260, 220], "tags": ["keystone"], "prereq": ["fusion_2", "oc_chain_2"], "mods": { "squad_attack_speed_mult": 1.10, "overclock_chain_damage_mult": 1.15, "squad_damage_taken_mult": 1.08 } },
+
+    { "id": "tactician_1", "name": "Tactician Weave I", "desc": "Cross-links assault and defense control.", "cost": 1250, "pos": [120, -160], "prereq": ["bridge_1", "focus_1"], "mods": { "squad_attack_speed_mult": 1.05, "squad_damage_taken_mult": 0.97 } },
+    { "id": "tactician_2", "name": "Tactician Weave II", "desc": "Further improves pacing and team efficiency.", "cost": 1900, "pos": [40, -20], "prereq": ["tactician_1", "bridge_3"], "mods": { "squad_attack_speed_mult": 1.06, "squad_damage_mult": 1.05 } },
+    { "id": "war_doctrine", "name": "War Doctrine", "desc": "Hybrid command doctrine with strong utility but lower raw burst.", "cost": 3300, "pos": [-60, 110], "tags": ["keystone"], "prereq": ["tactician_2", "execution_net"], "mods": { "squad_attack_speed_mult": 1.08, "squad_damage_taken_mult": 0.94, "squad_damage_mult": 0.96 } },
+
+    { "id": "aether_ward_1", "name": "Aether Ward I", "desc": "A portion of incoming damage is paid from essence.", "cost": 1700, "pos": [920, -560], "prereq": ["essence_3", "bridge_1"], "mods": { "damage_taken_as_essence_add": 0.18 } },
+    { "id": "aether_ward_2", "name": "Aether Ward II", "desc": "More incoming damage is redirected to essence.", "cost": 2500, "pos": [1080, -650], "prereq": ["aether_ward_1"], "mods": { "damage_taken_as_essence_add": 0.17 } },
+    { "id": "mindforge_oath", "name": "Mindforge Oath", "desc": "Massive mitigation via essence, but essence economy is weaker.", "cost": 3600, "pos": [1260, -760], "tags": ["keystone"], "prereq": ["aether_ward_2"], "mods": { "damage_taken_as_essence_add": 0.20, "essence_mult": 0.82 } },
+
+    { "id": "execution_1", "name": "Execution Protocol I", "desc": "Hits execute enemies below 8% life.", "cost": 1600, "pos": [980, -120], "prereq": ["predator_2"], "mods": { "execute_threshold_add": 0.08 } },
+    { "id": "execution_2", "name": "Execution Protocol II", "desc": "Execution threshold increased to 14%.", "cost": 2400, "pos": [1140, -180], "prereq": ["execution_1"], "mods": { "execute_threshold_add": 0.06 } },
+    { "id": "reaper_clause", "name": "Reaper Clause", "desc": "Execution doctrine: very lethal finishers, but you are slightly squishier.", "cost": 3500, "pos": [1320, -240], "tags": ["keystone"], "prereq": ["execution_2"], "mods": { "execute_threshold_add": 0.05, "squad_damage_taken_mult": 1.06 } },
+
+    { "id": "static_drive_1", "name": "Static Drive I", "desc": "Overclock uptime baseline is improved.", "cost": 1800, "pos": [-40, 700], "prereq": ["oc_2"], "mods": { "overclock_duration_mult": 1.12 } },
+    { "id": "static_drive_2", "name": "Static Drive II", "desc": "Overclock cooldown reduced further.", "cost": 2600, "pos": [-120, 820], "prereq": ["static_drive_1"], "mods": { "overclock_cooldown_mult": 0.82 } },
+    { "id": "eldritch_drive", "name": "Eldritch Drive", "desc": "Overclock is permanently active, but chain effects are disabled.", "cost": 3800, "pos": [-220, 980], "tags": ["keystone"], "prereq": ["static_drive_2"], "mods": { "overclock_always_on_add": 1 } }
   ],
   "edges": [
     ["core_0", "focus_1"], ["focus_1", "focus_2"], ["focus_2", "focus_keystone"],
@@ -150,7 +170,12 @@
     ["rally_2", "bridge_1"], ["oc_1", "bridge_1"], ["focus_2", "bridge_2"], ["oc_1", "bridge_2"], ["armor_1", "bridge_3"], ["squad_1", "bridge_3"],
     ["bridge_1", "surge_1"], ["bridge_2", "surge_2"], ["surge_1", "surge_2"], ["surge_2", "conductor_oath"],
     ["bridge_3", "anchor_1"], ["anchor_1", "anchor_2"], ["squad_3", "anchor_2"], ["anchor_2", "phalanx_protocol"],
-    ["tempo_1", "crit_weave_1"], ["crit_3", "crit_weave_1"], ["crit_weave_1", "crit_weave_2"], ["crit_weave_2", "headhunter_grid"]
+    ["tempo_1", "crit_weave_1"], ["crit_3", "crit_weave_1"], ["crit_weave_1", "crit_weave_2"], ["crit_weave_2", "headhunter_grid"],
+    ["dmg_as_1", "fusion_1"], ["bridge_2", "fusion_1"], ["fusion_1", "fusion_2"], ["predator_2", "fusion_2"], ["fusion_2", "fusion_overload"], ["oc_chain_2", "fusion_overload"],
+    ["bridge_1", "tactician_1"], ["focus_1", "tactician_1"], ["tactician_1", "tactician_2"], ["bridge_3", "tactician_2"], ["tactician_2", "war_doctrine"], ["execution_net", "war_doctrine"],
+    ["essence_3", "aether_ward_1"], ["bridge_1", "aether_ward_1"], ["aether_ward_1", "aether_ward_2"], ["aether_ward_2", "mindforge_oath"],
+    ["predator_2", "execution_1"], ["execution_1", "execution_2"], ["execution_2", "reaper_clause"],
+    ["oc_2", "static_drive_1"], ["static_drive_1", "static_drive_2"], ["static_drive_2", "eldritch_drive"]
   ]
 }
 

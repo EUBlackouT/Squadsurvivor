@@ -1436,6 +1436,7 @@ var _protocol_drag_candidate: bool = false
 var _protocol_drag_start: Vector2 = Vector2.ZERO
 var _protocol_drag_last: Vector2 = Vector2.ZERO
 var _protocol_pan: Vector2 = Vector2.ZERO
+var _protocol_zoom: float = 1.0
 var _protocol_hover_id: String = ""
 var _protocol_icon_cache: Dictionary = {}
 var _protocol_keystone_frame_tex: Texture2D = null
@@ -1509,19 +1510,19 @@ func _create_protocol_overlay() -> void:
 	header.add_child(_protocol_sigils_lbl)
 
 	var sub := Label.new()
-	sub.text = "Drag with Left Mouse to explore your full progression web."
+	sub.text = "Drag with Left Mouse to pan. Mouse wheel to zoom in/out."
 	sub.add_theme_font_size_override("font_size", 14)
 	sub.add_theme_color_override("font_color", SUBTITLE_COLOR)
 	_apply_font(sub)
 	vbox.add_child(sub)
 
 	var body := HBoxContainer.new()
-	body.add_theme_constant_override("separation", 14)
+	body.add_theme_constant_override("separation", 10)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(body)
 
 	var graph_frame := PanelContainer.new()
-	graph_frame.custom_minimum_size = Vector2(1210, 700)
+	graph_frame.custom_minimum_size = Vector2(0, 700)
 	graph_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	graph_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	graph_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.88))
@@ -1545,11 +1546,14 @@ func _create_protocol_overlay() -> void:
 
 	_protocol_graph_root = Control.new()
 	_protocol_graph_root.name = "GraphRoot"
-	_protocol_graph_root.custom_minimum_size = Vector2(4200, 3200)
+	_protocol_graph_root.custom_minimum_size = Vector2(6200, 4600)
 	_protocol_graph_view.add_child(_protocol_graph_root)
+	_protocol_zoom = 1.0
+	_protocol_pan = Vector2.ZERO
 
 	var side := PanelContainer.new()
-	side.custom_minimum_size = Vector2(310, 620)
+	side.custom_minimum_size = Vector2(248, 0)
+	side.size_flags_horizontal = Control.SIZE_SHRINK_END
 	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side.add_theme_stylebox_override("panel", _sb_inset(12, 0.92))
 	body.add_child(side)
@@ -1752,6 +1756,11 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	btn_overlay.pressed.connect(func():
 		_protocol_selected_id = upgrade_id
 		_update_protocol_grid()
+		var tw := panel.create_tween()
+		tw.set_trans(Tween.TRANS_SINE)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.tween_property(panel, "scale", Vector2(1.16, 1.16), 0.06)
+		tw.tween_property(panel, "scale", Vector2(1.10, 1.10), 0.08)
 	)
 	btn_overlay.mouse_entered.connect(func():
 		_protocol_hover_id = upgrade_id
@@ -1911,7 +1920,6 @@ func _update_protocol_grid() -> void:
 						pre_ok = false
 						break
 				_protocol_buy_btn.disabled = owned or (not pre_ok) or (sigils < cst)
-
 func _unlock_protocol_node(upgrade_id: String) -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
@@ -2023,7 +2031,7 @@ func _focus_protocol_graph() -> void:
 					_protocol_selected_id = id
 				break
 	var viewport_size := _protocol_graph_view.size
-	_protocol_pan = viewport_size * 0.5 - target
+	_protocol_pan = viewport_size * 0.5 - target * _protocol_zoom
 	_clamp_protocol_pan()
 	_apply_protocol_pan()
 	_update_protocol_grid()
@@ -2057,8 +2065,8 @@ func _protocol_data() -> Array[Dictionary]:
 	if filtered.is_empty():
 		return out
 
-	var graph_size := Vector2(4200, 3200)
-	var margin := Vector2(280, 240)
+	var graph_size := Vector2(6200, 4600)
+	var margin := Vector2(430, 340)
 	var span := maxp - minp
 	var inv_span := Vector2(1.0 / maxf(1.0, span.x), 1.0 / maxf(1.0, span.y))
 	for d2 in filtered:
@@ -2098,6 +2106,7 @@ func _protocol_data() -> Array[Dictionary]:
 func _apply_protocol_pan() -> void:
 	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
 		return
+	_protocol_graph_root.scale = Vector2.ONE * _protocol_zoom
 	_protocol_graph_root.position = _protocol_pan
 
 func _clamp_protocol_pan() -> void:
@@ -2106,11 +2115,32 @@ func _clamp_protocol_pan() -> void:
 	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
 		return
 	var view_size := _protocol_graph_view.size
-	var root_size := _protocol_graph_root.custom_minimum_size
-	var min_x := minf(0.0, view_size.x - root_size.x)
-	var min_y := minf(0.0, view_size.y - root_size.y)
-	_protocol_pan.x = clampf(_protocol_pan.x, min_x, 0.0)
-	_protocol_pan.y = clampf(_protocol_pan.y, min_y, 0.0)
+	var root_size := _protocol_graph_root.custom_minimum_size * _protocol_zoom
+	if root_size.x <= view_size.x:
+		_protocol_pan.x = (view_size.x - root_size.x) * 0.5
+	else:
+		var over_x := 220.0
+		var min_x := view_size.x - root_size.x - over_x
+		var max_x := over_x
+		_protocol_pan.x = clampf(_protocol_pan.x, min_x, max_x)
+	if root_size.y <= view_size.y:
+		_protocol_pan.y = (view_size.y - root_size.y) * 0.5
+	else:
+		var over_y := 180.0
+		var min_y := view_size.y - root_size.y - over_y
+		var max_y := over_y
+		_protocol_pan.y = clampf(_protocol_pan.y, min_y, max_y)
+
+func _set_protocol_zoom(new_zoom: float, screen_pos: Vector2) -> void:
+	if _protocol_graph_view == null or not is_instance_valid(_protocol_graph_view):
+		return
+	var graph_rect := _protocol_graph_view.get_global_rect()
+	var local := screen_pos - graph_rect.position
+	var before := (local - _protocol_pan) / maxf(0.001, _protocol_zoom)
+	_protocol_zoom = clampf(new_zoom, 0.55, 1.85)
+	_protocol_pan = local - before * _protocol_zoom
+	_clamp_protocol_pan()
+	_apply_protocol_pan()
 
 func _input(event: InputEvent) -> void:
 	if _protocol_overlay == null or not is_instance_valid(_protocol_overlay) or (not _protocol_overlay.visible):
@@ -2132,18 +2162,21 @@ func _input(event: InputEvent) -> void:
 				_protocol_drag_candidate = false
 				_protocol_dragging = false
 		elif (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN) and graph_rect.has_point(mb.position):
+			var step := 1.11 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else (1.0 / 1.11)
+			_set_protocol_zoom(_protocol_zoom * step, mb.position)
 			get_viewport().set_input_as_handled()
-	elif event is InputEventMouseMotion and _protocol_drag_candidate:
+	elif event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
-		var moved := mm.position.distance_to(_protocol_drag_start)
-		if moved > 8.0:
-			_protocol_dragging = true
-		if _protocol_dragging:
-			_protocol_pan += mm.relative
-			_clamp_protocol_pan()
-			_apply_protocol_pan()
-			_protocol_drag_last = mm.position
-			get_viewport().set_input_as_handled()
+		if _protocol_drag_candidate:
+			var moved := mm.position.distance_to(_protocol_drag_start)
+			if moved > 8.0:
+				_protocol_dragging = true
+			if _protocol_dragging:
+				_protocol_pan += mm.relative
+				_clamp_protocol_pan()
+				_apply_protocol_pan()
+				_protocol_drag_last = mm.position
+				get_viewport().set_input_as_handled()
 
 func _protocol_icon_for_node(node: Dictionary) -> String:
 	var tags := node.get("tags", []) as Array
@@ -2173,6 +2206,8 @@ func _protocol_icon_for_node(node: Dictionary) -> String:
 		return "FOC"
 	if id.find("predator") >= 0 or id.find("execution") >= 0:
 		return "HNT"
+	if id.find("aether") >= 0 or id.find("mindforge") >= 0:
+		return "MND"
 	if id.find("surge") >= 0 or id.find("conductor") >= 0:
 		return "SRG"
 	if id.find("rally") >= 0:
@@ -2211,6 +2246,10 @@ func _protocol_color_for_node(node: Dictionary) -> String:
 		return "#9a8cff"
 	if id.find("predator") >= 0 or id.find("execution") >= 0:
 		return "#b69bff"
+	if id.find("aether") >= 0 or id.find("mindforge") >= 0:
+		return "#6ed1ff"
+	if id.find("static_drive") >= 0 or id.find("eldritch_drive") >= 0:
+		return "#9f86ff"
 	if id.find("surge") >= 0 or id.find("conductor") >= 0:
 		return "#7bb7ff"
 	if id.find("rally") >= 0:
@@ -2251,6 +2290,8 @@ func _protocol_family_key(id: String) -> String:
 		return "focus"
 	if id.begins_with("recycle_") or id.find("blood_circuit") >= 0:
 		return "rally"
+	if id.begins_with("tactician_") or id.find("war_doctrine") >= 0:
+		return "rally"
 	if id.begins_with("focus_"):
 		return "focus"
 	if id.begins_with("rally_"):
@@ -2265,6 +2306,14 @@ func _protocol_family_key(id: String) -> String:
 		return "mobility"
 	if id.begins_with("surge_") or id.find("conductor") >= 0:
 		return "overclock"
+	if id.begins_with("fusion_") or id.find("fusion_overload") >= 0:
+		return "overclock"
+	if id.begins_with("aether_") or id.find("mindforge") >= 0:
+		return "overclock"
+	if id.begins_with("static_drive_") or id.find("eldritch_drive") >= 0:
+		return "overclock"
+	if id.begins_with("execution_") or id.find("reaper_clause") >= 0:
+		return "offense"
 	if id.begins_with("anchor_") or id.find("phalanx") >= 0:
 		return "squad"
 	if id.begins_with("crit_weave_") or id.find("headhunter") >= 0:
@@ -2384,6 +2433,9 @@ func _protocol_label_for_mod(key: String) -> String:
 		"ranged_to_melee_add": return "Convert Ranged to Melee"
 		"ranged_transfer_melee_mult": return "Ranged Buff Transfer to Melee"
 		"focus_mark_damage_mult": return "Focus Mark Damage"
+		"damage_taken_as_essence_add": return "Damage Taken As Essence"
+		"execute_threshold_add": return "Execute Threshold"
+		"overclock_always_on_add": return "Overclock Always On"
 		_: return key
 
 func _protocol_trace_ids(from_id: String) -> Dictionary:

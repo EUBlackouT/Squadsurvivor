@@ -535,6 +535,11 @@ func _attack(target: Node2D) -> void:
 			var mp2 := get_node_or_null("/root/MetaProgression")
 			if mp2 and is_instance_valid(mp2) and mp2.has_method("get_mod"):
 				final_damage = int(round(float(final_damage) * float(mp2.get_mod("focus_mark_damage_mult", 1.0))))
+	# Execute doctrine: targets below threshold are finished aggressively.
+	if target.has_method("get_hp_ratio") and mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		var exec_th := clampf(float(mp.get_add("execute_threshold_add", 0.0)), 0.0, 0.6)
+		if exec_th > 0.0 and float(target.get_hp_ratio()) <= exec_th:
+			final_damage = maxi(final_damage, 999999)
 	
 	# Crit check with meta progression bonus
 	var crit_chance := character_data.crit_chance if character_data != null else 0.0
@@ -779,6 +784,12 @@ func _update_health_bar() -> void:
 
 func take_damage(amount: int) -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_add") and _main and is_instance_valid(_main) and _main.has_method("try_absorb_damage_with_essence"):
+		var ratio := clampf(float(mp.get_add("damage_taken_as_essence_add", 0.0)), 0.0, 0.9)
+		if ratio > 0.0:
+			var to_absorb := int(round(float(amount) * ratio))
+			var absorbed := int(_main.try_absorb_damage_with_essence(to_absorb))
+			amount = maxi(0, amount - absorbed)
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		amount = maxi(0, int(round(float(amount) * float(mp.get_mod("squad_damage_taken_mult", 1.0)))))
 	# Aegis: damage reduction window.
