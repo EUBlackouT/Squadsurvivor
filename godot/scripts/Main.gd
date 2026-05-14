@@ -1414,6 +1414,40 @@ func get_overclock_focus_bias_mult() -> float:
 		return clampf(float(mp.get_mod("overclock_focus_bias_mult", 1.0)), 0.15, 1.0)
 	return 1.0
 
+func get_overclock_chain_chance() -> float:
+	if not is_overclock_active():
+		return 0.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		return clampf(float(mp.get_add("overclock_chain_chance_add", 0.0)), 0.0, 0.95)
+	return 0.0
+
+func get_overclock_chain_jumps() -> int:
+	if not is_overclock_active():
+		return 0
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		return maxi(0, int(round(float(mp.get_add("overclock_chain_jumps_add", 0.0)))))
+	return 0
+
+func get_overclock_chain_damage_mult() -> float:
+	if not is_overclock_active():
+		return 0.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	var base := 0.24
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		base *= float(mp.get_mod("overclock_chain_damage_mult", 1.0))
+	return clampf(base, 0.05, 1.0)
+
+func get_overclock_chain_radius() -> float:
+	if not is_overclock_active():
+		return 0.0
+	var mp := get_node_or_null("/root/MetaProgression")
+	var base := 170.0
+	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		base += float(mp.get_add("overclock_chain_radius_add", 0.0))
+	return clampf(base, 80.0, 520.0)
+
 func _try_overclock() -> void:
 	if get_tree().paused or _game_over or _victory:
 		return
@@ -1926,6 +1960,7 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		mult *= float(mp.get_mod("essence_mult", 1.0))
 	essence += maxi(1, int(round(float(base) * mult)))
+	_apply_meta_on_kill_heal()
 
 	# Trophy pool: store recent killed character variants for unlocks
 	if cd != null:
@@ -1960,6 +1995,19 @@ func show_damage_number(source_id: int, channel: String, amount: int, world_pos:
 	if damage_numbers == null:
 		return
 	damage_numbers.spawn_aggregated(source_id, channel, amount, world_pos, style, is_crit)
+
+func _apply_meta_on_kill_heal() -> void:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return
+	var heal_amt := int(round(float(mp.get_add("on_kill_heal_add", 0.0))))
+	if heal_amt <= 0:
+		return
+	for u in live_squad_units:
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.has_method("heal"):
+			u.heal(heal_amt)
 
 func _on_draft_ready() -> void:
 	# Autosave immediately before pausing (so resume is reliable).

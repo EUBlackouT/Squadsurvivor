@@ -241,9 +241,9 @@ func _combat_step(_delta: float) -> void:
 	var tgt := _target_enemy
 	var dist := global_position.distance_to(tgt.global_position)
 	var attack_range := character_data.attack_range if character_data != null else 300.0
-	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
+	var is_melee := _effective_is_melee()
 	if not is_melee:
-		attack_range *= RANGED_RANGE_MULT
+		attack_range *= RANGED_RANGE_MULT * _meta_ranged_range_mult()
 	var move_speed := _get_effective_move_speed()
 	# Overclock: speed burst (meta ability)
 	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
@@ -271,6 +271,7 @@ func _combat_step(_delta: float) -> void:
 		if character_data != null:
 			var mods := SynergySystem.mods_for_cd(character_data)
 			cd_s *= float(mods.get("attack_cooldown_mult", 1.0))
+		cd_s /= _meta_attack_speed_mult()
 		# Overclock increases attack rate by reducing cooldown.
 		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_rate_mult"):
 			var rate := float(_main.get_overclock_rate_mult())
@@ -298,6 +299,9 @@ func _step_manual_attack() -> void:
 		_manual_attack_target = null
 		return
 	var attack_range := character_data.attack_range if character_data != null else 300.0
+	var is_melee := _effective_is_melee()
+	if not is_melee:
+		attack_range *= RANGED_RANGE_MULT * _meta_ranged_range_mult()
 	var dist := global_position.distance_to(tgt.global_position)
 	var move_speed := _get_effective_move_speed()
 	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_move_speed_mult"):
@@ -313,6 +317,7 @@ func _step_manual_attack() -> void:
 		if character_data != null:
 			var mods := SynergySystem.mods_for_cd(character_data)
 			cd_s *= float(mods.get("attack_cooldown_mult", 1.0))
+		cd_s /= _meta_attack_speed_mult()
 		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_rate_mult"):
 			var rate := float(_main.get_overclock_rate_mult())
 			if rate > 0.01:
@@ -324,6 +329,9 @@ func _hold_and_fire() -> void:
 	if _target_enemy == null or not is_instance_valid(_target_enemy):
 		return
 	var attack_range := character_data.attack_range if character_data != null else 300.0
+	var is_melee := _effective_is_melee()
+	if not is_melee:
+		attack_range *= RANGED_RANGE_MULT * _meta_ranged_range_mult()
 	var dist := global_position.distance_to(_target_enemy.global_position)
 	if dist > attack_range:
 		return
@@ -333,6 +341,7 @@ func _hold_and_fire() -> void:
 		if character_data != null:
 			var mods := SynergySystem.mods_for_cd(character_data)
 			cd_s *= float(mods.get("attack_cooldown_mult", 1.0))
+		cd_s /= _meta_attack_speed_mult()
 		if _main and is_instance_valid(_main) and _main.has_method("get_overclock_rate_mult"):
 			var rate := float(_main.get_overclock_rate_mult())
 			if rate > 0.01:
@@ -518,6 +527,14 @@ func _attack(target: Node2D) -> void:
 	# Overclock: damage multiplier (meta buildcraft)
 	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_damage_mult"):
 		final_damage = int(round(float(final_damage) * float(_main.get_overclock_damage_mult())))
+
+	# Focus doctrine keystone: focused target takes extra squad damage.
+	if _main and is_instance_valid(_main) and _main.has_method("get_focus_target"):
+		var ft := _main.get_focus_target()
+		if ft != null and ft == target:
+			var mp2 := get_node_or_null("/root/MetaProgression")
+			if mp2 and is_instance_valid(mp2) and mp2.has_method("get_mod"):
+				final_damage = int(round(float(final_damage) * float(mp2.get_mod("focus_mark_damage_mult", 1.0))))
 	
 	# Crit check with meta progression bonus
 	var crit_chance := character_data.crit_chance if character_data != null else 0.0
@@ -534,14 +551,100 @@ func _attack(target: Node2D) -> void:
 		return
 	
 	var weapon_id := character_data.weapon_id if character_data != null else "standard_bolt"
-	var is_melee := character_data != null and character_data.attack_style == CharacterData.AttackStyle.MELEE
+	var is_melee := _effective_is_melee()
+	var converted_melee := _meta_ranged_to_melee_enabled() and character_data != null and character_data.attack_style == CharacterData.AttackStyle.RANGED
+	if converted_melee and mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		final_damage = int(round(float(final_damage) * float(mp.get_mod("ranged_transfer_melee_mult", 1.0)) * _meta_ranged_range_mult()))
 	
 	# Execute weapon attack
-	WeaponSystem.execute_attack(weapon_id, self, target, final_damage, is_crit, _main, character_data)
+	if converted_melee and target.has_method("take_damage"):
+		target.take_damage(final_damage, is_crit, "meta_melee_convert")
+		var dir := (target.global_position - global_position).normalized()
+		_spawn_melee_hit_vfx(target, dir, is_crit)
+	else:
+		WeaponSystem.execute_attack(weapon_id, self, target, final_damage, is_crit, _main, character_data)
 	
 	# Trigger passive/synergy callbacks
 	PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, is_melee)
 	SynergySystem.on_unit_attack(character_data, self, target, final_damage, is_crit, is_melee)
+	_try_overclock_chain(target, final_damage, is_crit)
+
+func _effective_is_melee() -> bool:
+	if character_data == null:
+		return false
+	if character_data.attack_style == CharacterData.AttackStyle.MELEE:
+		return true
+	return _meta_ranged_to_melee_enabled()
+
+func _meta_ranged_to_melee_enabled() -> bool:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		return float(mp.get_add("ranged_to_melee_add", 0.0)) >= 1.0
+	return false
+
+func _meta_attack_speed_mult() -> float:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		return clampf(float(mp.get_mod("squad_attack_speed_mult", 1.0)), 0.5, 3.5)
+	return 1.0
+
+func _meta_ranged_range_mult() -> float:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		return clampf(float(mp.get_mod("squad_range_mult", 1.0)), 0.6, 2.5)
+	return 1.0
+
+func _try_overclock_chain(primary_target: Node2D, base_damage: int, is_crit: bool) -> void:
+	if _main == null or not is_instance_valid(_main) or primary_target == null or not is_instance_valid(primary_target):
+		return
+	if not _main.has_method("get_overclock_chain_chance"):
+		return
+	var chance := float(_main.get_overclock_chain_chance())
+	if chance <= 0.0 or randf() > chance:
+		return
+	var jumps := 0
+	if _main.has_method("get_overclock_chain_jumps"):
+		jumps = int(_main.get_overclock_chain_jumps())
+	if jumps <= 0:
+		return
+	var radius := 170.0
+	if _main.has_method("get_overclock_chain_radius"):
+		radius = float(_main.get_overclock_chain_radius())
+	var dmg_mult := 0.28
+	if _main.has_method("get_overclock_chain_damage_mult"):
+		dmg_mult = float(_main.get_overclock_chain_damage_mult())
+	var enemies: Array[Node2D] = _main.get_cached_enemies() if _main.has_method("get_cached_enemies") else []
+	var hit: Dictionary = {}
+	hit[primary_target.get_instance_id()] = true
+	var from: Node2D = primary_target
+	var falloff := 1.0
+	for _i in range(jumps):
+		var best: Node2D = null
+		var best_d2 := radius * radius
+		for e in enemies:
+			if e == null or not is_instance_valid(e):
+				continue
+			if hit.has(e.get_instance_id()):
+				continue
+			var d2 := from.global_position.distance_squared_to(e.global_position)
+			if d2 < best_d2:
+				best_d2 = d2
+				best = e
+		if best == null:
+			break
+		hit[best.get_instance_id()] = true
+		var arc_dmg := maxi(1, int(round(float(base_damage) * dmg_mult * falloff)))
+		if best.has_method("take_damage"):
+			best.take_damage(arc_dmg, is_crit, "overclock_chain")
+		var dir := (best.global_position - from.global_position).normalized()
+		var flash := VfxImpactFlash.new()
+		flash.setup(best.global_position + Vector2(0, -16), Color(0.45, 0.84, 1.0, 1.0), 12.0, 0.08)
+		_main.add_child(flash)
+		var streak := VfxMeleeStreak.new()
+		streak.setup(best.global_position + Vector2(0, -16), dir, Color(0.45, 0.84, 1.0, 0.95), 30.0, 6.0, 0.09)
+		_main.add_child(streak)
+		from = best
+		falloff *= 0.78
 
 func _spawn_melee_hit_vfx(target: Node2D, dir: Vector2, is_crit: bool) -> void:
 	if _main == null or not is_instance_valid(_main):
@@ -675,6 +778,9 @@ func _update_health_bar() -> void:
 	health_bar.value = float(current_hp) / maxf(1.0, float(max_hp_val)) * 100.0
 
 func take_damage(amount: int) -> void:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		amount = maxi(0, int(round(float(amount) * float(mp.get_mod("squad_damage_taken_mult", 1.0)))))
 	# Aegis: damage reduction window.
 	if _aegis_until_s > 0.0 and _aegis_dmg_mult < 0.999:
 		amount = maxi(0, int(round(float(amount) * _aegis_dmg_mult)))
