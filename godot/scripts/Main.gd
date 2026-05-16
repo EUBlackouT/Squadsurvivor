@@ -136,6 +136,8 @@ var _camera_unlock_mode: bool = false
 # Active ability unlocked by meta tree: Overclock (Q)
 var _overclock_until_s: float = 0.0
 var _overclock_cd_s: float = 0.0
+var _meta_kill_chain_t: float = 0.0
+var _meta_kill_chain_stacks: int = 0
 
 # Active ability (always available): Class Callout (F)
 var _callout_until_s: float = 0.0
@@ -712,6 +714,10 @@ func _physics_process(delta: float) -> void:
 		_overclock_until_s = maxf(0.0, _overclock_until_s - delta)
 	if _overclock_cd_s > 0.0:
 		_overclock_cd_s = maxf(0.0, _overclock_cd_s - delta)
+	if _meta_kill_chain_t > 0.0:
+		_meta_kill_chain_t = maxf(0.0, _meta_kill_chain_t - delta)
+		if _meta_kill_chain_t <= 0.0:
+			_meta_kill_chain_stacks = 0
 	if _callout_until_s > 0.0:
 		_callout_until_s = maxf(0.0, _callout_until_s - delta)
 	if _callout_cd_s > 0.0:
@@ -1968,6 +1974,21 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	if is_elite:
 		_run_elite_kills += 1
 
+	# Protocol keystone hooks: momentum chain and overclock kill-extension.
+	var mp_chain := get_node_or_null("/root/MetaProgression")
+	if mp_chain and is_instance_valid(mp_chain) and mp_chain.has_method("get_add"):
+		var chain_window := maxf(0.0, float(mp_chain.get_add("kill_chain_window_add", 0.0)))
+		if chain_window > 0.0:
+			var max_stacks := 1 + maxi(0, int(round(float(mp_chain.get_add("kill_chain_max_stacks_add", 0.0)))))
+			if _meta_kill_chain_t > 0.0:
+				_meta_kill_chain_stacks = mini(max_stacks, _meta_kill_chain_stacks + 1)
+			else:
+				_meta_kill_chain_stacks = 1
+			_meta_kill_chain_t = chain_window
+		var oc_extend := maxf(0.0, float(mp_chain.get_add("overclock_extend_on_kill_add", 0.0)))
+		if oc_extend > 0.0 and _overclock_until_s > 0.0 and (not _overclock_always_on_enabled()):
+			_overclock_until_s = minf(18.0, _overclock_until_s + oc_extend)
+
 	# Essence economy for rerolls - generous rewards feel good!
 	var base := 2 if not is_elite else 5  # More essence per kill
 	if was_boss:
@@ -2027,14 +2048,101 @@ func _apply_meta_on_kill_heal() -> void:
 		if u.has_method("heal"):
 			u.heal(heal_amt)
 
-func try_absorb_damage_with_essence(amount: int) -> int:
+func try_absorb_damage_with_essence(amount: int, origin: Vector2 = Vector2.ZERO) -> int:
 	if amount <= 0:
 		return 0
 	var absorbed := mini(amount, essence)
 	if absorbed <= 0:
 		return 0
 	essence -= absorbed
+	_proc_essence_guard_reflect(origin, absorbed)
 	return absorbed
+
+func get_meta_kill_chain_attack_speed_mult() -> float:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return 1.0
+	var per_stack := maxf(0.0, float(mp.get_add("kill_chain_haste_per_stack_add", 0.0)))
+	if per_stack <= 0.0 or _meta_kill_chain_stacks <= 0:
+		return 1.0
+	return clampf(1.0 + float(_meta_kill_chain_stacks) * per_stack, 1.0, 2.4)
+
+func proc_execute_blast(origin: Vector2, source_damage: int) -> void:
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return
+	var radius := maxf(0.0, float(mp.get_add("execute_blast_radius_add", 0.0)))
+	if radius <= 0.0:
+		return
+	var mult := 0.0
+	if mp.has_method("get_mod"):
+		mult = maxf(0.0, float(mp.get_mod("execute_blast_damage_mult", 0.0)))
+	if mult <= 0.0:
+		return
+	var blast_dmg := maxi(1, int(round(float(maxi(1, source_damage)) * mult)))
+	# Safety cap: keep execute blast impactful but not wave-deleting.
+	blast_dmg = mini(blast_dmg, 260)
+	var mark_add := maxf(0.0, float(mp.get_add("execute_blast_mark_threshold_add", 0.0)))
+	var max_targets := 10
+	var hit_count := 0
+	var r2 := radius * radius
+	for e in live_enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) <= r2 and n2.has_method("take_damage"):
+			var dist := n2.global_position.distance_to(origin)
+			var t := clampf(dist / maxf(1.0, radius), 0.0, 1.0)
+			var falloff := lerpf(1.0, 0.35, t)
+			var dealt := maxi(1, int(round(float(blast_dmg) * falloff)))
+			n2.take_damage(dealt, false, "execute_blast")
+			if mark_add > 0.0 and n2.has_method("apply_execute_vulnerability"):
+				n2.apply_execute_vulnerability(mark_add, 3.0)
+			hit_count += 1
+			if hit_count >= max_targets:
+				break
+	var sw := VfxShockwave.new()
+	sw.setup(origin, Color(1.0, 0.45, 0.35, 1.0), 12.0, radius * 0.46, 4.5, 0.20)
+	add_child(sw)
+
+func _proc_essence_guard_reflect(origin: Vector2, absorbed: int) -> void:
+	if absorbed <= 0:
+		return
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return
+	var ratio := clampf(float(mp.get_add("essence_guard_reflect_ratio_add", 0.0)), 0.0, 2.0)
+	if ratio <= 0.0:
+		return
+	var radius := 170.0 + maxf(0.0, float(mp.get_add("essence_guard_reflect_radius_add", 0.0)))
+	var pos := origin
+	if pos == Vector2.ZERO:
+		var p := get_tree().get_first_node_in_group("player") as Node2D
+		if p and is_instance_valid(p):
+			pos = p.global_position
+	var dmg := maxi(1, int(round(float(absorbed) * ratio)))
+	# Guardrail: this proc is defensive utility, not a full nuke.
+	dmg = mini(dmg, 180)
+	var max_targets := 8
+	var hit_count := 0
+	var r2 := radius * radius
+	for e in live_enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(pos) <= r2 and n2.has_method("take_damage"):
+			var dist := n2.global_position.distance_to(pos)
+			var t := clampf(dist / maxf(1.0, radius), 0.0, 1.0)
+			var falloff := lerpf(1.0, 0.40, t)
+			var dealt := maxi(1, int(round(float(dmg) * falloff)))
+			n2.take_damage(dealt, false, "essence_guard")
+			hit_count += 1
+			if hit_count >= max_targets:
+				break
 
 func _on_draft_ready() -> void:
 	# Autosave immediately before pausing (so resume is reliable).

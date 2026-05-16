@@ -89,6 +89,10 @@ var _bleed_show_cd: float = 0.0
 
 var _slow_mult: float = 1.0
 var _slow_cd: float = 0.0
+var _slow_accum_t: float = 0.0
+var _freeze_cd: float = 0.0
+var _execute_vuln_add: float = 0.0
+var _execute_vuln_cd: float = 0.0
 
 # Burn (synergy / future passives)
 var _burn_amount: float = 0.0
@@ -278,7 +282,12 @@ func _physics_process(delta: float) -> void:
 		if _target.has_method("take_damage"):
 			# Smoke blind can cause contact attacks to miss.
 			if randf() <= _smoke_hit_chance:
-				_target.take_damage(contact_damage)
+				var dealt := contact_damage
+				if is_slowed():
+					var mp := get_node_or_null("/root/MetaProgression")
+					if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+						dealt = maxi(1, int(round(float(dealt) * float(mp.get_mod("slowed_enemy_damage_mult", 1.0)))))
+				_target.take_damage(dealt)
 				# VFX: enemy melee hit (EffectBlocks if exported)
 				var world := _main if _main != null else get_tree().get_first_node_in_group("main") as Node2D
 				if world != null:
@@ -342,6 +351,8 @@ func _resolve_actor_overlap() -> void:
 			global_position = n2.global_position + dsu.normalized() * ACTOR_SEPARATION_RADIUS
 
 func _base_move_speed() -> float:
+	if _freeze_cd > 0.0:
+		return 0.0
 	return (character_data.move_speed if character_data != null else 90.0) * _slow_mult * _move_speed_mult * ENEMY_WORLD_SPEED_MULT
 
 func _melee_step(_delta: float, _dist: float, dir: Vector2) -> void:
@@ -777,6 +788,19 @@ func get_hp_ratio() -> float:
 	var m := float(character_data.max_hp) if character_data != null else 30.0
 	return float(current_hp) / maxf(1.0, m)
 
+func get_execute_threshold_bonus() -> float:
+	return _execute_vuln_add if _execute_vuln_cd > 0.0 else 0.0
+
+func apply_execute_vulnerability(add: float, duration: float) -> void:
+	_execute_vuln_add = clampf(maxf(_execute_vuln_add, add), 0.0, 0.35)
+	_execute_vuln_cd = maxf(_execute_vuln_cd, duration)
+
+func is_slowed() -> bool:
+	return _slow_cd > 0.0 and _slow_mult < 0.999
+
+func is_burning() -> bool:
+	return _burn_time_left > 0.0 and _burn_amount > 0.0
+
 func _die() -> void:
 	# Optional: explode if tagged by a passive (e.g., Hex Bomb)
 	_process_death_tags()
@@ -971,7 +995,12 @@ func apply_bleed(dps: float, duration: float, tick_interval: float) -> void:
 	_bleed_cd = minf(_bleed_cd, _bleed_tick)
 
 func apply_slow(mult: float, duration: float) -> void:
-	_slow_mult = minf(_slow_mult, mult)
+	var applied_mult := mult
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+		var initial_mult := clampf(float(mp.get_mod("slow_initial_strength_mult", 1.0)), 0.2, 1.0)
+		applied_mult = 1.0 - (1.0 - mult) * initial_mult
+	_slow_mult = minf(_slow_mult, applied_mult)
 	_slow_cd = maxf(_slow_cd, duration)
 
 func apply_burn(dps: float, duration: float, tick_interval: float) -> void:
@@ -984,9 +1013,25 @@ func _tick_status(delta: float) -> void:
 	# Slow duration
 	if _slow_cd > 0.0:
 		_slow_cd -= delta
+		_slow_accum_t += delta
+		var mp := get_node_or_null("/root/MetaProgression")
+		if mp and is_instance_valid(mp) and mp.has_method("get_add"):
+			if float(mp.get_add("slow_stacks_to_freeze_enabled", 0.0)) >= 1.0:
+				var after := maxf(0.25, float(mp.get_add("freeze_after_slow_duration", 3.0)))
+				if _slow_accum_t >= after and _freeze_cd <= 0.0:
+					_freeze_cd = 1.0
+					_slow_accum_t = 0.0
 		if _slow_cd <= 0.0:
 			_slow_cd = 0.0
 			_slow_mult = 1.0
+			_slow_accum_t = 0.0
+	if _freeze_cd > 0.0:
+		_freeze_cd = maxf(0.0, _freeze_cd - delta)
+	if _execute_vuln_cd > 0.0:
+		_execute_vuln_cd -= delta
+		if _execute_vuln_cd <= 0.0:
+			_execute_vuln_cd = 0.0
+			_execute_vuln_add = 0.0
 
 	# Bleed
 	if _bleed_time_left > 0.0 and _bleed_amount > 0.0:

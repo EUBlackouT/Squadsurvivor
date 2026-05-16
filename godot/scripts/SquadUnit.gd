@@ -87,6 +87,8 @@ func _apply_from_data() -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		meta_hp_mult = float(mp.get_mod("squad_hp_mult", 1.0))
+		if character_data != null and character_data.class_type != CharacterData.Class.GUARDIAN:
+			meta_hp_mult *= float(mp.get_mod("non_guardian_hp_mult", 1.0))
 	
 	_max_hp_effective = int(round(float(character_data.max_hp) * float(mods.get("max_hp_mult", 1.0)) * meta_hp_mult))
 	_max_hp_effective = maxi(1, _max_hp_effective)
@@ -514,6 +516,8 @@ func _attack(target: Node2D) -> void:
 
 	var is_crit: bool = false
 	var final_damage := character_data.attack_damage if character_data != null else 10
+	var execute_proc := false
+	var execute_source_damage := final_damage
 	if character_data != null:
 		var mods := SynergySystem.mods_for_cd(character_data)
 		final_damage = int(round(float(final_damage) * float(mods.get("attack_damage_mult", 1.0))))
@@ -527,10 +531,16 @@ func _attack(target: Node2D) -> void:
 	# Overclock: damage multiplier (meta buildcraft)
 	if _main and is_instance_valid(_main) and _main.has_method("get_overclock_damage_mult"):
 		final_damage = int(round(float(final_damage) * float(_main.get_overclock_damage_mult())))
+	execute_source_damage = final_damage
+
+	# Last-stand doctrine: low life gains offensive spikes with clear tradeoffs.
+	if _low_hp_berserk_active(mp):
+		if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+			final_damage = int(round(float(final_damage) * float(mp.get_mod("berserk_damage_mult", 1.0))))
 
 	# Focus doctrine keystone: focused target takes extra squad damage.
 	if _main and is_instance_valid(_main) and _main.has_method("get_focus_target"):
-		var ft := _main.get_focus_target()
+		var ft: Node2D = _main.get_focus_target() as Node2D
 		if ft != null and ft == target:
 			var mp2 := get_node_or_null("/root/MetaProgression")
 			if mp2 and is_instance_valid(mp2) and mp2.has_method("get_mod"):
@@ -538,8 +548,18 @@ func _attack(target: Node2D) -> void:
 	# Execute doctrine: targets below threshold are finished aggressively.
 	if target.has_method("get_hp_ratio") and mp and is_instance_valid(mp) and mp.has_method("get_add"):
 		var exec_th := clampf(float(mp.get_add("execute_threshold_add", 0.0)), 0.0, 0.6)
+		if target.has_method("get_execute_threshold_bonus"):
+			exec_th += float(target.get_execute_threshold_bonus())
+		if target.has_method("is_slowed") and bool(target.is_slowed()):
+			exec_th += float(mp.get_add("slowed_execute_threshold_add", 0.0))
+		if target.has_method("is_burning") and bool(target.is_burning()):
+			exec_th += float(mp.get_add("burning_enemy_execute_threshold_add", 0.0))
+		exec_th = clampf(exec_th, 0.0, 0.9)
 		if exec_th > 0.0 and float(target.get_hp_ratio()) <= exec_th:
+			execute_proc = true
 			final_damage = maxi(final_damage, 999999)
+		elif target.has_method("is_slowed") and (not bool(target.is_slowed())):
+			final_damage = int(round(float(final_damage) * float(mp.get_mod("unslowed_enemy_damage_taken_mult", 1.0))))
 	
 	# Crit check with meta progression bonus
 	var crit_chance := character_data.crit_chance if character_data != null else 0.0
@@ -548,6 +568,11 @@ func _attack(target: Node2D) -> void:
 	if crit_chance > 0.0 and randf() < crit_chance:
 		is_crit = true
 		final_damage = int(round(float(final_damage) * (character_data.crit_mult if character_data != null else 1.5)))
+	else:
+		if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+			final_damage = int(round(float(final_damage) * float(mp.get_mod("noncrit_damage_mult", 1.0))))
+
+	final_damage = _apply_distance_doctrine(target, final_damage, mp)
 
 	# Use weapon system for attack
 	if _main == null or not is_instance_valid(_main):
@@ -568,6 +593,12 @@ func _attack(target: Node2D) -> void:
 		_spawn_melee_hit_vfx(target, dir, is_crit)
 	else:
 		WeaponSystem.execute_attack(weapon_id, self, target, final_damage, is_crit, _main, character_data)
+	if is_crit and mp and is_instance_valid(mp) and mp.has_method("get_add"):
+		var vuln := maxf(0.0, float(mp.get_add("crit_execute_vuln_add", 0.0)))
+		if vuln > 0.0 and target.has_method("apply_execute_vulnerability"):
+			target.apply_execute_vulnerability(vuln, 3.0)
+	if execute_proc and _main and is_instance_valid(_main) and _main.has_method("proc_execute_blast"):
+		_main.proc_execute_blast(target.global_position, execute_source_damage)
 	
 	# Trigger passive/synergy callbacks
 	PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, is_melee)
@@ -589,15 +620,41 @@ func _meta_ranged_to_melee_enabled() -> bool:
 
 func _meta_attack_speed_mult() -> float:
 	var mp := get_node_or_null("/root/MetaProgression")
+	var out := 1.0
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
-		return clampf(float(mp.get_mod("squad_attack_speed_mult", 1.0)), 0.5, 3.5)
-	return 1.0
+		out *= float(mp.get_mod("squad_attack_speed_mult", 1.0))
+		if _low_hp_berserk_active(mp):
+			out *= float(mp.get_mod("berserk_attack_speed_mult", 1.0))
+	if _main and is_instance_valid(_main) and _main.has_method("get_meta_kill_chain_attack_speed_mult"):
+		out *= float(_main.get_meta_kill_chain_attack_speed_mult())
+	return clampf(out, 0.5, 3.5)
 
 func _meta_ranged_range_mult() -> float:
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		return clampf(float(mp.get_mod("squad_range_mult", 1.0)), 0.6, 2.5)
 	return 1.0
+
+func _apply_distance_doctrine(target: Node2D, amount: int, mp: Node) -> int:
+	if target == null or not is_instance_valid(target) or character_data == null:
+		return amount
+	if character_data.attack_style != CharacterData.AttackStyle.RANGED:
+		return amount
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return amount
+	var attack_r := maxf(60.0, character_data.attack_range * _meta_ranged_range_mult())
+	var dist := global_position.distance_to(target.global_position)
+	var t := clampf(dist / attack_r, 0.0, 1.0)
+	var mult := 1.0
+	var pb_bonus := maxf(0.0, float(mp.get_add("point_blank_max_bonus_add", 0.0)))
+	var pb_far_pen := maxf(0.0, float(mp.get_add("point_blank_far_penalty_add", 0.0)))
+	if pb_bonus > 0.0 or pb_far_pen > 0.0:
+		mult *= lerpf(1.0 + pb_bonus, 1.0 - pb_far_pen, t)
+	var fs_bonus := maxf(0.0, float(mp.get_add("farshot_max_bonus_add", 0.0)))
+	var fs_near_pen := maxf(0.0, float(mp.get_add("farshot_near_penalty_add", 0.0)))
+	if fs_bonus > 0.0 or fs_near_pen > 0.0:
+		mult *= lerpf(1.0 - fs_near_pen, 1.0 + fs_bonus, t)
+	return maxi(1, int(round(float(amount) * mult)))
 
 func _try_overclock_chain(primary_target: Node2D, base_damage: int, is_crit: bool) -> void:
 	if _main == null or not is_instance_valid(_main) or primary_target == null or not is_instance_valid(primary_target):
@@ -784,14 +841,24 @@ func _update_health_bar() -> void:
 
 func take_damage(amount: int) -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
+	amount = _apply_guardian_intercept(amount, mp)
 	if mp and is_instance_valid(mp) and mp.has_method("get_add") and _main and is_instance_valid(_main) and _main.has_method("try_absorb_damage_with_essence"):
 		var ratio := clampf(float(mp.get_add("damage_taken_as_essence_add", 0.0)), 0.0, 0.9)
 		if ratio > 0.0:
 			var to_absorb := int(round(float(amount) * ratio))
-			var absorbed := int(_main.try_absorb_damage_with_essence(to_absorb))
+			var absorbed := int(_main.try_absorb_damage_with_essence(to_absorb, global_position))
 			amount = maxi(0, amount - absorbed)
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		amount = maxi(0, int(round(float(amount) * float(mp.get_mod("squad_damage_taken_mult", 1.0)))))
+		if _low_hp_berserk_active(mp):
+			amount = maxi(0, int(round(float(amount) * float(mp.get_mod("berserk_damage_taken_mult", 1.0)))))
+		var near_mult := float(mp.get_mod("near_enemy_damage_taken_mult", 1.0))
+		if near_mult > 1.001:
+			var near_r := 190.0
+			if mp.has_method("get_add"):
+				near_r += float(mp.get_add("near_enemy_threat_radius_add", 0.0))
+			if _has_enemy_within_radius(near_r):
+				amount = maxi(0, int(round(float(amount) * near_mult)))
 	# Aegis: damage reduction window.
 	if _aegis_until_s > 0.0 and _aegis_dmg_mult < 0.999:
 		amount = maxi(0, int(round(float(amount) * _aegis_dmg_mult)))
@@ -894,6 +961,68 @@ func get_max_hp() -> int:
 func get_hp_ratio() -> float:
 	var mh := float(get_max_hp())
 	return float(current_hp) / maxf(1.0, mh)
+
+func _low_hp_berserk_active(mp: Node) -> bool:
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return false
+	var th := clampf(float(mp.get_add("berserk_threshold_add", 0.0)), 0.0, 0.95)
+	if th <= 0.0:
+		return false
+	return get_hp_ratio() <= th
+
+func _apply_guardian_intercept(amount: int, mp: Node) -> int:
+	if amount <= 0:
+		return amount
+	if character_data == null or character_data.class_type == CharacterData.Class.GUARDIAN:
+		return amount
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return amount
+	var ratio := clampf(float(mp.get_add("guardian_intercept_ratio_add", 0.0)), 0.0, 0.8)
+	if ratio <= 0.0:
+		return amount
+	if _main == null or not is_instance_valid(_main):
+		return amount
+	if not _main.has_method("get_cached_squad_units"):
+		return amount
+	var squad: Array[Node2D] = _main.get_cached_squad_units()
+	var best_guard: Node2D = null
+	var best_d2 := INF
+	for u in squad:
+		if u == null or not is_instance_valid(u) or u == self:
+			continue
+		var su := u as SquadUnit
+		if su == null or su.character_data == null:
+			continue
+		if su.character_data.class_type != CharacterData.Class.GUARDIAN:
+			continue
+		if su.current_hp <= 0:
+			continue
+		var d2 := su.global_position.distance_squared_to(global_position)
+		if d2 < best_d2:
+			best_d2 = d2
+			best_guard = su
+	if best_guard == null:
+		return amount
+	var redirected := int(round(float(amount) * ratio))
+	if redirected <= 0:
+		return amount
+	if best_guard.has_method("take_damage"):
+		best_guard.take_damage(redirected)
+	return maxi(0, amount - redirected)
+
+func _has_enemy_within_radius(radius: float) -> bool:
+	if _main == null or not is_instance_valid(_main):
+		return false
+	if not _main.has_method("get_cached_enemies"):
+		return false
+	var r2 := radius * radius
+	var enemies: Array[Node2D] = _main.get_cached_enemies()
+	for e in enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+		if global_position.distance_squared_to(e.global_position) <= r2:
+			return true
+	return false
 
 func _get_effective_move_speed() -> float:
 	var base_speed := character_data.move_speed if character_data != null else 120.0

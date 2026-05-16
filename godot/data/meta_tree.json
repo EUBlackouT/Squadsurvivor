@@ -56,9 +56,9 @@
     { "id": "oc_tune", "name": "Overclock Tuning", "desc": "Overclock cooldown reduced further.", "cost": 1100, "pos": [0, 390], "prereq": ["oc_keystone"], "mods": { "overclock_cooldown_mult": 0.90 } },
     { "id": "oc_adrenal", "name": "Adrenal Surge", "desc": "Overclock grants more move speed but slightly less attack speed.", "cost": 1100, "pos": [170, 390], "prereq": ["oc_keystone"], "mods": { "overclock_move_speed_mult": 1.12, "overclock_attack_speed_mult": 0.96 } },
     { "id": "oc_barrage", "name": "Barrage Mode", "desc": "Overclock grants more attack speed but slightly less duration.", "cost": 1100, "pos": [-170, 390], "prereq": ["oc_keystone"], "mods": { "overclock_attack_speed_mult": 1.12, "overclock_duration_mult": 0.92 } },
-    { "id": "oc_discharge", "name": "Arc Discharge", "desc": "Overclock activation damages nearby enemies (tradeoff: slightly longer cooldown).", "cost": 1400, "pos": [0, 470], "prereq": ["oc_tune"], "tags": ["keystone"], "mods": { "overclock_burst_damage_add": 10, "overclock_burst_radius_add": 120, "overclock_cooldown_mult": 1.10 } },
-    { "id": "oc_hunter", "name": "Hunter Protocol", "desc": "While Overclock is active, chain chance is higher.", "cost": 1400, "pos": [240, 470], "prereq": ["oc_adrenal"], "mods": { "overclock_chain_chance_add": 0.14 } },
-    { "id": "oc_lethal", "name": "Lethal Voltage", "desc": "While Overclock is active, squad deals more damage.", "cost": 1400, "pos": [-240, 470], "prereq": ["oc_barrage"], "mods": { "overclock_damage_mult": 1.12 } },
+    { "id": "oc_discharge", "name": "Public Execution", "desc": "Execute blasts are wider and mark survivors for follow-up executions, but base execute threshold is slightly lower.", "cost": 1400, "pos": [0, 470], "prereq": ["oc_tune"], "tags": ["keystone"], "mods": { "execute_blast_radius_add": 60, "execute_blast_damage_mult": 1.15, "execute_blast_mark_threshold_add": 0.06, "execute_threshold_add": -0.04 } },
+    { "id": "oc_hunter", "name": "Frozen Verdict", "desc": "Slowed enemies are much easier to execute, but unslowed enemies resist your damage.", "cost": 1400, "pos": [240, 470], "prereq": ["oc_adrenal"], "mods": { "execute_threshold_add": 0.04, "slowed_execute_threshold_add": 0.08, "unslowed_enemy_damage_taken_mult": 0.94 } },
+    { "id": "oc_lethal", "name": "Rogue Tribunal", "desc": "Critical hits mark targets for execution, but non-critical damage is weaker.", "cost": 1400, "pos": [-240, 470], "prereq": ["oc_barrage"], "mods": { "squad_crit_add": 0.08, "execute_threshold_add": 0.03, "crit_execute_vuln_add": 0.04, "noncrit_damage_mult": 0.85 } },
 
     { "id": "hp_boost_4", "name": "Vitality IV", "desc": "+14% Squad HP", "cost": 1100, "pos": [-640, -220], "prereq": ["hp_boost_3"], "mods": { "squad_hp_mult": 1.14 } },
     { "id": "dmg_boost_4", "name": "Power IV", "desc": "+15% Squad Damage", "cost": 1200, "pos": [640, -220], "prereq": ["dmg_boost_3"], "mods": { "squad_damage_mult": 1.15 } },
@@ -73,7 +73,7 @@
 
     { "id": "dash_3", "name": "Kinetic Flow III", "desc": "Further movement and tempo.", "cost": 1100, "pos": [-390, -130], "prereq": ["dash_2"], "mods": { "squad_speed_mult": 1.07, "squad_attack_speed_mult": 1.05 } },
     { "id": "dash_longstep", "name": "Longstep Module", "desc": "Extends engagement reach for ranged squads.", "cost": 1300, "pos": [-560, -130], "prereq": ["dash_3"], "mods": { "squad_range_mult": 1.08 } },
-    { "id": "dash_strider", "name": "Strider Doctrine", "desc": "Fast tempo doctrine with mixed offense.", "cost": 1600, "pos": [-720, -130], "tags": ["keystone"], "prereq": ["dash_longstep"], "mods": { "squad_speed_mult": 1.10, "squad_attack_speed_mult": 1.07 } },
+    { "id": "dash_strider", "name": "Point-Blank Doctrine", "desc": "Ranged attacks hit hardest up close and taper at distance.", "cost": 1600, "pos": [-720, -130], "tags": ["keystone"], "prereq": ["dash_longstep"], "mods": { "squad_speed_mult": 1.08, "squad_range_mult": 0.80, "point_blank_max_bonus_add": 0.45, "point_blank_far_penalty_add": 0.25 } },
 
     { "id": "armor_1", "name": "Reactive Plating I", "desc": "Squad takes less incoming damage.", "cost": 650, "pos": [-620, -320], "prereq": ["hp_boost_2"], "mods": { "squad_damage_taken_mult": 0.93 } },
     { "id": "armor_2", "name": "Reactive Plating II", "desc": "Further reduces incoming squad damage.", "cost": 1200, "pos": [-760, -360], "prereq": ["armor_1"], "mods": { "squad_damage_taken_mult": 0.90 } },
@@ -85,7 +85,7 @@
 
     { "id": "ballistics_1", "name": "Long Sight I", "desc": "Ranged units attack from farther away.", "cost": 700, "pos": [-120, -560], "prereq": ["crit_1"], "mods": { "squad_range_mult": 1.12 } },
     { "id": "ballistics_2", "name": "Long Sight II", "desc": "Further increases ranged attack distance.", "cost": 1300, "pos": [-200, -690], "prereq": ["ballistics_1"], "mods": { "squad_range_mult": 1.12 } },
-    { "id": "sniper_grid", "name": "Sniper Grid", "desc": "Long-range precision doctrine with high crit scaling.", "cost": 2300, "pos": [-280, -840], "tags": ["keystone"], "prereq": ["ballistics_2"], "mods": { "squad_range_mult": 1.12, "squad_crit_add": 0.06 } },
+    { "id": "sniper_grid", "name": "Deadeye Exile", "desc": "Far targets take more damage, but close threats are dangerous.", "cost": 2300, "pos": [-280, -840], "tags": ["keystone"], "prereq": ["ballistics_2"], "mods": { "squad_range_mult": 1.35, "squad_speed_mult": 0.92, "squad_damage_taken_mult": 1.10, "farshot_max_bonus_add": 0.40, "farshot_near_penalty_add": 0.30, "near_enemy_damage_taken_mult": 1.20, "near_enemy_threat_radius_add": 36 } },
 
     { "id": "dmg_as_1", "name": "Pressure Fire I", "desc": "Damage squads shoot faster.", "cost": 700, "pos": [760, -300], "prereq": ["dmg_boost_2"], "mods": { "squad_attack_speed_mult": 1.08 } },
     { "id": "dmg_as_2", "name": "Pressure Fire II", "desc": "Further increases firing cadence.", "cost": 1400, "pos": [900, -320], "prereq": ["dmg_as_1"], "mods": { "squad_attack_speed_mult": 1.10 } },
@@ -98,11 +98,11 @@
     { "id": "oc_chain_1", "name": "Arc Relay I", "desc": "Overclock hits can chain electricity.", "cost": 1300, "pos": [120, 560], "prereq": ["oc_keystone"], "mods": { "overclock_chain_chance_add": 0.18 } },
     { "id": "oc_chain_2", "name": "Arc Relay II", "desc": "Chain chance improves and jumps once more.", "cost": 1700, "pos": [260, 660], "prereq": ["oc_chain_1"], "mods": { "overclock_chain_chance_add": 0.20, "overclock_chain_jumps_add": 1 } },
     { "id": "oc_chain_3", "name": "Arc Relay III", "desc": "Chain arcs hit harder and from farther away.", "cost": 2100, "pos": [420, 760], "prereq": ["oc_chain_2"], "mods": { "overclock_chain_damage_mult": 1.25, "overclock_chain_radius_add": 50 } },
-    { "id": "oc_storm_keystone", "name": "Storm Protocol", "desc": "Overclock becomes a chain-lightning build centerpiece.", "cost": 3200, "pos": [620, 860], "tags": ["keystone"], "prereq": ["oc_chain_3"], "mods": { "overclock_chain_jumps_add": 1, "overclock_chain_damage_mult": 1.35, "overclock_chain_radius_add": 80, "overclock_cooldown_mult": 1.06 } },
+    { "id": "oc_storm_keystone", "name": "Chain Reactor", "desc": "Overclock turns kills and arcs into a chain-lightning storm, with lower baseline damage.", "cost": 3200, "pos": [620, 860], "tags": ["keystone"], "prereq": ["oc_chain_3"], "mods": { "overclock_chain_chance_add": 0.35, "overclock_chain_jumps_add": 3, "overclock_chain_damage_mult": 1.20, "overclock_chain_radius_add": 48, "squad_damage_mult": 0.90 } },
 
     { "id": "predator_1", "name": "Predator Mark I", "desc": "Execution branch with stronger general damage.", "cost": 850, "pos": [560, -80], "prereq": ["focus_2"], "mods": { "squad_damage_mult": 1.06 } },
     { "id": "predator_2", "name": "Predator Mark II", "desc": "Execution branch with stronger crit finishers.", "cost": 1450, "pos": [700, -20], "prereq": ["predator_1"], "mods": { "squad_damage_mult": 1.05, "squad_crit_add": 0.04 } },
-    { "id": "execution_net", "name": "Execution Net", "desc": "High execution doctrine with extra crit and damage at some risk.", "cost": 2600, "pos": [860, 40], "tags": ["keystone"], "prereq": ["predator_2"], "mods": { "squad_crit_add": 0.05, "squad_damage_mult": 1.08, "squad_damage_taken_mult": 1.05 } },
+    { "id": "execution_net", "name": "Guillotine Protocol", "desc": "Executions become your core kill pattern, while baseline damage is lower.", "cost": 2600, "pos": [860, 40], "tags": ["keystone"], "prereq": ["predator_2"], "mods": { "execute_threshold_add": 0.10, "execute_blast_radius_add": 36, "execute_blast_damage_mult": 1.45, "squad_damage_mult": 0.82 } },
 
     { "id": "brawler_1", "name": "Close Quarters I", "desc": "Converts ranged squad members into melee fighters.", "cost": 1000, "pos": [-520, -520], "prereq": ["ballistics_1"], "mods": { "ranged_to_melee_add": 1 } },
     { "id": "brawler_2", "name": "Close Quarters II", "desc": "Ranged-oriented buffs now strengthen melee conversion.", "cost": 1650, "pos": [-680, -600], "prereq": ["brawler_1"], "mods": { "ranged_transfer_melee_mult": 1.18 } },
@@ -126,7 +126,7 @@
 
     { "id": "fusion_1", "name": "Fusion Circuit I", "desc": "Hybrid bridge between offense and overclock.", "cost": 1300, "pos": [980, 30], "prereq": ["dmg_as_1", "bridge_2"], "mods": { "squad_damage_mult": 1.06, "overclock_attack_speed_mult": 1.06 } },
     { "id": "fusion_2", "name": "Fusion Circuit II", "desc": "Hybrid bridge that amplifies execution and chains.", "cost": 2000, "pos": [1120, 120], "prereq": ["fusion_1", "predator_2"], "mods": { "squad_damage_mult": 1.06, "overclock_chain_chance_add": 0.12 } },
-    { "id": "fusion_overload", "name": "Fusion Overload", "desc": "Massive hybrid burst doctrine with extra risk.", "cost": 3400, "pos": [1260, 220], "tags": ["keystone"], "prereq": ["fusion_2", "oc_chain_2"], "mods": { "squad_attack_speed_mult": 1.10, "overclock_chain_damage_mult": 1.15, "squad_damage_taken_mult": 1.08 } },
+    { "id": "fusion_overload", "name": "Mage Conductor", "desc": "Chain builds gain coverage, but isolated single-target damage is weaker.", "cost": 3400, "pos": [1260, 220], "tags": ["keystone"], "prereq": ["fusion_2", "oc_chain_2"], "mods": { "mage_chain_jumps_add": 2, "mage_chain_range_add": 80, "mage_single_target_mult": 0.88, "squad_damage_mult": 0.90 } },
 
     { "id": "tactician_1", "name": "Tactician Weave I", "desc": "Cross-links assault and defense control.", "cost": 1250, "pos": [120, -160], "prereq": ["bridge_1", "focus_1"], "mods": { "squad_attack_speed_mult": 1.05, "squad_damage_taken_mult": 0.97 } },
     { "id": "tactician_2", "name": "Tactician Weave II", "desc": "Further improves pacing and team efficiency.", "cost": 1900, "pos": [40, -20], "prereq": ["tactician_1", "bridge_3"], "mods": { "squad_attack_speed_mult": 1.06, "squad_damage_mult": 1.05 } },
@@ -140,9 +140,96 @@
     { "id": "execution_2", "name": "Execution Protocol II", "desc": "Execution threshold increased to 14%.", "cost": 2400, "pos": [1140, -180], "prereq": ["execution_1"], "mods": { "execute_threshold_add": 0.06 } },
     { "id": "reaper_clause", "name": "Reaper Clause", "desc": "Execution doctrine: very lethal finishers, but you are slightly squishier.", "cost": 3500, "pos": [1320, -240], "tags": ["keystone"], "prereq": ["execution_2"], "mods": { "execute_threshold_add": 0.05, "squad_damage_taken_mult": 1.06 } },
 
-    { "id": "static_drive_1", "name": "Static Drive I", "desc": "Overclock uptime baseline is improved.", "cost": 1800, "pos": [-40, 700], "prereq": ["oc_2"], "mods": { "overclock_duration_mult": 1.12 } },
-    { "id": "static_drive_2", "name": "Static Drive II", "desc": "Overclock cooldown reduced further.", "cost": 2600, "pos": [-120, 820], "prereq": ["static_drive_1"], "mods": { "overclock_cooldown_mult": 0.82 } },
-    { "id": "eldritch_drive", "name": "Eldritch Drive", "desc": "Overclock is permanently active, but chain effects are disabled.", "cost": 3800, "pos": [-220, 980], "tags": ["keystone"], "prereq": ["static_drive_2"], "mods": { "overclock_always_on_add": 1 } }
+    { "id": "static_drive_1", "name": "Guardian Aegis I", "desc": "Guardians begin intercepting ally damage and reflecting pressure.", "cost": 1800, "pos": [-40, 700], "prereq": ["oc_2"], "mods": { "guardian_intercept_ratio_add": 0.12, "essence_guard_reflect_ratio_add": 0.10 } },
+    { "id": "static_drive_2", "name": "Guardian Aegis II", "desc": "Interception grows stronger and non-guardians sacrifice durability.", "cost": 2600, "pos": [-120, 820], "prereq": ["static_drive_1"], "mods": { "guardian_intercept_ratio_add": 0.13, "essence_guard_reflect_radius_add": 40, "non_guardian_hp_mult": 0.92 } },
+    { "id": "eldritch_drive", "name": "Guardian Aegis", "desc": "Guardians absorb allied pain and turn it into reflected pressure.", "cost": 3800, "pos": [-220, 980], "tags": ["keystone"], "prereq": ["static_drive_2"], "mods": { "guardian_intercept_ratio_add": 0.20, "essence_guard_reflect_ratio_add": 0.22, "essence_guard_reflect_radius_add": 52, "non_guardian_hp_mult": 0.85 } },
+
+    { "id": "momentum_1", "name": "Reaper Momentum I", "desc": "Kills open a short chain window that grants attack speed.", "cost": 1350, "pos": [1450, -240], "prereq": ["execution_1"], "mods": { "kill_chain_window_add": 0.8, "kill_chain_haste_per_stack_add": 0.015 } },
+    { "id": "momentum_2", "name": "Reaper Momentum II", "desc": "Momentum chain lasts longer and ramps faster.", "cost": 2100, "pos": [1610, -260], "prereq": ["momentum_1"], "mods": { "kill_chain_window_add": 0.9, "kill_chain_haste_per_stack_add": 0.015 } },
+    { "id": "momentum_3", "name": "Reaper Momentum III", "desc": "Momentum now supports deeper kill chains.", "cost": 2850, "pos": [1760, -240], "prereq": ["momentum_2"], "mods": { "kill_chain_window_add": 1.0, "kill_chain_max_stacks_add": 2, "kill_chain_haste_per_stack_add": 0.02 } },
+    { "id": "reaper_momentum", "name": "Reaper Momentum", "desc": "Kills rapidly accelerate your squad and sustain overclock windows.", "cost": 4300, "pos": [1940, -210], "tags": ["keystone"], "prereq": ["momentum_3"], "mods": { "kill_chain_window_add": 1.2, "kill_chain_haste_per_stack_add": 0.03, "kill_chain_max_stacks_add": 4, "overclock_extend_on_kill_add": 0.12 } },
+
+    { "id": "execution_blast_1", "name": "Detonation Clause I", "desc": "Executions emit a localized blast.", "cost": 1450, "pos": [1430, -40], "prereq": ["execution_1"], "mods": { "execute_blast_radius_add": 70 } },
+    { "id": "execution_blast_2", "name": "Detonation Clause II", "desc": "Execution blasts deal significant collateral damage.", "cost": 2200, "pos": [1590, 10], "prereq": ["execution_blast_1"], "mods": { "execute_blast_damage_mult": 1.25 } },
+    { "id": "execution_blast_3", "name": "Detonation Clause III", "desc": "Execution blast radius and force are amplified.", "cost": 3000, "pos": [1760, 60], "prereq": ["execution_blast_2"], "mods": { "execute_blast_radius_add": 80, "execute_blast_damage_mult": 1.25 } },
+    { "id": "butcher_protocol", "name": "Butcher Protocol", "desc": "Execute paths become battlefield-clearing detonations at added risk.", "cost": 4500, "pos": [1940, 110], "tags": ["keystone"], "prereq": ["execution_blast_3"], "mods": { "execute_blast_radius_add": 120, "execute_blast_damage_mult": 1.35, "squad_damage_taken_mult": 1.05 } },
+
+    { "id": "aether_feedback_1", "name": "Aether Feedback I", "desc": "Essence-absorbed damage reflects to nearby enemies.", "cost": 1600, "pos": [1440, -560], "prereq": ["aether_ward_1"], "mods": { "essence_guard_reflect_ratio_add": 0.20 } },
+    { "id": "aether_feedback_2", "name": "Aether Feedback II", "desc": "Reflected essence damage is stronger and farther-reaching.", "cost": 2450, "pos": [1600, -610], "prereq": ["aether_feedback_1"], "mods": { "essence_guard_reflect_ratio_add": 0.25 } },
+    { "id": "aether_feedback_3", "name": "Aether Feedback III", "desc": "Feedback now strikes in a wider radius.", "cost": 3200, "pos": [1760, -650], "prereq": ["aether_feedback_2"], "mods": { "essence_guard_reflect_ratio_add": 0.25, "essence_guard_reflect_radius_add": 70 } },
+    { "id": "mirror_aegis", "name": "Mirror Aegis", "desc": "Your defense reflects lethal feedback pulses, but essence economy suffers.", "cost": 4700, "pos": [1940, -700], "tags": ["keystone"], "prereq": ["aether_feedback_3"], "mods": { "essence_guard_reflect_ratio_add": 0.35, "essence_guard_reflect_radius_add": 100, "essence_mult": 0.90 } },
+
+    { "id": "laststand_1", "name": "Last Stand I", "desc": "Gain offensive fury while under low life.", "cost": 1500, "pos": [980, -860], "prereq": ["tempo_2"], "mods": { "berserk_threshold_add": 0.22 } },
+    { "id": "laststand_2", "name": "Last Stand II", "desc": "Low-life state grants heavy damage spikes.", "cost": 2250, "pos": [1130, -980], "prereq": ["laststand_1"], "mods": { "berserk_damage_mult": 1.08 } },
+    { "id": "laststand_3", "name": "Last Stand III", "desc": "Low-life state also accelerates attacks.", "cost": 3000, "pos": [1280, -1080], "prereq": ["laststand_2"], "mods": { "berserk_attack_speed_mult": 1.08 } },
+    { "id": "last_stand_kernel", "name": "Berserker Eclipse", "desc": "Low-life state becomes dramatically stronger while safe-health damage is lower.", "cost": 4550, "pos": [1450, -1160], "tags": ["keystone"], "prereq": ["laststand_3"], "mods": { "berserk_threshold_add": 0.18, "berserk_damage_mult": 1.45, "berserk_attack_speed_mult": 1.28, "berserk_damage_taken_mult": 1.18, "squad_damage_mult": 0.88 } },
+
+    { "id": "overfeed_1", "name": "Feedback Loop I", "desc": "Kills slightly extend active overclock duration.", "cost": 1500, "pos": [320, 980], "prereq": ["oc_chain_1"], "mods": { "overclock_extend_on_kill_add": 0.20 } },
+    { "id": "overfeed_2", "name": "Feedback Loop II", "desc": "Overclock extension on kill increases.", "cost": 2300, "pos": [470, 1080], "prereq": ["overfeed_1"], "mods": { "overclock_extend_on_kill_add": 0.25 } },
+    { "id": "overfeed_3", "name": "Feedback Loop III", "desc": "Looping kills further increase overclock uptime.", "cost": 3050, "pos": [640, 1160], "prereq": ["overfeed_2"], "mods": { "overclock_extend_on_kill_add": 0.25, "overclock_duration_mult": 1.08 } },
+    { "id": "feedback_loop", "name": "Kill Switch Choir", "desc": "Kills heavily extend Overclock, but your chain window must be maintained.", "cost": 4600, "pos": [810, 1260], "tags": ["keystone"], "prereq": ["overfeed_3"], "mods": { "overclock_extend_on_kill_add": 0.65, "kill_chain_window_add": 1.0, "kill_chain_max_stacks_add": 6, "squad_damage_taken_mult": 1.10 } },
+
+    { "id": "doctrine_link_1", "name": "Doctrine Link I", "desc": "Cross-link aggression with momentum stacks.", "cost": 1200, "pos": [1280, -380], "prereq": ["predator_1", "aether_ward_1"], "mods": { "squad_damage_mult": 1.04, "kill_chain_max_stacks_add": 1 } },
+    { "id": "doctrine_link_2", "name": "Doctrine Link II", "desc": "Execution and detonation branches fuse together.", "cost": 1850, "pos": [1320, -120], "prereq": ["doctrine_link_1", "execution_blast_1"], "mods": { "execute_threshold_add": 0.03, "execute_blast_damage_mult": 1.20 } },
+    { "id": "doctrine_link_3", "name": "Doctrine Link III", "desc": "Essence feedback and defense harmonize.", "cost": 2000, "pos": [1320, -520], "prereq": ["doctrine_link_1", "aether_feedback_1"], "mods": { "essence_guard_reflect_ratio_add": 0.10, "squad_damage_taken_mult": 0.97 } },
+    { "id": "doctrine_link_4", "name": "Doctrine Link IV", "desc": "Low-life fury gains controlled offensive scaling.", "cost": 2150, "pos": [1330, -940], "prereq": ["laststand_1"], "mods": { "berserk_damage_mult": 1.05, "berserk_attack_speed_mult": 1.05 } },
+    { "id": "doctrine_link_5", "name": "Doctrine Link V", "desc": "Kill-loop and chain-lightning branches interlock.", "cost": 2300, "pos": [980, 1120], "prereq": ["overfeed_2", "oc_chain_2"], "mods": { "overclock_extend_on_kill_add": 0.12, "overclock_chain_chance_add": 0.08 } },
+
+    { "id": "singularity_drive", "name": "Singularity Drive", "desc": "Execution detonations and chain range surge, but mobility drops.", "cost": 4800, "pos": [1510, -20], "tags": ["keystone"], "prereq": ["doctrine_link_2", "fusion_2"], "mods": { "execute_blast_radius_add": 150, "overclock_chain_radius_add": 120, "squad_speed_mult": 0.95 } },
+    { "id": "bloodforge_oath", "name": "Bloodforge Oath", "desc": "Low-life aggression and sustain combine into a brutal doctrine.", "cost": 5000, "pos": [1490, -980], "tags": ["keystone"], "prereq": ["last_stand_kernel", "recycle_2"], "mods": { "on_kill_heal_add": 2, "berserk_threshold_add": 0.08, "squad_damage_taken_mult": 1.06 } },
+    { "id": "capacitor_lord", "name": "Capacitor Lord", "desc": "Overclock cadence and output spike, but base vitality is reduced.", "cost": 5200, "pos": [980, 1360], "tags": ["keystone"], "prereq": ["feedback_loop", "static_drive_1"], "mods": { "overclock_duration_mult": 1.18, "overclock_cooldown_mult": 0.78, "overclock_damage_mult": 1.10, "squad_hp_mult": 0.92 } },
+
+    { "id": "storm_static_hunger", "name": "Static Hunger", "desc": "Chain effects jump farther through packs, but each jump decays harder.", "cost": 1900, "pos": [1520, 760], "cluster": "storm", "prereq": ["oc_chain_2"], "mods": { "chain_jumps_add": 1, "chain_damage_falloff_mult": 0.85 } },
+    { "id": "storm_conductive_corpses", "name": "Conductive Corpses", "desc": "Enemies slain by chain emit a small finishing shock.", "cost": 2650, "pos": [1680, 820], "cluster": "storm", "prereq": ["storm_static_hunger"], "mods": { "chain_kill_shock_radius_add": 48, "chain_kill_shock_damage_mult": 0.45 } },
+    { "id": "storm_closed_circuit", "name": "Closed Circuit", "desc": "Chain may revisit prior targets for massive pack violence, but baseline damage drops.", "cost": 3900, "pos": [1840, 900], "cluster": "storm", "tags": ["keystone"], "prereq": ["storm_conductive_corpses", "fusion_overload"], "mods": { "chain_can_rehit_targets": 1, "chain_rehit_damage_mult": 0.45, "chain_jumps_add": 3, "squad_damage_mult": 0.85 } },
+
+    { "id": "fire_kindling_marks", "name": "Kindling Marks", "desc": "Burning enemies are easier to execute.", "cost": 1750, "pos": [1180, -20], "cluster": "fire", "prereq": ["execution_1", "recycle_1"], "mods": { "execute_threshold_add": 0.02, "burning_enemy_execute_threshold_add": 0.04 } },
+    { "id": "fire_wildfire_logic", "name": "Wildfire Logic", "desc": "Burn pressure spreads aggressively, but burn windows are shorter.", "cost": 2450, "pos": [1260, 80], "cluster": "fire", "prereq": ["fire_kindling_marks"], "mods": { "burn_duration_mult": 0.65, "execute_blast_radius_add": 24 } },
+    { "id": "fire_ash_economy", "name": "Ash Economy", "desc": "Burn-centric kills feed essence, but prolonged fights become more dangerous.", "cost": 3650, "pos": [1380, 140], "cluster": "fire", "tags": ["keystone"], "prereq": ["fire_wildfire_logic", "essence_3"], "mods": { "essence_mult": 1.15, "burning_enemy_execute_threshold_add": 0.04, "squad_damage_taken_mult": 1.08 } },
+
+    { "id": "frost_cold_discipline", "name": "Cold Discipline", "desc": "Slowed enemies hit weaker, but your squad attacks slower.", "cost": 1850, "pos": [980, 520], "cluster": "frost", "prereq": ["oc_hunter", "ballistics_1"], "mods": { "slowed_enemy_damage_mult": 0.88, "squad_attack_speed_mult": 0.94 } },
+    { "id": "frost_brittle_window", "name": "Brittle Window", "desc": "Control builds create wider execute windows against slowed enemies.", "cost": 2550, "pos": [1120, 600], "cluster": "frost", "prereq": ["frost_cold_discipline"], "mods": { "slowed_execute_threshold_add": 0.06, "frost_slow_duration_mult": 1.15 } },
+    { "id": "frost_stillness_tax", "name": "Stillness Tax", "desc": "Long slows eventually freeze, but your opening slows are weaker.", "cost": 3800, "pos": [1280, 680], "cluster": "frost", "tags": ["keystone"], "prereq": ["frost_brittle_window", "static_drive_1"], "mods": { "slow_stacks_to_freeze_enabled": 1, "slow_initial_strength_mult": 0.65, "freeze_after_slow_duration": 3.0 } },
+
+    { "id": "poison_venom_accounting", "name": "Venom Accounting", "desc": "Poison setups become better finishers.", "cost": 1850, "pos": [860, -760], "cluster": "poison", "prereq": ["recycle_1"], "mods": { "poison_duration_mult": 1.20, "execute_threshold_add": 0.02 } },
+    { "id": "poison_toxic_patience", "name": "Toxic Patience", "desc": "Long poison windows at the cost of direct output.", "cost": 2500, "pos": [980, -760], "cluster": "poison", "prereq": ["poison_venom_accounting"], "mods": { "poison_duration_mult": 1.45, "squad_damage_mult": 0.92 } },
+    { "id": "poison_terminal_dose", "name": "Terminal Dose", "desc": "Poison-focused execution doctrine for delayed payoff kills.", "cost": 3700, "pos": [1120, -760], "cluster": "poison", "tags": ["keystone"], "prereq": ["poison_toxic_patience", "execution_1"], "mods": { "execute_threshold_add": 0.06, "poison_duration_mult": 0.75, "squad_damage_mult": 1.08 } },
+
+    { "id": "proj_split_barrel", "name": "Split Barrel", "desc": "Projectiles fire an extra shot, but each hit is weaker.", "cost": 1600, "pos": [860, -430], "cluster": "projectile", "prereq": ["dmg_as_1"], "mods": { "projectile_count_add": 1, "projectile_damage_mult": 0.78 } },
+    { "id": "proj_needle_formation", "name": "Needle Formation", "desc": "Shots gain pierce and tighter patterning.", "cost": 2400, "pos": [980, -420], "cluster": "projectile", "prereq": ["proj_split_barrel"], "mods": { "projectile_pierce_add": 1, "projectile_spread_mult": 0.65 } },
+    { "id": "proj_converging_fire", "name": "Converging Fire", "desc": "Extra projectiles converge for focused kills instead of broad spread.", "cost": 3600, "pos": [1140, -430], "cluster": "projectile", "tags": ["keystone"], "prereq": ["proj_needle_formation", "sniper_grid"], "mods": { "projectile_count_add": 2, "projectile_damage_mult": 0.80, "squad_range_mult": 0.95 } },
+
+    { "id": "scatter_doctrine", "name": "Scatter Doctrine", "desc": "Many weaker pellets for dense-hit builds.", "cost": 1650, "pos": [360, -520], "cluster": "scatter", "prereq": ["tempo_1"], "mods": { "projectile_count_add": 2, "projectile_damage_mult": 0.65, "squad_range_mult": 0.85 } },
+    { "id": "scatter_pellet_logic", "name": "Pellet Logic", "desc": "More pellet lanes with reduced cadence.", "cost": 2350, "pos": [360, -640], "cluster": "scatter", "prereq": ["scatter_doctrine"], "mods": { "projectile_count_add": 1, "projectile_damage_mult": 0.85, "squad_attack_speed_mult": 0.95 } },
+    { "id": "scatter_shotgun_saint", "name": "Shotgun Saint", "desc": "Close-range multishot doctrine with heavy tempo tradeoff.", "cost": 3550, "pos": [520, -690], "cluster": "scatter", "tags": ["keystone"], "prereq": ["scatter_pellet_logic", "dash_strider"], "mods": { "projectile_count_add": 2, "projectile_damage_mult": 0.70, "squad_attack_speed_mult": 0.78, "execute_threshold_add": 0.03 } },
+
+    { "id": "hybrid_forked_current", "name": "Forked Current", "desc": "Projectile and chain paths interlock for proc-heavy packs.", "cost": 2700, "pos": [1220, 520], "cluster": "hybrid", "prereq": ["oc_chain_2", "proj_needle_formation"], "mods": { "chain_jumps_add": 1, "overclock_chain_chance_add": 0.08 } },
+    { "id": "hybrid_napalm_payload", "name": "Napalm Payload", "desc": "Bombs trade impact force for broader burn pressure.", "cost": 2600, "pos": [1260, -120], "cluster": "hybrid", "prereq": ["fire_wildfire_logic", "dmg_as_1"], "mods": { "bomb_damage_mult": 0.75, "burn_duration_mult": 1.25 } },
+    { "id": "hybrid_arc_welder", "name": "Arc Welder", "desc": "Beam cadence and chain behavior blend into a hybrid control lane.", "cost": 2850, "pos": [360, -860], "cluster": "hybrid", "prereq": ["frost_brittle_window", "crit_weave_1"], "mods": { "chain_jumps_add": 1, "squad_damage_mult": 1.04, "squad_attack_speed_mult": 0.96 } },
+
+    { "id": "rico_hard_angles", "name": "Hard Angles", "desc": "Ricochet shots ramp damage after each bounce.", "cost": 2100, "pos": [640, -420], "cluster": "ricochet", "prereq": ["dmg_as_1"], "mods": { "ricochet_damage_per_bounce_add": 0.12 } },
+    { "id": "rico_bank_shot", "name": "Bank Shot", "desc": "Ricochet routes prioritize fresh targets and add one extra bounce.", "cost": 2900, "pos": [740, -520], "cluster": "ricochet", "prereq": ["rico_hard_angles"], "mods": { "ricochet_count_add": 1, "projectile_damage_mult": 0.95 } },
+    { "id": "rico_violence_geometry", "name": "Violence Geometry", "desc": "Direct hits are weaker, but post-bounce shots are devastating.", "cost": 4200, "pos": [880, -620], "cluster": "ricochet", "tags": ["keystone"], "prereq": ["rico_bank_shot", "proj_split_barrel"], "mods": { "direct_projectile_damage_mult": 0.65, "post_ricochet_projectile_damage_mult": 1.55, "ricochet_count_add": 2, "squad_damage_mult": 1.08 } },
+
+    { "id": "pierce_skewer_path", "name": "Skewer Path", "desc": "Piercing shots gain damage for each body they pass through.", "cost": 2050, "pos": [-980, -820], "cluster": "pierce", "prereq": ["point_blank_oath"], "mods": { "pierce_damage_per_enemy_hit_add": 0.08 } },
+    { "id": "pierce_tunnel_vision", "name": "Tunnel Vision", "desc": "More pierce and tighter lanes, with less spread freedom.", "cost": 2850, "pos": [-1120, -900], "cluster": "pierce", "prereq": ["pierce_skewer_path"], "mods": { "projectile_pierce_add": 2, "projectile_spread_mult": 0.70, "squad_range_mult": 1.05 } },
+    { "id": "pierce_execution_line", "name": "Execution Line", "desc": "Piercing lanes become execute-focused finishers.", "cost": 4150, "pos": [-1260, -980], "cluster": "pierce", "tags": ["keystone"], "prereq": ["pierce_tunnel_vision", "execution_1"], "mods": { "piercing_hits_can_execute": 1, "execute_threshold_add": 0.04, "overclock_chain_chance_add": -0.08 } },
+
+    { "id": "bomb_heavy_payload", "name": "Heavy Payload", "desc": "Bombs become larger but arm slightly slower.", "cost": 2000, "pos": [1160, -320], "cluster": "bomb", "prereq": ["dmg_as_1"], "mods": { "bomb_radius_add": 42, "bomb_delay_mult": 1.35 } },
+    { "id": "bomb_cluster_charge", "name": "Cluster Charge", "desc": "Bombs split into weaker child blasts on detonation.", "cost": 2850, "pos": [1280, -380], "cluster": "bomb", "prereq": ["bomb_heavy_payload"], "mods": { "bomb_cluster_count_add": 3, "bomb_cluster_damage_mult": 0.35, "bomb_cluster_radius_mult": 0.55 } },
+    { "id": "bomb_delayed_catastrophe", "name": "Delayed Catastrophe", "desc": "Massive bomb payoff with huge radius, but slower cadence.", "cost": 4300, "pos": [1420, -460], "cluster": "bomb", "tags": ["keystone"], "prereq": ["bomb_cluster_charge", "fire_ash_economy"], "mods": { "bomb_radius_add": 80, "bomb_delay_mult": 1.45, "bomb_damage_mult": 1.75, "squad_attack_speed_mult": 0.92 } },
+
+    { "id": "beam_thermal_lock", "name": "Thermal Lock", "desc": "Beam damage ramps aggressively on sustained contact.", "cost": 2150, "pos": [220, -960], "cluster": "beam", "prereq": ["crit_weave_1"], "mods": { "beam_damage_ramp_per_second_add": 0.18, "beam_damage_ramp_cap": 1.75 } },
+    { "id": "beam_refraction_lens", "name": "Refraction Lens", "desc": "Beams split to nearby targets at reduced intensity.", "cost": 3000, "pos": [80, -1020], "cluster": "beam", "prereq": ["beam_thermal_lock"], "mods": { "beam_secondary_targets_add": 2, "beam_secondary_damage_mult": 0.35 } },
+    { "id": "beam_surgical_continuity", "name": "Surgical Continuity", "desc": "Beams start weak then ramp to lethal if you hold target lock.", "cost": 4350, "pos": [-80, -1080], "cluster": "beam", "tags": ["keystone"], "prereq": ["beam_refraction_lens", "hybrid_arc_welder"], "mods": { "beam_initial_damage_mult": 0.45, "beam_damage_ramp_per_second_add": 0.35, "beam_damage_ramp_cap": 2.50, "beam_target_swap_resets_ramp": 1, "squad_damage_mult": 1.12 } },
+
+    { "id": "orbital_target_painting", "name": "Target Painting", "desc": "Orbital doctrine gains crit-assisted target pressure.", "cost": 2250, "pos": [520, -1180], "cluster": "orbital", "prereq": ["crit_weave_2"], "mods": { "squad_crit_add": 0.04, "orbital_damage_mult": 1.15 } },
+    { "id": "orbital_falling_sky", "name": "Falling Sky", "desc": "Orbital blasts hit harder but land slower.", "cost": 3150, "pos": [680, -1260], "cluster": "orbital", "prereq": ["orbital_target_painting"], "mods": { "orbital_damage_mult": 1.60, "orbital_delay_mult": 1.40 } },
+    { "id": "orbital_judgment_delay", "name": "Judgment Delay", "desc": "Orbital strikes target your squad lane and hit absurdly hard after a delay.", "cost": 4550, "pos": [840, -1320], "cluster": "orbital", "tags": ["keystone"], "prereq": ["orbital_falling_sky", "feedback_loop"], "mods": { "orbital_targets_player_trail": 1, "orbital_delay_mult": 1.25, "orbital_damage_mult": 1.85 } },
+
+    { "id": "hybrid_needle_storm", "name": "Needle Storm", "desc": "Multishot poison hybrid stacks pressure quickly.", "cost": 2950, "pos": [700, -760], "cluster": "hybrid", "prereq": ["poison_toxic_patience", "scatter_pellet_logic"], "mods": { "projectile_count_add": 2, "poison_duration_mult": 1.20, "squad_damage_mult": 0.92, "execute_threshold_add": 0.02 } },
+    { "id": "hybrid_cinder_banking", "name": "Cinder Banking", "desc": "Ricochet routes spread burn pressure and open execute windows.", "cost": 3050, "pos": [1020, -520], "cluster": "hybrid", "prereq": ["rico_bank_shot", "fire_kindling_marks"], "mods": { "ricochet_damage_per_bounce_add": 0.08, "burning_enemy_execute_threshold_add": 0.03 } },
+    { "id": "hybrid_cryo_lance", "name": "Cryo Lance", "desc": "Beam control converts into slow/execution pressure.", "cost": 3150, "pos": [220, -1120], "cluster": "hybrid", "prereq": ["beam_thermal_lock", "frost_brittle_window"], "mods": { "beam_target_swap_resets_ramp": 1, "frost_slow_duration_mult": 1.20, "slowed_execute_threshold_add": 0.05, "beam_secondary_targets_add": 1, "beam_secondary_damage_mult": 0.25 } }
   ],
   "edges": [
     ["core_0", "focus_1"], ["focus_1", "focus_2"], ["focus_2", "focus_keystone"],
@@ -175,7 +262,38 @@
     ["bridge_1", "tactician_1"], ["focus_1", "tactician_1"], ["tactician_1", "tactician_2"], ["bridge_3", "tactician_2"], ["tactician_2", "war_doctrine"], ["execution_net", "war_doctrine"],
     ["essence_3", "aether_ward_1"], ["bridge_1", "aether_ward_1"], ["aether_ward_1", "aether_ward_2"], ["aether_ward_2", "mindforge_oath"],
     ["predator_2", "execution_1"], ["execution_1", "execution_2"], ["execution_2", "reaper_clause"],
-    ["oc_2", "static_drive_1"], ["static_drive_1", "static_drive_2"], ["static_drive_2", "eldritch_drive"]
+    ["oc_2", "static_drive_1"], ["static_drive_1", "static_drive_2"], ["static_drive_2", "eldritch_drive"],
+
+    ["execution_1", "momentum_1"], ["momentum_1", "momentum_2"], ["momentum_2", "momentum_3"], ["momentum_3", "reaper_momentum"],
+    ["execution_1", "execution_blast_1"], ["execution_blast_1", "execution_blast_2"], ["execution_blast_2", "execution_blast_3"], ["execution_blast_3", "butcher_protocol"],
+    ["aether_ward_1", "aether_feedback_1"], ["aether_feedback_1", "aether_feedback_2"], ["aether_feedback_2", "aether_feedback_3"], ["aether_feedback_3", "mirror_aegis"],
+    ["tempo_2", "laststand_1"], ["laststand_1", "laststand_2"], ["laststand_2", "laststand_3"], ["laststand_3", "last_stand_kernel"],
+    ["oc_chain_1", "overfeed_1"], ["overfeed_1", "overfeed_2"], ["overfeed_2", "overfeed_3"], ["overfeed_3", "feedback_loop"],
+    ["predator_1", "doctrine_link_1"], ["aether_ward_1", "doctrine_link_1"], ["doctrine_link_1", "doctrine_link_2"], ["execution_blast_1", "doctrine_link_2"],
+    ["doctrine_link_1", "doctrine_link_3"], ["aether_feedback_1", "doctrine_link_3"], ["laststand_1", "doctrine_link_4"],
+    ["overfeed_2", "doctrine_link_5"], ["oc_chain_2", "doctrine_link_5"],
+    ["doctrine_link_2", "singularity_drive"], ["fusion_2", "singularity_drive"],
+    ["last_stand_kernel", "bloodforge_oath"], ["recycle_2", "bloodforge_oath"],
+    ["feedback_loop", "capacitor_lord"], ["static_drive_1", "capacitor_lord"],
+
+    ["oc_chain_2", "storm_static_hunger"], ["storm_static_hunger", "storm_conductive_corpses"], ["storm_conductive_corpses", "storm_closed_circuit"], ["fusion_overload", "storm_closed_circuit"],
+    ["execution_1", "fire_kindling_marks"], ["recycle_1", "fire_kindling_marks"], ["fire_kindling_marks", "fire_wildfire_logic"], ["fire_wildfire_logic", "fire_ash_economy"], ["essence_3", "fire_ash_economy"],
+    ["oc_hunter", "frost_cold_discipline"], ["ballistics_1", "frost_cold_discipline"], ["frost_cold_discipline", "frost_brittle_window"], ["frost_brittle_window", "frost_stillness_tax"], ["static_drive_1", "frost_stillness_tax"],
+    ["recycle_1", "poison_venom_accounting"], ["poison_venom_accounting", "poison_toxic_patience"], ["poison_toxic_patience", "poison_terminal_dose"], ["execution_1", "poison_terminal_dose"],
+    ["dmg_as_1", "proj_split_barrel"], ["proj_split_barrel", "proj_needle_formation"], ["proj_needle_formation", "proj_converging_fire"], ["sniper_grid", "proj_converging_fire"],
+    ["tempo_1", "scatter_doctrine"], ["scatter_doctrine", "scatter_pellet_logic"], ["scatter_pellet_logic", "scatter_shotgun_saint"], ["dash_strider", "scatter_shotgun_saint"],
+    ["oc_chain_2", "hybrid_forked_current"], ["proj_needle_formation", "hybrid_forked_current"],
+    ["fire_wildfire_logic", "hybrid_napalm_payload"], ["dmg_as_1", "hybrid_napalm_payload"],
+    ["frost_brittle_window", "hybrid_arc_welder"], ["crit_weave_1", "hybrid_arc_welder"],
+
+    ["dmg_as_1", "rico_hard_angles"], ["rico_hard_angles", "rico_bank_shot"], ["rico_bank_shot", "rico_violence_geometry"], ["proj_split_barrel", "rico_violence_geometry"],
+    ["point_blank_oath", "pierce_skewer_path"], ["pierce_skewer_path", "pierce_tunnel_vision"], ["pierce_tunnel_vision", "pierce_execution_line"], ["execution_1", "pierce_execution_line"],
+    ["dmg_as_1", "bomb_heavy_payload"], ["bomb_heavy_payload", "bomb_cluster_charge"], ["bomb_cluster_charge", "bomb_delayed_catastrophe"], ["fire_ash_economy", "bomb_delayed_catastrophe"],
+    ["crit_weave_1", "beam_thermal_lock"], ["beam_thermal_lock", "beam_refraction_lens"], ["beam_refraction_lens", "beam_surgical_continuity"], ["hybrid_arc_welder", "beam_surgical_continuity"],
+    ["crit_weave_2", "orbital_target_painting"], ["orbital_target_painting", "orbital_falling_sky"], ["orbital_falling_sky", "orbital_judgment_delay"], ["feedback_loop", "orbital_judgment_delay"],
+    ["poison_toxic_patience", "hybrid_needle_storm"], ["scatter_pellet_logic", "hybrid_needle_storm"],
+    ["rico_bank_shot", "hybrid_cinder_banking"], ["fire_kindling_marks", "hybrid_cinder_banking"],
+    ["beam_thermal_lock", "hybrid_cryo_lance"], ["frost_brittle_window", "hybrid_cryo_lance"]
   ]
 }
 

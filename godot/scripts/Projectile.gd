@@ -27,6 +27,7 @@ var _direction: Vector2 = Vector2.ZERO
 var _trail_max_points: int = 14
 var _visual_profile: String = "bolt"
 var _impact_scale: float = 1.0
+var _pierce_hits: int = 0
 
 static var _bullet_tex: Texture2D = null
 static var _profile_tex_cache: Dictionary = {} # profile -> Texture2D
@@ -253,9 +254,22 @@ func _hit_enemy(enemy: Node2D) -> void:
 		return
 
 	if enemy.has_method("take_damage"):
-		enemy.take_damage(damage, is_crit, "ranged")
+		var dealt := damage
+		if _visual_profile == "pierce":
+			var mp := _main.get_node_or_null("/root/MetaProgression") if _main != null else null
+			if mp and is_instance_valid(mp):
+				if mp.has_method("get_add"):
+					var per := maxf(0.0, float(mp.get_add("pierce_damage_per_enemy_hit_add", 0.0)))
+					if per > 0.0:
+						dealt = maxi(1, int(round(float(dealt) * (1.0 + float(_pierce_hits) * per))))
+					if float(mp.get_add("piercing_hits_can_execute", 0.0)) >= 1.0 and enemy.has_method("get_hp_ratio"):
+						var ex := clampf(float(mp.get_add("execute_threshold_add", 0.0)), 0.0, 0.95)
+						if float(enemy.get_hp_ratio()) <= ex:
+							dealt = maxi(dealt, 999999)
+		enemy.take_damage(dealt, is_crit, "ranged")
 		_spawn_hit_vfx(enemy)
 	_pierced_enemies.append(enemy)
+	_pierce_hits += 1
 	PassiveSystem.on_projectile_hit(passive_ids, self, enemy, damage, is_crit)
 	if source_cd != null:
 		SynergySystem.on_projectile_hit(source_cd, self, enemy, damage, is_crit)

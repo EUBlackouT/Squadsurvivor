@@ -126,13 +126,24 @@ static func _fire_standard_projectile(attacker: Node2D, target: Node2D, damage: 
 	var proj_scene: PackedScene = load("res://scenes/Projectile.tscn")
 	if proj_scene == null:
 		return
-	var proj := proj_scene.instantiate()
-	main_node.add_child(proj)
-	proj.global_position = attacker.global_position
-	if proj.has_method("set_visual_profile"):
-		proj.set_visual_profile("bolt")
-	if proj.has_method("setup_target"):
-		proj.setup_target(target, damage, is_crit, cd.passive_ids if cd else [], cd, attacker)
+	var count := 1 + maxi(0, int(round(_get_mp_add(main_node, "projectile_count_add", 0.0))))
+	var dmg_mult := _get_mp_mod(main_node, "projectile_damage_mult", 1.0)
+	var pierce_add := maxi(0, int(round(_get_mp_add(main_node, "projectile_pierce_add", 0.0))))
+	var dir := (target.global_position - attacker.global_position).normalized()
+	for i in range(count):
+		var proj := proj_scene.instantiate()
+		main_node.add_child(proj)
+		proj.global_position = attacker.global_position
+		if proj.has_method("set_visual_profile"):
+			proj.set_visual_profile("bolt")
+		if proj.has_method("add_pierce") and pierce_add > 0:
+			proj.add_pierce(pierce_add)
+		var p_dmg := maxi(1, int(round(float(damage) * dmg_mult * (1.0 if i == 0 else 0.82))))
+		if proj.has_method("setup_direction") and count > 1:
+			var a := dir.angle() + deg_to_rad(randf_range(-4.0, 4.0))
+			proj.setup_direction(Vector2.from_angle(a), p_dmg, is_crit and i == 0, cd, attacker)
+		elif proj.has_method("setup_target"):
+			proj.setup_target(target, p_dmg, is_crit and i == 0, cd.passive_ids if cd else [], cd, attacker)
 	_play_sfx(main_node, "player.shot", attacker.global_position)
 
 static func _execute_melee_arc(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
@@ -216,26 +227,70 @@ static func _spawn_melee_arc_vfx(main_node: Node2D, origin: Vector2, dir: Vector
 
 static func _fire_bomb(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var bomb := WP.BombProjectile.new()
+	var radius := float(w.get("explosion_radius", 70)) + _get_mp_add(main_node, "bomb_radius_add", 0.0)
+	var delay_mult := maxf(0.6, _get_mp_mod(main_node, "bomb_delay_mult", 1.0))
+	var speed := float(w.get("projectile_speed", 380)) / delay_mult
+	var out_damage := maxi(1, int(round(float(damage) * _get_mp_mod(main_node, "bomb_damage_mult", 1.0))))
 	bomb.setup(
 		attacker.global_position,
 		target.global_position,
-		damage,
+		out_damage,
 		is_crit,
-		float(w.get("explosion_radius", 70)),
-		float(w.get("burn_duration", 0.0)),
+		radius,
+		float(w.get("burn_duration", 0.0)) * _get_mp_mod(main_node, "burn_duration_mult", 1.0),
 		float(w.get("burn_dps_mult", 0.0)),
-		float(w.get("projectile_speed", 380)),
+		speed,
 		main_node,
 		cd,
 		attacker
 	)
 	main_node.add_child(bomb)
+	var cluster_n := maxi(0, int(round(_get_mp_add(main_node, "bomb_cluster_count_add", 0.0))))
+	if cluster_n > 0:
+		var c_dmg_mult := _get_mp_mod(main_node, "bomb_cluster_damage_mult", 0.35)
+		var c_rad_mult := _get_mp_mod(main_node, "bomb_cluster_radius_mult", 0.55)
+		for i in range(cluster_n):
+			var ang := TAU * float(i) / float(maxi(1, cluster_n))
+			var off := Vector2.from_angle(ang) * 54.0
+			var b2 := WP.BombProjectile.new()
+			b2.setup(
+				attacker.global_position,
+				target.global_position + off,
+				maxi(1, int(round(float(out_damage) * c_dmg_mult))),
+				false,
+				maxf(20.0, radius * c_rad_mult),
+				float(w.get("burn_duration", 0.0)) * _get_mp_mod(main_node, "burn_duration_mult", 1.0),
+				float(w.get("burn_dps_mult", 0.0)),
+				speed * 0.92,
+				main_node,
+				cd,
+				attacker
+			)
+			main_node.add_child(b2)
 	_play_sfx(main_node, "weapon.bomb_launch", attacker.global_position)
 
 static func _fire_chain_lightning(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var chain_count := int(w.get("chain_count", 3))
 	var decay := float(w.get("chain_damage_decay", 0.75))
 	var chain_range := float(w.get("chain_range", 120))
+	var isolated_mult := 1.0
+	var rehit_enabled := false
+	var rehit_mult := 0.45
+	var kill_shock_radius := 0.0
+	var kill_shock_mult := 0.0
+	var mp := main_node.get_node_or_null("/root/MetaProgression") if main_node != null else null
+	if mp and is_instance_valid(mp):
+		if mp.has_method("get_add"):
+			chain_count += maxi(0, int(round(float(mp.get_add("chain_jumps_add", 0.0)))))
+			decay = clampf(decay * float(mp.get_mod("chain_damage_falloff_mult", 1.0)) if mp.has_method("get_mod") else decay, 0.20, 0.99)
+			chain_count += maxi(0, int(round(float(mp.get_add("mage_chain_jumps_add", 0.0)))))
+			chain_range += float(mp.get_add("mage_chain_range_add", 0.0))
+			kill_shock_radius = maxf(0.0, float(mp.get_add("chain_kill_shock_radius_add", 0.0)))
+			kill_shock_mult = maxf(0.0, float(mp.get_add("chain_kill_shock_damage_mult", 0.0)))
+			rehit_enabled = float(mp.get_add("chain_can_rehit_targets", 0.0)) >= 1.0
+			rehit_mult = maxf(0.1, float(mp.get_add("chain_rehit_damage_mult", 0.45)))
+		if mp.has_method("get_mod"):
+			isolated_mult = float(mp.get_mod("mage_single_target_mult", 1.0))
 	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "chain_master"):
 		var world := main_node
 		if world != null:
@@ -259,7 +314,20 @@ static func _fire_chain_lightning(attacker: Node2D, target: Node2D, damage: int,
 		
 		# Deal damage
 		if current_target.has_method("take_damage"):
-			current_target.take_damage(current_damage, is_crit and i == 0, "chain_lightning")
+			var dmg_i := current_damage
+			if i == 0 and isolated_mult < 0.999:
+				var near := _find_nearest_enemy_excluding(main_node, current_target.global_position, [current_target], chain_range)
+				if near == null:
+					dmg_i = maxi(1, int(round(float(dmg_i) * isolated_mult)))
+			var pre_ratio := 1.0
+			if current_target.has_method("get_hp_ratio"):
+				pre_ratio = float(current_target.get_hp_ratio())
+			current_target.take_damage(dmg_i, is_crit and i == 0, "chain_lightning")
+			var post_ratio := 1.0
+			if current_target.has_method("get_hp_ratio"):
+				post_ratio = float(current_target.get_hp_ratio())
+			if kill_shock_radius > 0.0 and kill_shock_mult > 0.0 and pre_ratio > 0.0 and post_ratio <= 0.0:
+				_chain_kill_shock(main_node, current_target.global_position, dmg_i, kill_shock_radius, kill_shock_mult)
 		hit_targets.append(current_target)
 		
 		# Lightning VFX between points
@@ -271,6 +339,29 @@ static func _fire_chain_lightning(attacker: Node2D, target: Node2D, damage: int,
 		# Find next target
 		current_damage = int(float(current_damage) * decay)
 		current_target = _find_nearest_enemy_excluding(main_node, current_pos, hit_targets, chain_range)
+		if current_target == null and rehit_enabled and not hit_targets.is_empty():
+			var pick := hit_targets[randi() % hit_targets.size()]
+			if pick != null and is_instance_valid(pick):
+				current_target = pick
+				current_damage = maxi(1, int(round(float(current_damage) * rehit_mult)))
+
+static func _chain_kill_shock(main_node: Node2D, origin: Vector2, source_damage: int, radius: float, mult: float) -> void:
+	if main_node == null:
+		return
+	var enemies := _get_enemies(main_node)
+	var r2 := radius * radius
+	for e in enemies:
+		if not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(origin) > r2:
+			continue
+		if n2.has_method("take_damage"):
+			var dealt := maxi(1, int(round(float(source_damage) * mult)))
+			n2.take_damage(dealt, false, "chain_kill_shock")
+	_spawn_lightning_vfx(main_node, origin, origin + Vector2(radius * 0.4, 0))
 
 static func _fire_piercing_shot(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var proj_scene: PackedScene = load("res://scenes/Projectile.tscn")
@@ -280,7 +371,8 @@ static func _fire_piercing_shot(attacker: Node2D, target: Node2D, damage: int, i
 	main_node.add_child(proj)
 	proj.global_position = attacker.global_position
 	
-	var pierce := int(w.get("pierce_count", 4))
+	var pierce := int(w.get("pierce_count", 4)) + maxi(0, int(round(_get_mp_add(main_node, "projectile_pierce_add", 0.0))))
+	var out_damage := maxi(1, int(round(float(damage) * _get_mp_mod(main_node, "projectile_damage_mult", 1.0))))
 	if proj.has_method("add_pierce"):
 		proj.add_pierce(pierce)
 	if proj.has_method("set_speed"):
@@ -288,13 +380,17 @@ static func _fire_piercing_shot(attacker: Node2D, target: Node2D, damage: int, i
 	if proj.has_method("set_visual_profile"):
 		proj.set_visual_profile("pierce")
 	if proj.has_method("setup_target"):
-		proj.setup_target(target, damage, is_crit, cd.passive_ids if cd else [], cd, attacker)
+		proj.setup_target(target, out_damage, is_crit, cd.passive_ids if cd else [], cd, attacker)
 	_play_sfx(main_node, "weapon.pierce", attacker.global_position)
 
 static func _fire_scatter_shot(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var proj_count := int(w.get("projectile_count", 5))
 	var spread := float(w.get("spread_angle", 45))
 	var dmg_per := float(w.get("damage_per_proj", 0.4))
+	proj_count += maxi(0, int(round(_get_mp_add(main_node, "projectile_count_add", 0.0))))
+	spread *= _get_mp_mod(main_node, "projectile_spread_mult", 1.0)
+	dmg_per *= _get_mp_mod(main_node, "projectile_damage_mult", 1.0)
+	var pierce_add := maxi(0, int(round(_get_mp_add(main_node, "projectile_pierce_add", 0.0))))
 	if cd != null and PassiveSystem.has_passive(cd.passive_ids, "scatter_specialist"):
 		var dir := (target.global_position - attacker.global_position).normalized()
 		var fb := VfxFlameBurst.new()
@@ -318,6 +414,8 @@ static func _fire_scatter_shot(attacker: Node2D, target: Node2D, damage: int, is
 		proj.global_position = attacker.global_position
 		if proj.has_method("set_visual_profile"):
 			proj.set_visual_profile("scatter")
+		if proj.has_method("add_pierce") and pierce_add > 0:
+			proj.add_pierce(pierce_add)
 		if proj.has_method("set_speed"):
 			proj.set_speed(float(w.get("projectile_speed", 660)))
 		if proj.has_method("setup_direction"):
@@ -353,6 +451,12 @@ static func _fire_boomerang(attacker: Node2D, target: Node2D, damage: int, is_cr
 
 static func _fire_beam(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var beam := WP.BeamAttack.new()
+	var ramp_ps := _get_mp_add(main_node, "beam_damage_ramp_per_second_add", 0.0)
+	var ramp_cap := maxf(1.0, _get_mp_add(main_node, "beam_damage_ramp_cap", 1.0))
+	var init_mult := _get_mp_mod(main_node, "beam_initial_damage_mult", 1.0)
+	var sec_count := maxi(0, int(round(_get_mp_add(main_node, "beam_secondary_targets_add", 0.0))))
+	var sec_mult := clampf(_get_mp_mod(main_node, "beam_secondary_damage_mult", 0.0), 0.0, 2.0)
+	var lock_single := _get_mp_add(main_node, "beam_target_swap_resets_ramp", 0.0) >= 1.0
 	beam.setup(
 		attacker,
 		(target.global_position - attacker.global_position).normalized(),
@@ -364,7 +468,13 @@ static func _fire_beam(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 		float(w.get("duration", 0.5)),
 		float(w.get("tick_rate", 0.1)),
 		main_node,
-		cd
+		cd,
+		ramp_ps,
+		ramp_cap,
+		init_mult,
+		sec_count,
+		sec_mult,
+		lock_single
 	)
 	main_node.add_child(beam)
 	_play_sfx(main_node, "weapon.beam", attacker.global_position)
@@ -520,6 +630,7 @@ static func _create_dust_particle(pos: Vector2) -> Sprite2D:
 
 static func _fire_dot_projectile(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var proj := WP.DotProjectile.new()
+	var dot_dur := float(w.get("dot_duration", 4.0)) * _get_mp_mod(main_node, "poison_duration_mult", 1.0)
 	proj.setup(
 		attacker.global_position,
 		target,
@@ -528,7 +639,7 @@ static func _fire_dot_projectile(attacker: Node2D, target: Node2D, damage: int, 
 		float(w.get("dot_damage_percent", 0.30)),
 		float(w.get("poison_damage_mult", 1.0)),
 		float(w.get("poison_spread_radius", 0.0)),
-		float(w.get("dot_duration", 4.0)),
+		dot_dur,
 		float(w.get("dot_tick", 0.5)),
 		float(w.get("projectile_speed", 700)),
 		main_node,
@@ -550,7 +661,7 @@ static func _fire_slow_projectile(attacker: Node2D, target: Node2D, damage: int,
 		float(w.get("slow_bonus", 0.0)),
 		float(w.get("shatter_radius", 0.0)),
 		float(w.get("shatter_damage", 0.0)),
-		float(w.get("slow_duration", 2.5)),
+		float(w.get("slow_duration", 2.5)) * _get_mp_mod(main_node, "frost_slow_duration_mult", 1.0),
 		float(w.get("projectile_speed", 500)),
 		main_node,
 		cd,
@@ -596,7 +707,7 @@ static func _fire_cone(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 			n2.take_damage(total_dmg, is_crit, "fire_cone")
 		if n2.has_method("apply_burn"):
 			var dps := float(damage) * burn_pct / burn_dur
-			n2.apply_burn(dps, burn_dur, 0.5)
+			n2.apply_burn(dps, burn_dur * _get_mp_mod(main_node, "burn_duration_mult", 1.0), 0.5)
 			PassiveSystem.mark_burn(n2, burn_dur)
 			if spread_count > 0 and spread_radius > 0.0:
 				PassiveSystem.mark_fire_spread(n2, dps, burn_dur, 0.5, spread_count)
@@ -894,30 +1005,46 @@ static func _execute_lifesteal_melee(attacker: Node2D, target: Node2D, damage: i
 
 static func _fire_ricochet(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var ricochet := WP.RicochetProjectile.new()
+	var dmg_bounce_add := maxf(0.0, _get_mp_add(main_node, "ricochet_damage_per_bounce_add", 0.0))
+	var direct_mult := _get_mp_mod(main_node, "direct_projectile_damage_mult", 1.0)
+	var post_mult := _get_mp_mod(main_node, "post_ricochet_projectile_damage_mult", 1.0)
+	var extra_bounce := maxi(0, int(round(_get_mp_add(main_node, "ricochet_count_add", 0.0))))
 	ricochet.setup(
 		attacker.global_position,
 		target,
 		damage,
 		is_crit,
-		int(w.get("bounce_count", 4)),
+		int(w.get("bounce_count", 4)) + extra_bounce,
 		float(w.get("bounce_range", 150)),
 		float(w.get("damage_per_bounce", 0.9)),
 		main_node,
 		cd,
-		attacker
+		attacker,
+		direct_mult,
+		post_mult,
+		dmg_bounce_add
 	)
 	main_node.add_child(ricochet)
 	_play_sfx(main_node, "weapon.ricochet", attacker.global_position)
 	_play_vfx(main_node, "weapon.ricochet", attacker.global_position + Vector2(0, -10))
 
 static func _fire_orbital_strike(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
-	var delay := float(w.get("delay", 1.2))
+	var delay := float(w.get("delay", 1.2)) * _get_mp_mod(main_node, "orbital_delay_mult", 1.0)
 	var radius := float(w.get("explosion_radius", 90))
-	var dmg_mult := float(w.get("damage_mult", 1.8))
+	var dmg_mult := float(w.get("damage_mult", 1.8)) * _get_mp_mod(main_node, "orbital_damage_mult", 1.0)
 	var cluster_bonus := float(w.get("cluster_bonus", 0.0))
+	var strike_pos := target.global_position
+	if _get_mp_add(main_node, "orbital_targets_player_trail", 0.0) >= 1.0:
+		var p := main_node.get_node_or_null("/root/Main")
+		if p == null:
+			p = main_node
+		if p != null and is_instance_valid(p) and p.has_method("get_player_node"):
+			var pn := p.get_player_node() as Node2D
+			if pn != null and is_instance_valid(pn):
+				strike_pos = pn.global_position
 	
 	var strike := WP.OrbitalStrike.new()
-	strike.setup(target.global_position, int(float(damage) * dmg_mult), is_crit, radius, delay, cluster_bonus, main_node, cd, attacker)
+	strike.setup(strike_pos, int(float(damage) * dmg_mult), is_crit, radius, delay, cluster_bonus, main_node, cd, attacker)
 	main_node.add_child(strike)
 	_play_sfx(main_node, "player.shot", attacker.global_position)
 
@@ -927,6 +1054,22 @@ static func _get_enemies(main_node: Node2D) -> Array:
 	if main_node and is_instance_valid(main_node) and main_node.has_method("get_cached_enemies"):
 		return main_node.get_cached_enemies()
 	return main_node.get_tree().get_nodes_in_group("enemies") if main_node else []
+
+static func _get_mp_add(main_node: Node2D, key: String, fallback: float = 0.0) -> float:
+	if main_node == null:
+		return fallback
+	var mp := main_node.get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return fallback
+	return float(mp.get_add(key, fallback))
+
+static func _get_mp_mod(main_node: Node2D, key: String, fallback: float = 1.0) -> float:
+	if main_node == null:
+		return fallback
+	var mp := main_node.get_node_or_null("/root/MetaProgression")
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_mod")):
+		return fallback
+	return float(mp.get_mod(key, fallback))
 
 static func _find_nearest_enemy_excluding(main_node: Node2D, from_pos: Vector2, exclude: Array, max_range: float) -> Node2D:
 	var enemies := _get_enemies(main_node)

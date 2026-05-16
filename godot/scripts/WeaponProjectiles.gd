@@ -214,8 +214,16 @@ class BeamAttack extends Node2D:
 	var _elapsed: float = 0.0
 	var _tick_t: float = 0.0
 	var _line: Line2D
+	var _ramp_per_second: float = 0.0
+	var _ramp_cap: float = 1.0
+	var _initial_mult: float = 1.0
+	var _secondary_targets_add: int = 0
+	var _secondary_damage_mult: float = 0.0
+	var _lock_focus_target: bool = false
+	var _focus_target_id: int = -1
+	var _focus_ramp_t: float = 0.0
 	
-	func setup(owner: Node2D, dir: Vector2, dmg: int, crit: bool, length: float, width: float, width_growth: float, duration: float, tick: float, main: Node2D, cd: CharacterData) -> void:
+	func setup(owner: Node2D, dir: Vector2, dmg: int, crit: bool, length: float, width: float, width_growth: float, duration: float, tick: float, main: Node2D, cd: CharacterData, ramp_per_second: float = 0.0, ramp_cap: float = 1.0, initial_mult: float = 1.0, secondary_targets_add: int = 0, secondary_damage_mult: float = 0.0, lock_focus_target: bool = false) -> void:
 		_owner_ref = weakref(owner)
 		_direction = dir.normalized()
 		_damage = dmg
@@ -227,6 +235,12 @@ class BeamAttack extends Node2D:
 		_tick_rate = tick
 		_main = main
 		_cd = cd
+		_ramp_per_second = maxf(0.0, ramp_per_second)
+		_ramp_cap = maxf(0.2, ramp_cap)
+		_initial_mult = clampf(initial_mult, 0.1, _ramp_cap)
+		_secondary_targets_add = maxi(0, secondary_targets_add)
+		_secondary_damage_mult = clampf(secondary_damage_mult, 0.0, 2.5)
+		_lock_focus_target = lock_focus_target
 		
 		_line = Line2D.new()
 		_line.width = width
@@ -261,7 +275,8 @@ class BeamAttack extends Node2D:
 		if _main and is_instance_valid(_main) and _main.has_method("get_cached_enemies"):
 			enemies = _main.get_cached_enemies()
 		
-		var tick_dmg := int(float(_damage) * _tick_rate / _duration)
+		var tick_dmg := int(float(_damage) * _tick_rate / maxf(0.05, _duration))
+		var hit_list: Array[Node2D] = []
 		for e in enemies:
 			if not is_instance_valid(e):
 				continue
@@ -275,8 +290,32 @@ class BeamAttack extends Node2D:
 				continue
 			var closest := global_position + _direction * proj
 			if n2.global_position.distance_to(closest) <= _width:
-				if n2.has_method("take_damage"):
-					n2.take_damage(tick_dmg, _is_crit, "beam")
+				hit_list.append(n2)
+		if hit_list.is_empty():
+			_focus_target_id = -1
+			_focus_ramp_t = 0.0
+			return
+		hit_list.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+			return a.global_position.distance_squared_to(global_position) < b.global_position.distance_squared_to(global_position)
+		)
+		var primary: Node2D = hit_list[0]
+		if _lock_focus_target:
+			if _focus_target_id != primary.get_instance_id():
+				_focus_target_id = primary.get_instance_id()
+				_focus_ramp_t = 0.0
+			else:
+				_focus_ramp_t += _tick_rate
+		else:
+			_focus_target_id = primary.get_instance_id()
+			_focus_ramp_t += _tick_rate
+		var ramp_mult := clampf(_initial_mult + _ramp_per_second * _focus_ramp_t, 0.1, _ramp_cap)
+		if primary.has_method("take_damage"):
+			primary.take_damage(maxi(1, int(round(float(tick_dmg) * ramp_mult))), _is_crit, "beam")
+		var sec_n := mini(_secondary_targets_add, maxi(0, hit_list.size() - 1))
+		for i in range(sec_n):
+			var n := hit_list[i + 1]
+			if n != null and is_instance_valid(n) and n.has_method("take_damage"):
+				n.take_damage(maxi(1, int(round(float(tick_dmg) * _secondary_damage_mult))), false, "beam_split")
 
 
 # === DOT PROJECTILE (Poison) ===
@@ -464,8 +503,12 @@ class RicochetProjectile extends Node2D:
 	var _hit_targets: Array[Node2D] = []
 	var _speed: float = 600.0
 	var _sprite: Sprite2D
+	var _direct_mult: float = 1.0
+	var _post_bounce_mult: float = 1.0
+	var _damage_per_bounce_add: float = 0.0
+	var _hit_index: int = 0
 	
-	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, bounces: int, bounce_range: float, decay: float, main: Node2D, cd: CharacterData, attacker: Node2D) -> void:
+	func setup(start: Vector2, target: Node2D, dmg: int, crit: bool, bounces: int, bounce_range: float, decay: float, main: Node2D, cd: CharacterData, attacker: Node2D, direct_mult: float = 1.0, post_bounce_mult: float = 1.0, dmg_per_bounce_add: float = 0.0) -> void:
 		global_position = start
 		_target_ref = weakref(target)
 		_damage = dmg
@@ -476,6 +519,9 @@ class RicochetProjectile extends Node2D:
 		_main = main
 		_cd = cd
 		_attacker = attacker
+		_direct_mult = maxf(0.1, direct_mult)
+		_post_bounce_mult = maxf(0.1, post_bounce_mult)
+		_damage_per_bounce_add = maxf(0.0, dmg_per_bounce_add)
 		
 		_sprite = Sprite2D.new()
 		_sprite.texture = _make_bullet_tex()
@@ -509,7 +555,12 @@ class RicochetProjectile extends Node2D:
 	
 	func _hit(target: Node2D) -> void:
 		if target.has_method("take_damage"):
-			target.take_damage(_damage, _is_crit and _bounces_left == int(_bounces_left), "ricochet")
+			var dealt := _damage
+			if _hit_index == 0:
+				dealt = maxi(1, int(round(float(dealt) * _direct_mult)))
+			else:
+				dealt = maxi(1, int(round(float(dealt) * _post_bounce_mult * (1.0 + float(_hit_index) * _damage_per_bounce_add))))
+			target.take_damage(dealt, _is_crit and _hit_index == 0, "ricochet")
 		if _main != null and is_instance_valid(_main):
 			var v := _main.get_node_or_null("/root/VfxSystem")
 			if v and is_instance_valid(v) and v.has_method("play_event"):
@@ -528,6 +579,7 @@ class RicochetProjectile extends Node2D:
 					s.play_event("passive.ricochet_master", target.global_position, self)
 		
 		_bounces_left -= 1
+		_hit_index += 1
 		_damage = int(float(_damage) * _dmg_decay)
 		
 		if _bounces_left <= 0 or _damage <= 0:

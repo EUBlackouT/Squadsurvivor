@@ -1401,20 +1401,57 @@ func _open_settings() -> void:
 # PROTOCOL GRID (large draggable planner, PoE-inspired hierarchy)
 # ─────────────────────────────────────────────────────────────────────────────
 
-const PROTOCOL_GRID_BG_PATH: String = "res://assets/ui/revamp/protocol_grid_bg.png"
+const PROTOCOL_GRID_BG_PATH: String = "res://assets/ui/revamp/protocol_grid_bg_v2.webp"
+const PROTOCOL_GRID_FRAME_PATH: String = "res://assets/ui/revamp/protocol_grid_frame_v2.webp"
+const PROTOCOL_NODE_RING_PATH: String = "res://assets/ui/revamp/protocol_node_ring_v2.webp"
+const PROTOCOL_USE_FRAME_OVERLAY: bool = false
 const PROTOCOL_ICON_DIR: String = "res://assets/ui/revamp/protocol_icons/"
-const PROTOCOL_KEYSTONE_FRAME_PATH: String = "res://assets/ui/revamp/protocol_icons/keystone_frame.png"
 const PROTOCOL_ICON_BY_FAMILY := {
-	"core": "core.png",
-	"vitality": "vitality.png",
-	"offense": "offense.png",
-	"focus": "focus.png",
-	"rally": "command.png",
-	"squad": "command.png",
-	"dash": "mobility.png",
-	"mobility": "mobility.png",
-	"overclock": "overclock.png",
-	"misc": "offense.png"
+	"core": "fam_core_v2.webp",
+	"vitality": "fam_vitality_v2.webp",
+	"offense": "fam_offense_v2.webp",
+	"focus": "fam_focus_v2.webp",
+	"rally": "fam_command_v2.webp",
+	"squad": "fam_command_v2.webp",
+	"dash": "fam_mobility_v2.webp",
+	"mobility": "fam_mobility_v2.webp",
+	"overclock": "fam_overclock_v2.webp",
+	"misc": "fam_offense_v2.webp"
+}
+const PROTOCOL_KEYSTONE_ICON_BY_ID := {
+	"starting_unit": "key_starting_unit_v3.webp",
+	"focus_keystone": "key_focus_keystone_v3.webp",
+	"rally_keystone": "key_rally_keystone_v3.webp",
+	"dash_keystone": "key_dash_keystone_v3.webp",
+	"squad_keystone": "key_squad_keystone_v3.webp",
+	"oc_keystone": "key_oc_keystone_v3.webp",
+	"oc_discharge": "key_oc_discharge_v3.webp",
+	"starting_unit_2": "key_starting_unit_2_v3.webp",
+	"dash_strider": "key_dash_strider_v3.webp",
+	"bulwark_keystone": "key_bulwark_keystone_v3.webp",
+	"tempo_keystone": "key_tempo_keystone_v3.webp",
+	"sniper_grid": "key_marksman_v2.webp",
+	"glass_core": "key_glass_v2.webp",
+	"blood_circuit": "key_sustain_v2.webp",
+	"oc_storm_keystone": "key_oc_storm_keystone_v3.webp",
+	"execution_net": "key_execution_net_v3.webp",
+	"point_blank_oath": "key_point_blank_oath_v3.webp",
+	"conductor_oath": "key_conductor_oath_v3.webp",
+	"phalanx_protocol": "key_phalanx_protocol_v3.webp",
+	"headhunter_grid": "key_headhunter_grid_v3.webp",
+	"fusion_overload": "key_fusion_v2.webp",
+	"war_doctrine": "key_war_doctrine_v3.webp",
+	"mindforge_oath": "key_mindforge_v2.webp",
+	"reaper_clause": "key_reaper_clause_v3.webp",
+	"eldritch_drive": "key_eldritch_v2.webp",
+	"reaper_momentum": "key_momentum_v2.webp",
+	"butcher_protocol": "key_butcher_v2.webp",
+	"mirror_aegis": "key_mirror_v2.webp",
+	"last_stand_kernel": "key_laststand_v2.webp",
+	"feedback_loop": "key_feedback_v2.webp",
+	"singularity_drive": "key_singularity_v2.webp",
+	"bloodforge_oath": "key_bloodforge_v2.webp",
+	"capacitor_lord": "key_capacitor_v2.webp"
 }
 
 var _protocol_overlay: Control = null
@@ -1439,7 +1476,9 @@ var _protocol_pan: Vector2 = Vector2.ZERO
 var _protocol_zoom: float = 1.0
 var _protocol_hover_id: String = ""
 var _protocol_icon_cache: Dictionary = {}
-var _protocol_keystone_frame_tex: Texture2D = null
+var _protocol_node_ring_tex: Texture2D = null
+var _protocol_search: LineEdit = null
+var _protocol_search_query: String = ""
 
 func _open_protocol_grid() -> void:
 	if _crowd != null and is_instance_valid(_crowd):
@@ -1469,10 +1508,16 @@ func _create_protocol_overlay() -> void:
 	var panel := PanelContainer.new()
 	panel.name = "PanelContainer"
 	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.offset_left = 26
-	panel.offset_top = 26
-	panel.offset_right = -26
-	panel.offset_bottom = -26
+	var vp_h := get_viewport_rect().size.y
+	var outer_margin := 26.0
+	if vp_h <= 800.0:
+		outer_margin = 12.0
+	if vp_h <= 740.0:
+		outer_margin = 8.0
+	panel.offset_left = outer_margin
+	panel.offset_top = outer_margin
+	panel.offset_right = -outer_margin
+	panel.offset_bottom = -outer_margin
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	_protocol_overlay.add_child(panel)
 
@@ -1486,7 +1531,7 @@ func _create_protocol_overlay() -> void:
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "VBoxContainer"
-	vbox.add_theme_constant_override("separation", 12)
+	vbox.add_theme_constant_override("separation", 8 if vp_h <= 760.0 else 12)
 	pad.add_child(vbox)
 
 	var header := HBoxContainer.new()
@@ -1496,7 +1541,7 @@ func _create_protocol_overlay() -> void:
 	var title := Label.new()
 	title.text = "★ Protocol Grid"
 	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", ACCENT_BERRY)
+	title.add_theme_color_override("font_color", Color(0.86, 0.91, 1.0, 1.0))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_apply_font(title)
 	header.add_child(title)
@@ -1510,11 +1555,34 @@ func _create_protocol_overlay() -> void:
 	header.add_child(_protocol_sigils_lbl)
 
 	var sub := Label.new()
-	sub.text = "Drag with Left Mouse to pan. Mouse wheel to zoom in/out."
+	sub.text = "Drag: Left Mouse  •  Zoom: Mouse Wheel  •  Keystone nodes reshape your run."
 	sub.add_theme_font_size_override("font_size", 14)
-	sub.add_theme_color_override("font_color", SUBTITLE_COLOR)
+	sub.add_theme_color_override("font_color", Color(0.67, 0.78, 0.94, 0.98))
 	_apply_font(sub)
 	vbox.add_child(sub)
+
+	var search_row := HBoxContainer.new()
+	search_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(search_row)
+
+	var search_lbl := Label.new()
+	search_lbl.text = "Search"
+	search_lbl.add_theme_font_size_override("font_size", 13)
+	search_lbl.add_theme_color_override("font_color", Color(0.76, 0.86, 0.99, 0.94))
+	_apply_font(search_lbl)
+	search_row.add_child(search_lbl)
+
+	_protocol_search = LineEdit.new()
+	_protocol_search.placeholder_text = "node, effect, element, weapon..."
+	_protocol_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_protocol_search.text_changed.connect(func(t: String):
+		_protocol_search_query = t.strip_edges().to_lower()
+		_update_protocol_grid()
+	)
+	_protocol_search.text_submitted.connect(func(_t: String):
+		_focus_first_protocol_search_match()
+	)
+	search_row.add_child(_protocol_search)
 
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 10)
@@ -1522,7 +1590,8 @@ func _create_protocol_overlay() -> void:
 	vbox.add_child(body)
 
 	var graph_frame := PanelContainer.new()
-	graph_frame.custom_minimum_size = Vector2(0, 700)
+	# Important: never force a fixed graph height; this caused bottom clipping on 720p windows.
+	graph_frame.custom_minimum_size = Vector2.ZERO
 	graph_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	graph_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	graph_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.88))
@@ -1533,9 +1602,28 @@ func _create_protocol_overlay() -> void:
 	graph_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	graph_bg.stretch_mode = TextureRect.STRETCH_SCALE
 	graph_bg.texture = _load_tex(PROTOCOL_GRID_BG_PATH)
-	graph_bg.modulate = Color(1, 1, 1, 0.82)
+	graph_bg.modulate = Color(0.96, 0.98, 1.0, 0.90)
 	graph_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	graph_frame.add_child(graph_bg)
+
+	var graph_vignette := ColorRect.new()
+	graph_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	graph_vignette.color = Color(0.03, 0.04, 0.08, 0.22)
+	graph_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	graph_frame.add_child(graph_vignette)
+
+	if PROTOCOL_USE_FRAME_OVERLAY and ResourceLoader.exists(PROTOCOL_GRID_FRAME_PATH):
+		var frame_tex := load(PROTOCOL_GRID_FRAME_PATH) as Texture2D
+		if frame_tex != null:
+			var frame_ov := TextureRect.new()
+			frame_ov.set_anchors_preset(Control.PRESET_FULL_RECT)
+			frame_ov.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			frame_ov.stretch_mode = TextureRect.STRETCH_SCALE
+			frame_ov.texture = frame_tex
+			frame_ov.modulate = Color(1.0, 1.0, 1.0, 0.82)
+			frame_ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			frame_ov.z_index = 6
+			graph_frame.add_child(frame_ov)
 
 	_protocol_graph_view = Control.new()
 	_protocol_graph_view.name = "GraphView"
@@ -1551,11 +1639,23 @@ func _create_protocol_overlay() -> void:
 	_protocol_zoom = 1.0
 	_protocol_pan = Vector2.ZERO
 
+	if PROTOCOL_USE_FRAME_OVERLAY and ResourceLoader.exists(PROTOCOL_GRID_FRAME_PATH):
+		var frame_top_tex := load(PROTOCOL_GRID_FRAME_PATH) as Texture2D
+		if frame_top_tex != null:
+			var frame_top := TextureRect.new()
+			frame_top.set_anchors_preset(Control.PRESET_FULL_RECT)
+			frame_top.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			frame_top.stretch_mode = TextureRect.STRETCH_SCALE
+			frame_top.texture = frame_top_tex
+			frame_top.modulate = Color(1.0, 1.0, 1.0, 0.68)
+			frame_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			graph_frame.add_child(frame_top)
+
 	var side := PanelContainer.new()
-	side.custom_minimum_size = Vector2(248, 0)
+	side.custom_minimum_size = Vector2(220, 0)
 	side.size_flags_horizontal = Control.SIZE_SHRINK_END
 	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_theme_stylebox_override("panel", _sb_inset(12, 0.92))
+	side.add_theme_stylebox_override("panel", _sb_inset(12, 0.96))
 	body.add_child(side)
 
 	var side_pad := MarginContainer.new()
@@ -1656,7 +1756,7 @@ func _build_protocol_graph() -> void:
 
 func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	var graph_pos: Vector2 = upgrade.get("graph_pos", Vector2.ZERO) as Vector2
-	var node_color := Color.from_string(String(upgrade.get("color", "#ffffff")), Color.WHITE)
+	var node_color := _protocol_node_accent_color(upgrade, String(upgrade.get("id", "")))
 	var is_keystone := bool(upgrade.get("is_keystone", false))
 	var is_major := bool(upgrade.get("is_major", false))
 
@@ -1672,18 +1772,32 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	panel.position = graph_pos - node_size * 0.5
 	panel.z_index = 4
 
+	if _protocol_node_ring_tex == null and ResourceLoader.exists(PROTOCOL_NODE_RING_PATH):
+		_protocol_node_ring_tex = load(PROTOCOL_NODE_RING_PATH) as Texture2D
+	if _protocol_node_ring_tex != null:
+		var ring := TextureRect.new()
+		ring.set_anchors_preset(Control.PRESET_FULL_RECT)
+		ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ring.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ring.texture = _protocol_node_ring_tex
+		ring.modulate = Color(node_color.r, node_color.g, node_color.b, 0.60 if not is_keystone else 0.78)
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(ring)
+
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.10, 0.13, 0.96)
-	sb.border_color = Color(node_color.r, node_color.g, node_color.b, 0.82)
+	sb.bg_color = Color(0.05, 0.07, 0.10, 0.94)
+	sb.border_color = Color(node_color.r, node_color.g, node_color.b, 0.92)
 	var radius := int(node_size.y * 0.5)
 	sb.corner_radius_top_left = radius
 	sb.corner_radius_top_right = radius
 	sb.corner_radius_bottom_left = radius
 	sb.corner_radius_bottom_right = radius
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
+	sb.border_width_left = 3 if is_keystone else 2
+	sb.border_width_right = 3 if is_keystone else 2
+	sb.border_width_top = 3 if is_keystone else 2
+	sb.border_width_bottom = 3 if is_keystone else 2
+	sb.shadow_color = Color(node_color.r, node_color.g, node_color.b, 0.22)
+	sb.shadow_size = 8 if is_keystone else 6
 	panel.add_theme_stylebox_override("panel", sb)
 
 	var center := CenterContainer.new()
@@ -1694,7 +1808,7 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	vcenter.add_theme_constant_override("separation", 2)
 	center.add_child(vcenter)
 
-	var icon_tex := _protocol_icon_texture_for_id(String(upgrade.get("id", "")))
+	var icon_tex := _protocol_icon_texture_for_id(String(upgrade.get("id", "")), is_keystone)
 	if icon_tex != null:
 		var icon_rect := TextureRect.new()
 		icon_rect.texture = icon_tex
@@ -1704,7 +1818,7 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 		if is_keystone:
 			icon_size = 44.0
 		icon_rect.custom_minimum_size = Vector2(icon_size, icon_size)
-		icon_rect.modulate = Color(node_color.r, node_color.g, node_color.b, 0.95)
+		icon_rect.modulate = Color(1.0, 1.0, 1.0, 0.98)
 		icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vcenter.add_child(icon_rect)
 	else:
@@ -1725,21 +1839,8 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	mini.add_theme_font_size_override("font_size", 8 if not is_keystone else 9)
 	mini.add_theme_color_override("font_color", Color(0.84, 0.92, 1.0, 0.90))
 	_apply_font(mini)
-	vcenter.add_child(mini)
-
-	if is_keystone:
-		if _protocol_keystone_frame_tex == null and ResourceLoader.exists(PROTOCOL_KEYSTONE_FRAME_PATH):
-			_protocol_keystone_frame_tex = load(PROTOCOL_KEYSTONE_FRAME_PATH) as Texture2D
-		if _protocol_keystone_frame_tex != null:
-			var frame := TextureRect.new()
-			frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-			frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			frame.texture = _protocol_keystone_frame_tex
-			frame.modulate = Color(1.0, 0.90, 0.64, 0.78)
-			frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			frame.z_index = 2
-			panel.add_child(frame)
+	if is_keystone or is_major:
+		vcenter.add_child(mini)
 
 	var btn_overlay := Button.new()
 	btn_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1803,13 +1904,20 @@ func _draw_protocol_lines(container: Control) -> void:
 			if from_panel == null:
 				continue
 			var from_pos := from_panel.position + from_panel.size * 0.5
-			var fam_col := _protocol_family_color(String(node.get("id", "")))
+			var fam_col := _protocol_node_accent_color(upgrade, String(node.get("id", "")))
 			var line := Line2D.new()
-			line.width = 5.0
-			line.default_color = Color(fam_col.r, fam_col.g, fam_col.b, 0.55)
+			line.width = 3.2
+			line.default_color = Color(fam_col.r, fam_col.g, fam_col.b, 0.68)
 			line.antialiased = true
 			line.points = [from_pos, to_pos]
-			line.z_index = 2
+			line.z_index = 3
+			var under := Line2D.new()
+			under.width = 8.2
+			under.default_color = Color(fam_col.r * 0.45, fam_col.g * 0.45, fam_col.b * 0.45, 0.22)
+			under.antialiased = true
+			under.points = [from_pos, to_pos]
+			under.z_index = 2
+			container.add_child(under)
 			container.add_child(line)
 			# Add small "travel beads" so paths read as continuous build routes.
 			var segment_len := from_pos.distance_to(to_pos)
@@ -1825,7 +1933,7 @@ func _draw_protocol_lines(container: Control) -> void:
 				dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				dot.z_index = 3
 				container.add_child(dot)
-			_protocol_edges.append({"from": String(prereq_id), "to": String(node.get("id", "")), "line": line, "family_color": fam_col})
+			_protocol_edges.append({"from": String(prereq_id), "to": String(node.get("id", "")), "line": line, "under": under, "family_color": fam_col})
 
 func _update_protocol_grid() -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
@@ -1849,6 +1957,7 @@ func _update_protocol_grid() -> void:
 		var upgrade: Dictionary = node.get("upgrade", {})
 		if panel == null:
 			continue
+		var matches_search := _protocol_node_matches_search(upgrade)
 
 		var is_unlocked := id in unlocked
 		var prereqs: Array = upgrade.get("prereq", [])
@@ -1861,39 +1970,71 @@ func _update_protocol_grid() -> void:
 		var cost := int(upgrade.get("cost", 0))
 		var can_afford := sigils >= cost
 		if is_unlocked:
-			panel.modulate = Color(0.70, 1.0, 0.78, 1.0)
+			panel.self_modulate = Color(0.90, 1.0, 0.94, 1.0)
 		elif prereqs_met and can_afford:
-			panel.modulate = Color(0.92, 0.97, 1.0, 1.0)
+			panel.self_modulate = Color(0.98, 1.0, 1.0, 1.0)
 		elif prereqs_met:
-			panel.modulate = Color(0.72, 0.80, 0.90, 0.92)
+			panel.self_modulate = Color(0.84, 0.90, 0.98, 0.95)
 		else:
-			panel.modulate = Color(0.45, 0.52, 0.62, 0.78)
+			panel.self_modulate = Color(0.58, 0.64, 0.74, 0.82)
+		if _protocol_search_query != "" and not matches_search:
+			panel.self_modulate = Color(panel.self_modulate.r * 0.56, panel.self_modulate.g * 0.56, panel.self_modulate.b * 0.58, 0.26)
+		panel.modulate = Color(1, 1, 1, 1)
 		panel.scale = Vector2(1.10, 1.10) if id == _protocol_selected_id else (Vector2(1.06, 1.06) if trace_ids.has(id) else Vector2.ONE)
 		if trace_ids.has(id) and not is_unlocked:
-			panel.modulate = Color(panel.modulate.r + 0.10, panel.modulate.g + 0.10, panel.modulate.b + 0.10, panel.modulate.a)
+			panel.self_modulate = Color(
+				minf(1.0, panel.self_modulate.r + 0.10),
+				minf(1.0, panel.self_modulate.g + 0.10),
+				minf(1.0, panel.self_modulate.b + 0.10),
+				panel.self_modulate.a
+			)
 
 	for e in _protocol_edges:
 		var line := e.get("line", null) as Line2D
+		var under := e.get("under", null) as Line2D
 		if line == null:
 			continue
 		var from_id := String(e.get("from", ""))
 		var to_id := String(e.get("to", ""))
+		var edge_visible := true
+		if _protocol_search_query != "":
+			var from_u := _protocol_find_upgrade(from_id)
+			var to_u := _protocol_find_upgrade(to_id)
+			edge_visible = _protocol_node_matches_search(from_u) or _protocol_node_matches_search(to_u)
 		var from_owned := from_id in unlocked
 		var to_owned := to_id in unlocked
 		var to_available := from_owned and (not to_owned)
 		var fam_col := e.get("family_color", Color(0.57, 0.85, 1.0, 1.0)) as Color
 		if trace_ids.has(from_id) and trace_ids.has(to_id):
 			line.default_color = Color(1.0, 0.92, 0.58, 0.95)
-			line.width = 6.6
+			line.width = 4.8
+			if under != null:
+				under.default_color = Color(1.0, 0.82, 0.38, 0.30)
+				under.width = 10.2
 		elif from_owned and to_owned:
 			line.default_color = Color(0.55, 1.0, 0.70, 0.84)
-			line.width = 5.6
+			line.width = 4.0
+			if under != null:
+				under.default_color = Color(0.35, 0.95, 0.55, 0.22)
+				under.width = 8.8
 		elif to_available:
 			line.default_color = Color(fam_col.r, fam_col.g, fam_col.b, 0.78)
-			line.width = 5.0
+			line.width = 3.6
+			if under != null:
+				under.default_color = Color(fam_col.r * 0.45, fam_col.g * 0.45, fam_col.b * 0.45, 0.18)
+				under.width = 8.0
 		else:
 			line.default_color = Color(fam_col.r * 0.75, fam_col.g * 0.75, fam_col.b * 0.75, 0.42)
-			line.width = 4.4
+			line.width = 3.0
+			if under != null:
+				under.default_color = Color(fam_col.r * 0.35, fam_col.g * 0.35, fam_col.b * 0.35, 0.12)
+				under.width = 7.2
+		if not edge_visible:
+			line.default_color = Color(line.default_color.r, line.default_color.g, line.default_color.b, line.default_color.a * 0.18)
+			line.width = maxf(1.2, line.width * 0.62)
+			if under != null:
+				under.default_color = Color(under.default_color.r, under.default_color.g, under.default_color.b, under.default_color.a * 0.12)
+				under.width = maxf(2.0, under.width * 0.62)
 
 	if _protocol_sel_title != null and _protocol_sel_desc != null and _protocol_sel_cost != null:
 		var nd := _protocol_find_upgrade(detail_id)
@@ -1974,6 +2115,9 @@ func _close_protocol_overlay() -> void:
 	_protocol_drag_candidate = false
 	_protocol_dragging = false
 	_protocol_hover_id = ""
+	_protocol_search_query = ""
+	if _protocol_search != null and is_instance_valid(_protocol_search):
+		_protocol_search.clear()
 	if _crowd != null and is_instance_valid(_crowd):
 		_crowd.visible = _crowd_prev_visible
 		_crowd.process_mode = _crowd_prev_process_mode
@@ -2035,6 +2179,19 @@ func _focus_protocol_graph() -> void:
 	_clamp_protocol_pan()
 	_apply_protocol_pan()
 	_update_protocol_grid()
+
+func _focus_protocol_node(id: String) -> void:
+	if _protocol_graph_view == null or not is_instance_valid(_protocol_graph_view):
+		return
+	var nd := _protocol_node_by_id.get(id, {}) as Dictionary
+	var panel := nd.get("panel", null) as Control
+	if panel == null:
+		return
+	var target := panel.position + panel.size * 0.5
+	var viewport_size := _protocol_graph_view.size
+	_protocol_pan = viewport_size * 0.5 - target * _protocol_zoom
+	_clamp_protocol_pan()
+	_apply_protocol_pan()
 
 func _protocol_data() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -2099,9 +2256,45 @@ func _protocol_data() -> Array[Dictionary]:
 			"is_keystone": _protocol_is_keystone(d2),
 			"is_major": _protocol_is_major(d2),
 			"prereq": prereq,
-			"graph_pos": gp
+			"graph_pos": gp,
+			"cluster": String(d2.get("cluster", "")),
+			"search": _protocol_node_search_blob(d2)
 		})
 	return out
+
+func _protocol_node_search_blob(node: Dictionary) -> String:
+	var bits: Array[String] = []
+	bits.append(String(node.get("id", "")))
+	bits.append(String(node.get("name", "")))
+	bits.append(String(node.get("desc", "")))
+	bits.append(String(node.get("cluster", "")))
+	for t in node.get("tags", []) as Array:
+		bits.append(String(t))
+	var mods := node.get("mods", {}) as Dictionary
+	for k in mods.keys():
+		bits.append(String(k))
+	return " ".join(bits).to_lower()
+
+func _protocol_node_matches_search(upgrade: Dictionary) -> bool:
+	if _protocol_search_query == "":
+		return true
+	if upgrade.is_empty():
+		return false
+	return String(upgrade.get("search", "")).find(_protocol_search_query) >= 0
+
+func _focus_first_protocol_search_match() -> void:
+	if _protocol_search_query == "":
+		return
+	for u in _protocol_upgrades_runtime:
+		if not _protocol_node_matches_search(u):
+			continue
+		var id := String(u.get("id", ""))
+		if id == "":
+			continue
+		_protocol_selected_id = id
+		_focus_protocol_node(id)
+		_update_protocol_grid()
+		return
 
 func _apply_protocol_pan() -> void:
 	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
@@ -2278,6 +2471,28 @@ func _protocol_is_keystone(node: Dictionary) -> bool:
 func _protocol_family_key(id: String) -> String:
 	if id == "core_0":
 		return "core"
+	if id.begins_with("storm_") or id.find("closed_circuit") >= 0:
+		return "overclock"
+	if id.begins_with("fire_") or id.find("ash_economy") >= 0:
+		return "offense"
+	if id.begins_with("frost_") or id.find("stillness_tax") >= 0:
+		return "focus"
+	if id.begins_with("poison_") or id.find("terminal_dose") >= 0:
+		return "rally"
+	if id.begins_with("proj_"):
+		return "offense"
+	if id.begins_with("scatter_"):
+		return "offense"
+	if id.begins_with("rico_") or id.begins_with("pierce_"):
+		return "focus"
+	if id.begins_with("bomb_"):
+		return "offense"
+	if id.begins_with("beam_"):
+		return "focus"
+	if id.begins_with("orbital_"):
+		return "focus"
+	if id.begins_with("hybrid_"):
+		return "squad"
 	if id.begins_with("hp_") or id.begins_with("crit_"):
 		return "vitality"
 	if id.begins_with("armor_") or id.find("bulwark") >= 0:
@@ -2314,10 +2529,22 @@ func _protocol_family_key(id: String) -> String:
 		return "overclock"
 	if id.begins_with("execution_") or id.find("reaper_clause") >= 0:
 		return "offense"
+	if id.begins_with("execution_blast_") or id.find("butcher_protocol") >= 0:
+		return "offense"
+	if id.begins_with("momentum_") or id.find("reaper_momentum") >= 0:
+		return "offense"
 	if id.begins_with("anchor_") or id.find("phalanx") >= 0:
 		return "squad"
 	if id.begins_with("crit_weave_") or id.find("headhunter") >= 0:
 		return "offense"
+	if id.begins_with("aether_feedback_") or id.find("mirror_aegis") >= 0:
+		return "overclock"
+	if id.begins_with("overfeed_") or id.find("feedback_loop") >= 0 or id.find("capacitor_lord") >= 0:
+		return "overclock"
+	if id.begins_with("laststand_") or id.find("bloodforge_oath") >= 0:
+		return "rally"
+	if id.begins_with("doctrine_link_") or id.find("singularity_drive") >= 0:
+		return "squad"
 	return "misc"
 
 func _protocol_node_depth(id: String, node_by_id: Dictionary, cache: Dictionary) -> int:
@@ -2436,6 +2663,73 @@ func _protocol_label_for_mod(key: String) -> String:
 		"damage_taken_as_essence_add": return "Damage Taken As Essence"
 		"execute_threshold_add": return "Execute Threshold"
 		"overclock_always_on_add": return "Overclock Always On"
+		"kill_chain_window_add": return "Kill Chain Window"
+		"kill_chain_haste_per_stack_add": return "Kill Chain Haste per Stack"
+		"kill_chain_max_stacks_add": return "Kill Chain Max Stacks"
+		"overclock_extend_on_kill_add": return "Overclock Extend on Kill"
+		"execute_blast_radius_add": return "Execute Blast Radius"
+		"execute_blast_damage_mult": return "Execute Blast Damage"
+		"execute_blast_mark_threshold_add": return "Execute Blast Mark Threshold"
+		"essence_guard_reflect_ratio_add": return "Essence Guard Reflect Ratio"
+		"essence_guard_reflect_radius_add": return "Essence Guard Reflect Radius"
+		"guardian_intercept_ratio_add": return "Guardian Intercept Ratio"
+		"non_guardian_hp_mult": return "Non-Guardian HP"
+		"slowed_execute_threshold_add": return "Execute Threshold vs Slowed"
+		"unslowed_enemy_damage_taken_mult": return "Damage vs Unslowed Enemies"
+		"crit_execute_vuln_add": return "Crit Apply Execute Vulnerability"
+		"noncrit_damage_mult": return "Non-Crit Damage"
+		"point_blank_max_bonus_add": return "Point-Blank Max Bonus"
+		"point_blank_far_penalty_add": return "Point-Blank Far Penalty"
+		"farshot_max_bonus_add": return "Farshot Max Bonus"
+		"farshot_near_penalty_add": return "Farshot Near Penalty"
+		"near_enemy_damage_taken_mult": return "Damage Taken Near Enemies"
+		"near_enemy_threat_radius_add": return "Near Enemy Threat Radius"
+		"mage_chain_jumps_add": return "Mage Chain Jumps"
+		"mage_chain_range_add": return "Mage Chain Range"
+		"mage_single_target_mult": return "Mage Chain Isolated Damage"
+		"chain_jumps_add": return "Chain Jumps"
+		"chain_damage_falloff_mult": return "Chain Falloff"
+		"chain_kill_shock_radius_add": return "Chain Kill Shock Radius"
+		"chain_kill_shock_damage_mult": return "Chain Kill Shock Damage"
+		"chain_can_rehit_targets": return "Chain Can Rehit Targets"
+		"chain_rehit_damage_mult": return "Chain Rehit Damage"
+		"burning_enemy_execute_threshold_add": return "Execute Threshold vs Burning"
+		"burn_duration_mult": return "Burn Duration"
+		"slowed_enemy_damage_mult": return "Slowed Enemy Contact Damage"
+		"slow_initial_strength_mult": return "Initial Slow Strength"
+		"slow_stacks_to_freeze_enabled": return "Slow Stacks Freeze"
+		"freeze_after_slow_duration": return "Freeze After Slow Duration"
+		"projectile_count_add": return "Projectile Count"
+		"projectile_damage_mult": return "Projectile Damage"
+		"projectile_pierce_add": return "Projectile Pierce"
+		"projectile_spread_mult": return "Projectile Spread"
+		"bomb_radius_add": return "Bomb Radius"
+		"bomb_delay_mult": return "Bomb Delay"
+		"bomb_damage_mult": return "Bomb Damage"
+		"poison_duration_mult": return "Poison Duration"
+		"frost_slow_duration_mult": return "Frost Slow Duration"
+		"orbital_damage_mult": return "Orbital Damage"
+		"orbital_delay_mult": return "Orbital Delay"
+		"ricochet_damage_per_bounce_add": return "Ricochet Damage per Bounce"
+		"direct_projectile_damage_mult": return "Direct Projectile Damage"
+		"post_ricochet_projectile_damage_mult": return "Post-Ricochet Projectile Damage"
+		"ricochet_count_add": return "Ricochet Count"
+		"pierce_damage_per_enemy_hit_add": return "Pierce Damage per Enemy Hit"
+		"piercing_hits_can_execute": return "Piercing Hits Can Execute"
+		"bomb_cluster_count_add": return "Bomb Cluster Count"
+		"bomb_cluster_damage_mult": return "Bomb Cluster Damage"
+		"bomb_cluster_radius_mult": return "Bomb Cluster Radius"
+		"beam_damage_ramp_per_second_add": return "Beam Damage Ramp per Second"
+		"beam_damage_ramp_cap": return "Beam Damage Ramp Cap"
+		"beam_initial_damage_mult": return "Beam Initial Damage"
+		"beam_secondary_targets_add": return "Beam Secondary Targets"
+		"beam_secondary_damage_mult": return "Beam Secondary Damage"
+		"beam_target_swap_resets_ramp": return "Beam Target Swap Resets Ramp"
+		"orbital_targets_player_trail": return "Orbital Targets Squad Trail"
+		"berserk_threshold_add": return "Last-Stand HP Threshold"
+		"berserk_damage_mult": return "Last-Stand Damage"
+		"berserk_attack_speed_mult": return "Last-Stand Attack Speed"
+		"berserk_damage_taken_mult": return "Last-Stand Damage Taken"
 		_: return key
 
 func _protocol_trace_ids(from_id: String) -> Dictionary:
@@ -2457,6 +2751,28 @@ func _protocol_trace_ids(from_id: String) -> Dictionary:
 				stack.append(pid)
 	return out
 
+func _protocol_node_accent_color(node: Dictionary, id: String) -> Color:
+	var cluster := String(node.get("cluster", ""))
+	if cluster != "":
+		return _protocol_cluster_color(cluster)
+	return _protocol_family_color(id)
+
+func _protocol_cluster_color(cluster: String) -> Color:
+	match cluster:
+		"storm": return Color(0.50, 0.82, 1.0, 1.0)
+		"fire": return Color(1.0, 0.57, 0.32, 1.0)
+		"frost": return Color(0.62, 0.90, 1.0, 1.0)
+		"poison": return Color(0.54, 1.0, 0.60, 1.0)
+		"projectile": return Color(1.0, 0.84, 0.56, 1.0)
+		"scatter": return Color(1.0, 0.72, 0.45, 1.0)
+		"ricochet": return Color(1.0, 0.78, 0.54, 1.0)
+		"pierce": return Color(1.0, 0.90, 0.68, 1.0)
+		"bomb": return Color(1.0, 0.54, 0.28, 1.0)
+		"beam": return Color(0.90, 0.68, 1.0, 1.0)
+		"orbital": return Color(1.0, 0.70, 0.38, 1.0)
+		"hybrid": return Color(0.66, 0.96, 0.92, 1.0)
+		_: return Color(0.62, 0.74, 0.92, 1.0)
+
 func _protocol_family_color(id: String) -> Color:
 	var f := _protocol_family_key(id)
 	match f:
@@ -2471,9 +2787,13 @@ func _protocol_family_color(id: String) -> Color:
 		"core": return Color(0.82, 0.88, 1.0, 1.0)
 		_: return Color(0.62, 0.74, 0.92, 1.0)
 
-func _protocol_icon_texture_for_id(id: String) -> Texture2D:
-	var family := _protocol_family_key(id)
-	var file := String(PROTOCOL_ICON_BY_FAMILY.get(family, "offense.png"))
+func _protocol_icon_texture_for_id(id: String, is_keystone: bool = false) -> Texture2D:
+	var file := ""
+	if is_keystone and PROTOCOL_KEYSTONE_ICON_BY_ID.has(id):
+		file = String(PROTOCOL_KEYSTONE_ICON_BY_ID[id])
+	if file == "":
+		var family := _protocol_family_key(id)
+		file = String(PROTOCOL_ICON_BY_FAMILY.get(family, "fam_offense_v2.webp"))
 	var path := PROTOCOL_ICON_DIR + file
 	if _protocol_icon_cache.has(path):
 		return _protocol_icon_cache[path] as Texture2D
