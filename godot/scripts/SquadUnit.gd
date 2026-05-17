@@ -990,14 +990,18 @@ func _apply_guardian_intercept(amount: int, mp: Node) -> int:
 	for u in squad:
 		if u == null or not is_instance_valid(u) or u == self:
 			continue
-		var su := u as SquadUnit
-		if su == null or su.character_data == null:
+		var su: Node2D = u as Node2D
+		if su == null:
 			continue
-		if su.character_data.class_type != CharacterData.Class.GUARDIAN:
+		var su_cd: CharacterData = su.get("character_data") as CharacterData
+		if su_cd == null:
 			continue
-		if su.current_hp <= 0:
+		if su_cd.class_type != CharacterData.Class.GUARDIAN:
 			continue
-		var d2 := su.global_position.distance_squared_to(global_position)
+		var su_hp: int = int(su.get("current_hp"))
+		if su_hp <= 0:
+			continue
+		var d2: float = su.global_position.distance_squared_to(global_position)
 		if d2 < best_d2:
 			best_d2 = d2
 			best_guard = su

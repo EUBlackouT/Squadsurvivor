@@ -1405,6 +1405,7 @@ const PROTOCOL_GRID_BG_PATH: String = "res://assets/ui/revamp/protocol_grid_bg_v
 const PROTOCOL_GRID_FRAME_PATH: String = "res://assets/ui/revamp/protocol_grid_frame_v2.webp"
 const PROTOCOL_NODE_RING_PATH: String = "res://assets/ui/revamp/protocol_node_ring_v2.webp"
 const PROTOCOL_USE_FRAME_OVERLAY: bool = false
+const PROTOCOL_USE_TEXTURE_BG: bool = false
 const PROTOCOL_ICON_DIR: String = "res://assets/ui/revamp/protocol_icons/"
 const PROTOCOL_ICON_BY_FAMILY := {
 	"core": "fam_core_v2.webp",
@@ -1477,6 +1478,9 @@ var _protocol_zoom: float = 1.0
 var _protocol_hover_id: String = ""
 var _protocol_icon_cache: Dictionary = {}
 var _protocol_node_ring_tex: Texture2D = null
+var _protocol_medallion_cache: Dictionary = {}
+var _protocol_node_shell_cache: Dictionary = {}
+var _protocol_icon_mask_mat: ShaderMaterial = null
 var _protocol_search: LineEdit = null
 var _protocol_search_query: String = ""
 
@@ -1601,10 +1605,16 @@ func _create_protocol_overlay() -> void:
 	graph_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	graph_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	graph_bg.stretch_mode = TextureRect.STRETCH_SCALE
-	graph_bg.texture = _load_tex(PROTOCOL_GRID_BG_PATH)
-	graph_bg.modulate = Color(0.96, 0.98, 1.0, 0.90)
+	graph_bg.texture = _load_tex(PROTOCOL_GRID_BG_PATH) if PROTOCOL_USE_TEXTURE_BG else null
+	graph_bg.modulate = Color(1.0, 1.0, 1.0, 0.22 if PROTOCOL_USE_TEXTURE_BG else 0.0)
 	graph_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	graph_frame.add_child(graph_bg)
+
+	var graph_tint := ColorRect.new()
+	graph_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
+	graph_tint.color = Color(0.03, 0.06, 0.11, 0.86)
+	graph_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	graph_frame.add_child(graph_tint)
 
 	var graph_vignette := ColorRect.new()
 	graph_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1733,9 +1743,17 @@ func _create_protocol_overlay() -> void:
 	)
 	btn_row.add_child(back_btn)
 
+	var fit_btn := _make_menu_button("Fit Web", false)
+	fit_btn.custom_minimum_size = Vector2(160, 44)
+	fit_btn.pressed.connect(func():
+		_play_ui("ui.click")
+		_protocol_fit_to_tree()
+	)
+	btn_row.add_child(fit_btn)
+
 	_build_protocol_graph()
 	_update_protocol_grid()
-	call_deferred("_focus_protocol_graph")
+	call_deferred("_protocol_fit_to_tree")
 
 func _build_protocol_graph() -> void:
 	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
@@ -1760,11 +1778,11 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	var is_keystone := bool(upgrade.get("is_keystone", false))
 	var is_major := bool(upgrade.get("is_major", false))
 
-	var node_size := Vector2(52, 52)
+	var node_size := Vector2(56, 56)
 	if is_major:
-		node_size = Vector2(78, 78)
+		node_size = Vector2(90, 90)
 	if is_keystone:
-		node_size = Vector2(116, 116)
+		node_size = Vector2(132, 132)
 
 	var panel := PanelContainer.new()
 	panel.name = String(upgrade.get("id", "node"))
@@ -1772,32 +1790,28 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 	panel.position = graph_pos - node_size * 0.5
 	panel.z_index = 4
 
-	if _protocol_node_ring_tex == null and ResourceLoader.exists(PROTOCOL_NODE_RING_PATH):
-		_protocol_node_ring_tex = load(PROTOCOL_NODE_RING_PATH) as Texture2D
-	if _protocol_node_ring_tex != null:
-		var ring := TextureRect.new()
-		ring.set_anchors_preset(Control.PRESET_FULL_RECT)
-		ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ring.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ring.texture = _protocol_node_ring_tex
-		ring.modulate = Color(node_color.r, node_color.g, node_color.b, 0.60 if not is_keystone else 0.78)
-		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.add_child(ring)
+	var shell := TextureRect.new()
+	shell.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shell.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shell.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	shell.texture = _protocol_node_shell_texture(int(node_size.x), node_color, is_keystone, is_major)
+	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(shell)
 
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.07, 0.10, 0.94)
-	sb.border_color = Color(node_color.r, node_color.g, node_color.b, 0.92)
+	sb.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	sb.border_color = Color(0.0, 0.0, 0.0, 0.0)
 	var radius := int(node_size.y * 0.5)
 	sb.corner_radius_top_left = radius
 	sb.corner_radius_top_right = radius
 	sb.corner_radius_bottom_left = radius
 	sb.corner_radius_bottom_right = radius
-	sb.border_width_left = 3 if is_keystone else 2
-	sb.border_width_right = 3 if is_keystone else 2
-	sb.border_width_top = 3 if is_keystone else 2
-	sb.border_width_bottom = 3 if is_keystone else 2
-	sb.shadow_color = Color(node_color.r, node_color.g, node_color.b, 0.22)
-	sb.shadow_size = 8 if is_keystone else 6
+	sb.border_width_left = 0
+	sb.border_width_right = 0
+	sb.border_width_top = 0
+	sb.border_width_bottom = 0
+	sb.shadow_color = Color(0.0, 0.0, 0.0, 0.0)
+	sb.shadow_size = 0
 	panel.add_theme_stylebox_override("panel", sb)
 
 	var center := CenterContainer.new()
@@ -1810,17 +1824,41 @@ func _create_protocol_node(upgrade: Dictionary) -> Dictionary:
 
 	var icon_tex := _protocol_icon_texture_for_id(String(upgrade.get("id", "")), is_keystone)
 	if icon_tex != null:
-		var icon_rect := TextureRect.new()
-		icon_rect.texture = icon_tex
-		icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		var icon_size := 22.0 if not is_major else 30.0
 		if is_keystone:
 			icon_size = 44.0
-		icon_rect.custom_minimum_size = Vector2(icon_size, icon_size)
+		var icon_stack := Control.new()
+		icon_stack.custom_minimum_size = Vector2(icon_size + 8.0, icon_size + 8.0)
+		icon_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vcenter.add_child(icon_stack)
+
+		var med := TextureRect.new()
+		med.set_anchors_preset(Control.PRESET_FULL_RECT)
+		med.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		med.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		med.texture = _protocol_medallion_texture(int(round(icon_size + 8.0)), node_color, is_keystone)
+		med.modulate = Color(1.0, 1.0, 1.0, 0.95)
+		med.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon_stack.add_child(med)
+
+		var icon_rect := TextureRect.new()
+		icon_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		icon_rect.offset_left = 3.0
+		icon_rect.offset_top = 3.0
+		icon_rect.offset_right = -3.0
+		icon_rect.offset_bottom = -3.0
+		icon_rect.texture = icon_tex
+		icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon_rect.modulate = Color(1.0, 1.0, 1.0, 0.98)
 		icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vcenter.add_child(icon_rect)
+		if _protocol_icon_mask_mat == null:
+			var sh := Shader.new()
+			sh.code = "shader_type canvas_item;\nvoid fragment(){\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat r = length(uv);\n\tfloat circle = smoothstep(1.03, 0.82, r);\n\tvec4 t = texture(TEXTURE, UV);\n\tfloat lum = dot(t.rgb, vec3(0.299, 0.587, 0.114));\n\tfloat sat = max(max(t.r, t.g), t.b) - min(min(t.r, t.g), t.b);\n\tfloat ink = max(lum, sat * 1.35);\n\tfloat symbol = smoothstep(0.14, 0.52, ink);\n\tfloat alpha = max(t.a, symbol) * circle;\n\tvec3 col = mix(vec3(0.08, 0.11, 0.16), clamp(t.rgb * 1.24, vec3(0.0), vec3(1.0)), symbol);\n\tfloat rim = smoothstep(0.94, 0.70, r) * 0.14;\n\tCOLOR = vec4(col + rim, alpha);\n}\n"
+			_protocol_icon_mask_mat = ShaderMaterial.new()
+			_protocol_icon_mask_mat.shader = sh
+		icon_rect.material = _protocol_icon_mask_mat
+		icon_stack.add_child(icon_rect)
 	else:
 		var icon_lbl := Label.new()
 		icon_lbl.text = String(upgrade.get("icon", "N"))
@@ -1919,21 +1957,10 @@ func _draw_protocol_lines(container: Control) -> void:
 			under.z_index = 2
 			container.add_child(under)
 			container.add_child(line)
-			# Add small "travel beads" so paths read as continuous build routes.
-			var segment_len := from_pos.distance_to(to_pos)
-			var bead_count := maxi(1, int(segment_len / 120.0))
-			for bi in range(1, bead_count):
-				var t := float(bi) / float(bead_count)
-				var bp := from_pos.lerp(to_pos, t)
-				var dot := ColorRect.new()
-				dot.name = "EdgeDot_%s_%s_%d" % [String(prereq_id), String(node.get("id", "")), bi]
-				dot.color = Color(fam_col.r, fam_col.g, fam_col.b, 0.72)
-				dot.custom_minimum_size = Vector2(6, 6)
-				dot.position = bp - Vector2(3, 3)
-				dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				dot.z_index = 3
-				container.add_child(dot)
-			_protocol_edges.append({"from": String(prereq_id), "to": String(node.get("id", "")), "line": line, "under": under, "family_color": fam_col})
+			var from_id := String(prereq_id)
+			var to_id := String(node.get("id", ""))
+			var bridge := _protocol_is_visual_bridge_edge(from_id, to_id)
+			_protocol_edges.append({"from": from_id, "to": to_id, "line": line, "under": under, "family_color": fam_col, "bridge": bridge})
 
 func _update_protocol_grid() -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
@@ -1996,6 +2023,7 @@ func _update_protocol_grid() -> void:
 			continue
 		var from_id := String(e.get("from", ""))
 		var to_id := String(e.get("to", ""))
+		var bridge := bool(e.get("bridge", false))
 		var edge_visible := true
 		if _protocol_search_query != "":
 			var from_u := _protocol_find_upgrade(from_id)
@@ -2029,6 +2057,20 @@ func _update_protocol_grid() -> void:
 			if under != null:
 				under.default_color = Color(fam_col.r * 0.35, fam_col.g * 0.35, fam_col.b * 0.35, 0.12)
 				under.width = 7.2
+		var trace_edge := trace_ids.has(from_id) and trace_ids.has(to_id)
+		if bridge and (not trace_edge):
+			# Bridge links stay visible, but remain visually secondary.
+			line.default_color = Color(line.default_color.r, line.default_color.g, line.default_color.b, line.default_color.a * 0.40)
+			line.width = maxf(1.2, line.width * 0.64)
+			if under != null:
+				under.default_color = Color(under.default_color.r, under.default_color.g, under.default_color.b, under.default_color.a * 0.18)
+				under.width = maxf(1.8, under.width * 0.54)
+				under.visible = edge_visible
+			line.visible = edge_visible
+		else:
+			line.visible = edge_visible
+			if under != null:
+				under.visible = edge_visible
 		if not edge_visible:
 			line.default_color = Color(line.default_color.r, line.default_color.g, line.default_color.b, line.default_color.a * 0.18)
 			line.width = maxf(1.2, line.width * 0.62)
@@ -2140,7 +2182,7 @@ func _layout_protocol_tree(root: Control) -> void:
 		minp.y = minf(minp.y, center.y)
 		maxp.x = maxf(maxp.x, center.x)
 		maxp.y = maxf(maxp.y, center.y)
-	var padding := Vector2(260, 240)
+	var padding := Vector2(420, 360)
 	root.custom_minimum_size = Vector2(
 		maxf(2200.0, (maxp.x - minp.x) + padding.x * 2.0),
 		maxf(1600.0, (maxp.y - minp.y) + padding.y * 2.0)
@@ -2193,6 +2235,24 @@ func _focus_protocol_node(id: String) -> void:
 	_clamp_protocol_pan()
 	_apply_protocol_pan()
 
+func _protocol_fit_to_tree() -> void:
+	if _protocol_graph_view == null or not is_instance_valid(_protocol_graph_view):
+		return
+	if _protocol_graph_root == null or not is_instance_valid(_protocol_graph_root):
+		return
+	var view_size := _protocol_graph_view.size
+	var root_size := _protocol_graph_root.custom_minimum_size
+	if root_size.x <= 1.0 or root_size.y <= 1.0:
+		return
+	var pad := Vector2(42.0, 42.0)
+	var zx := (view_size.x - pad.x) / root_size.x
+	var zy := (view_size.y - pad.y) / root_size.y
+	_protocol_zoom = clampf(minf(zx, zy), 0.06, 2.40)
+	var center := root_size * 0.5
+	_protocol_pan = view_size * 0.5 - center * _protocol_zoom
+	_clamp_protocol_pan()
+	_apply_protocol_pan()
+
 func _protocol_data() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var mp := get_node_or_null("/root/MetaProgression")
@@ -2201,8 +2261,6 @@ func _protocol_data() -> Array[Dictionary]:
 	var tree: Dictionary = mp.tree_data()
 	var nodes: Array = tree.get("nodes", []) as Array
 	var filtered: Array[Dictionary] = []
-	var minp := Vector2(INF, INF)
-	var maxp := Vector2(-INF, -INF)
 	for n in nodes:
 		if typeof(n) != TYPE_DICTIONARY:
 			continue
@@ -2215,37 +2273,92 @@ func _protocol_data() -> Array[Dictionary]:
 		var py := float(pos_arr[1]) if pos_arr.size() > 1 else 0.0
 		d["__pos_v2"] = Vector2(px, py)
 		filtered.append(d)
-		minp.x = minf(minp.x, px)
-		minp.y = minf(minp.y, py)
-		maxp.x = maxf(maxp.x, px)
-		maxp.y = maxf(maxp.y, py)
 	if filtered.is_empty():
 		return out
 
-	var graph_size := Vector2(6200, 4600)
-	var margin := Vector2(430, 340)
-	var span := maxp - minp
-	var inv_span := Vector2(1.0 / maxf(1.0, span.x), 1.0 / maxf(1.0, span.y))
-	for d2 in filtered:
+	var graph_size := Vector2(22000, 16800)
+	var center := graph_size * 0.5
+	var node_by_id: Dictionary = {}
+	for d in filtered:
+		node_by_id[String(d.get("id", ""))] = d
+	var depth_cache: Dictionary = {}
+	var per_depth_groups: Dictionary = {}
+	var sorted_nodes: Array[Dictionary] = filtered.duplicate()
+	sorted_nodes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var aid := String(a.get("id", ""))
+		var bid := String(b.get("id", ""))
+		var da := _protocol_node_depth(aid, node_by_id, depth_cache)
+		var db := _protocol_node_depth(bid, node_by_id, depth_cache)
+		if da != db:
+			return da < db
+		return aid < bid
+	)
+	var placed: Dictionary = {}
+	for d2 in sorted_nodes:
 		var id2 := String(d2.get("id", ""))
-		var name2 := String(d2.get("name", id2))
-		var desc2 := String(d2.get("desc", ""))
-		var cost2 := int(d2.get("cost", 0))
+		var depth := _protocol_node_depth(id2, node_by_id, depth_cache)
+		var family := _protocol_family_key(id2)
+		var cluster := String(d2.get("cluster", ""))
+		var key := "%s|%d|%s" % [family, depth, cluster]
+		if not per_depth_groups.has(key):
+			per_depth_groups[key] = []
+		(per_depth_groups[key] as Array).append(d2)
+
+	for gk in per_depth_groups.keys():
+		var group := per_depth_groups[gk] as Array
+		group.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var pa: Vector2 = a.get("__pos_v2", Vector2.ZERO) as Vector2
+			var pb: Vector2 = b.get("__pos_v2", Vector2.ZERO) as Vector2
+			if absf(pa.y - pb.y) > 0.01:
+				return pa.y < pb.y
+			return pa.x < pb.x
+		)
+
+	for d2 in sorted_nodes:
+		var id2 := String(d2.get("id", ""))
+		var depth := _protocol_node_depth(id2, node_by_id, depth_cache)
+		var family := _protocol_family_key(id2)
+		var cluster := String(d2.get("cluster", ""))
+		var key := "%s|%d|%s" % [family, depth, cluster]
+		var group2 := per_depth_groups.get(key, []) as Array
+		var idx := maxi(0, group2.find(d2))
+		var lane_count := maxi(1, group2.size())
+		var lane := float(idx) - float(lane_count - 1) * 0.5
+		var base_angle := _protocol_family_angle(family) + _protocol_cluster_angle_offset(cluster)
+		var radial := Vector2.from_angle(base_angle)
+		var tangent := Vector2(-radial.y, radial.x)
+		var radius := 320.0 + float(depth) * 640.0
+		if _protocol_is_keystone(d2):
+			radius += 160.0
+		elif _protocol_is_major(d2):
+			radius += 90.0
+		var pos_v: Vector2 = d2.get("__pos_v2", Vector2.ZERO) as Vector2
+		var norm_lane := clampf((pos_v.x * 0.00072) + (pos_v.y * 0.00062), -1.0, 1.0)
+		var gp := center + radial * radius + tangent * (lane * 360.0 + norm_lane * 130.0)
 		var prereq_raw := d2.get("prereq", []) as Array
 		var prereq: Array[String] = []
 		for p in prereq_raw:
 			var ps := String(p)
 			if ps != "":
 				prereq.append(ps)
-		var pos_v: Vector2 = d2.get("__pos_v2", Vector2.ZERO) as Vector2
-		var nx := (pos_v.x - minp.x) * inv_span.x
-		var ny := (pos_v.y - minp.y) * inv_span.y
-		var gp := Vector2(
-			margin.x + nx * (graph_size.x - margin.x * 2.0),
-			margin.y + ny * (graph_size.y - margin.y * 2.0)
-		)
-		# Slight constellation jitter so travel chains don't feel like straight rails.
-		gp += Vector2(sin(gp.y * 0.006 + gp.x * 0.001) * 24.0, cos(gp.x * 0.005 + gp.y * 0.001) * 20.0)
+		if not prereq.is_empty():
+			var centroid := Vector2.ZERO
+			var ncount := 0
+			for pid in prereq:
+				if placed.has(pid):
+					centroid += placed[pid] as Vector2
+					ncount += 1
+			if ncount > 0:
+				centroid /= float(ncount)
+				# Keep structured sector identity, but pull toward parent neighborhood
+				# to reduce long edge crossings and "random web" diagonals.
+				gp = gp.lerp(centroid + radial * 380.0, 0.18)
+		if id2 == "core_0":
+			gp = center
+		placed[id2] = gp
+		var name2 := String(d2.get("name", id2))
+		var desc2 := String(d2.get("desc", ""))
+		var cost2 := int(d2.get("cost", 0))
 		out.append({
 			"id": id2,
 			"name": name2,
@@ -2260,7 +2373,93 @@ func _protocol_data() -> Array[Dictionary]:
 			"cluster": String(d2.get("cluster", "")),
 			"search": _protocol_node_search_blob(d2)
 		})
+
+	# Separation pass: prevent tight visual clumps while preserving radial structure.
+	for _iter in range(0, 12):
+		for i in range(out.size()):
+			var a := out[i] as Dictionary
+			var id_a := String(a.get("id", ""))
+			if id_a == "" or id_a == "core_0":
+				continue
+			var pa: Vector2 = a.get("graph_pos", Vector2.ZERO) as Vector2
+			var push := Vector2.ZERO
+			for j in range(out.size()):
+				if i == j:
+					continue
+				var b := out[j] as Dictionary
+				var pb: Vector2 = b.get("graph_pos", Vector2.ZERO) as Vector2
+				var delta := pa - pb
+				var dist := delta.length()
+				var min_sep := 220.0
+				if bool(a.get("is_keystone", false)) or bool(b.get("is_keystone", false)):
+					min_sep = 300.0
+				elif bool(a.get("is_major", false)) or bool(b.get("is_major", false)):
+					min_sep = 260.0
+				if dist > 0.01 and dist < min_sep:
+					push += delta.normalized() * (min_sep - dist)
+			if push.length_squared() <= 0.01:
+				continue
+			var radial_delta := pa - center
+			if radial_delta.length_squared() <= 0.01:
+				continue
+			var radial_dir := radial_delta.normalized()
+			var tangent := Vector2(-radial_dir.y, radial_dir.x)
+			var tangential_push := tangent * push.dot(tangent) * 0.30
+			var radial_push := radial_dir * clampf(push.dot(radial_dir) * 0.06, -20.0, 20.0)
+			pa += tangential_push + radial_push
+			var depth_a := _protocol_node_depth(id_a, node_by_id, depth_cache)
+			var ideal_radius := 320.0 + float(depth_a) * 640.0
+			if bool(a.get("is_keystone", false)):
+				ideal_radius += 160.0
+			elif bool(a.get("is_major", false)):
+				ideal_radius += 90.0
+			var r_now := (pa - center).length()
+			if r_now > 0.01:
+				var r_blend := lerpf(r_now, ideal_radius, 0.10)
+				pa = center + (pa - center).normalized() * r_blend
+			a["graph_pos"] = pa
+			out[i] = a
 	return out
+
+func _protocol_family_angle(family: String) -> float:
+	match family:
+		"core": return -PI * 0.5
+		"vitality": return -PI * 0.80
+		"offense": return -PI * 0.18
+		"focus": return PI * 0.06
+		"rally": return PI * 0.42
+		"squad": return PI * 0.78
+		"dash": return PI * 1.06
+		"overclock": return PI * 1.42
+		"mobility": return PI * 1.66
+		_: return -PI * 0.34
+
+func _protocol_cluster_angle_offset(cluster: String) -> float:
+	match cluster:
+		"storm": return -0.10
+		"fire": return 0.08
+		"frost": return 0.20
+		"poison": return 0.34
+		"projectile": return -0.06
+		"scatter": return -0.20
+		"ricochet": return -0.30
+		"pierce": return -0.42
+		"bomb": return 0.00
+		"beam": return 0.26
+		"orbital": return 0.44
+		"hybrid": return 0.14
+		_: return 0.0
+
+func _protocol_is_visual_bridge_edge(from_id: String, to_id: String) -> bool:
+	if from_id == "" or to_id == "":
+		return false
+	if to_id.find("bridge_") >= 0 or to_id.find("doctrine_link_") >= 0:
+		return true
+	if to_id.find("hybrid_") >= 0:
+		return true
+	var ff := _protocol_family_key(from_id)
+	var tf := _protocol_family_key(to_id)
+	return ff != tf
 
 func _protocol_node_search_blob(node: Dictionary) -> String:
 	var bits: Array[String] = []
@@ -2330,7 +2529,7 @@ func _set_protocol_zoom(new_zoom: float, screen_pos: Vector2) -> void:
 	var graph_rect := _protocol_graph_view.get_global_rect()
 	var local := screen_pos - graph_rect.position
 	var before := (local - _protocol_pan) / maxf(0.001, _protocol_zoom)
-	_protocol_zoom = clampf(new_zoom, 0.55, 1.85)
+	_protocol_zoom = clampf(new_zoom, 0.06, 2.40)
 	_protocol_pan = local - before * _protocol_zoom
 	_clamp_protocol_pan()
 	_apply_protocol_pan()
@@ -2355,7 +2554,7 @@ func _input(event: InputEvent) -> void:
 				_protocol_drag_candidate = false
 				_protocol_dragging = false
 		elif (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN) and graph_rect.has_point(mb.position):
-			var step := 1.11 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else (1.0 / 1.11)
+			var step := 1.14 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else (1.0 / 1.14)
 			_set_protocol_zoom(_protocol_zoom * step, mb.position)
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion:
@@ -2801,4 +3000,85 @@ func _protocol_icon_texture_for_id(id: String, is_keystone: bool = false) -> Tex
 	if ResourceLoader.exists(path):
 		tex = load(path) as Texture2D
 	_protocol_icon_cache[path] = tex
+	return tex
+
+func _protocol_medallion_texture(size_px: int, accent: Color, keystone: bool) -> Texture2D:
+	var size := maxi(20, size_px)
+	var key := "%d|%.3f|%.3f|%.3f|%s" % [size, accent.r, accent.g, accent.b, "k" if keystone else "n"]
+	if _protocol_medallion_cache.has(key):
+		return _protocol_medallion_cache[key] as Texture2D
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := Vector2(float(size) * 0.5, float(size) * 0.5)
+	var outer := float(size) * 0.48
+	var inner := float(size) * 0.34
+	var core := float(size) * 0.26
+	var ring_col := Color(accent.r, accent.g, accent.b, 0.95 if keystone else 0.86)
+	var rim_col := Color(0.95, 0.98, 1.0, 0.88 if keystone else 0.72)
+	var core_col := Color(0.06, 0.09, 0.14, 0.98)
+	for y in range(size):
+		for x in range(size):
+			var d := Vector2(float(x), float(y)).distance_to(c)
+			if d <= outer and d >= inner:
+				var t := clampf((d - inner) / maxf(1.0, outer - inner), 0.0, 1.0)
+				img.set_pixel(x, y, ring_col.lerp(rim_col, t))
+			elif d < inner and d >= core:
+				img.set_pixel(x, y, Color(0.14, 0.18, 0.25, 0.92))
+			elif d < core:
+				var t2 := clampf(d / maxf(1.0, core), 0.0, 1.0)
+				img.set_pixel(x, y, core_col.lerp(Color(0.13, 0.17, 0.25, 0.98), t2))
+	var tex := ImageTexture.create_from_image(img)
+	_protocol_medallion_cache[key] = tex
+	return tex
+
+func _protocol_node_shell_texture(size_px: int, accent: Color, keystone: bool, major: bool) -> Texture2D:
+	var size := maxi(28, size_px)
+	var key := "%d|%.3f|%.3f|%.3f|%s|%s" % [size, accent.r, accent.g, accent.b, "k" if keystone else "n", "m" if major else "s"]
+	if _protocol_node_shell_cache.has(key):
+		return _protocol_node_shell_cache[key] as Texture2D
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := Vector2(float(size) * 0.5, float(size) * 0.5)
+	var glow := float(size) * 0.50
+	var shell_outer := float(size) * 0.43
+	var shell_inner := float(size) * 0.29
+	var core := float(size) * 0.23
+	var halo_a := 0.34 if not keystone else 0.46
+	var ring_boost := 1.0
+	if major:
+		ring_boost = 1.08
+	if keystone:
+		ring_boost = 1.18
+	for y in range(size):
+		for x in range(size):
+			var p := Vector2(float(x), float(y))
+			var d := p.distance_to(c)
+			var col := Color(0, 0, 0, 0)
+			if d <= glow:
+				var h := 1.0 - clampf(d / maxf(1.0, glow), 0.0, 1.0)
+				col = Color(accent.r, accent.g, accent.b, pow(h, 2.7) * halo_a)
+			if d <= shell_outer and d >= shell_inner:
+				var t := clampf((d - shell_inner) / maxf(1.0, shell_outer - shell_inner), 0.0, 1.0)
+				var ring_col := Color(
+					minf(1.0, accent.r * (0.76 + 0.34 * ring_boost)),
+					minf(1.0, accent.g * (0.76 + 0.34 * ring_boost)),
+					minf(1.0, accent.b * (0.76 + 0.34 * ring_boost)),
+					0.76 + 0.20 * (1.0 - t)
+				)
+				col = col.blend(ring_col)
+			if d < shell_inner and d >= core:
+				var t_mid := clampf((d - core) / maxf(1.0, shell_inner - core), 0.0, 1.0)
+				col = col.blend(Color(0.14, 0.18, 0.27, 0.88 - t_mid * 0.18))
+			if d < core:
+				var t_core := clampf(d / maxf(1.0, core), 0.0, 1.0)
+				col = col.blend(Color(0.05, 0.08, 0.14, 0.94).lerp(Color(0.14, 0.20, 0.30, 0.82), t_core))
+			# Small specular highlight to make nodes look tactile/clickable.
+			var hvec := p - (c + Vector2(-float(size) * 0.09, -float(size) * 0.12))
+			var hdist := hvec.length()
+			var hs := 1.0 - clampf(hdist / maxf(1.0, float(size) * 0.24), 0.0, 1.0)
+			if hs > 0.0 and d < shell_outer:
+				col = col.blend(Color(0.95, 0.99, 1.0, hs * 0.13))
+			img.set_pixel(x, y, col)
+	var tex := ImageTexture.create_from_image(img)
+	_protocol_node_shell_cache[key] = tex
 	return tex
