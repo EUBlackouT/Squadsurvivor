@@ -14,14 +14,14 @@ extends Node2D
 @export var max_enemies_alive: int = 90 # legacy cap, superseded by ramp below
 @export var enemy_spawn_interval: float = 1.15 # legacy interval, superseded by ramp below
 @export var enemy_spawn_burst: int = 1 # legacy burst, superseded by ramp below
-@export var difficulty_ramp_minutes: float = 10.5
+@export var difficulty_ramp_minutes: float = 9.0
 # >1.0 makes early game chill and midgame ramp faster (e.g. 2.0–3.0 is "chill then spicy").
-@export var ramp_curve_power: float = 2.1
+@export var ramp_curve_power: float = 1.35
 # "Vampire Survivors" target: early minutes are cleanable, midgame starts to pressure hard.
-@export var spawn_interval_start: float = 1.95
-@export var spawn_interval_end: float = 0.58
-@export var max_enemies_start: int = 20
-@export var max_enemies_end: int = 154
+@export var spawn_interval_start: float = 1.45
+@export var spawn_interval_end: float = 0.55
+@export var max_enemies_start: int = 28
+@export var max_enemies_end: int = 170
 @export var spawn_radius_min: float = 900.0
 @export var spawn_radius_max: float = 1100.0
 @export var enemy_visual_pool_size: int = 16
@@ -1588,6 +1588,11 @@ func _current_spawn_interval() -> float:
 	var b := spawn_interval_end * float(_map_mod.get("spawn_interval_end_mult", 1.0))
 	var r := _ramp01_curved()
 	var base := lerpf(a, b, r)
+	# Front-load action so first 2 minutes don't feel empty.
+	var early_window := maxf(0.25, float(_map_mod.get("early_spawn_window_minutes", 2.0)))
+	var early_mult := float(_map_mod.get("early_spawn_interval_mult", 0.84))
+	var early_t := clampf(_elapsed_minutes() / early_window, 0.0, 1.0)
+	base *= lerpf(early_mult, 1.0, early_t)
 	return base * float(_map_mod.get("spawn_interval_mult", 1.0))
 
 func _current_max_enemies() -> int:
@@ -1595,6 +1600,11 @@ func _current_max_enemies() -> int:
 	var b := float(max_enemies_end) * float(_map_mod.get("max_enemies_end_mult", 1.0))
 	var r := _ramp01_curved()
 	var base := int(round(lerpf(a, b, r)))
+	var early_add := int(_map_mod.get("early_max_enemies_add", 0))
+	if early_add != 0:
+		var early_window := maxf(0.25, float(_map_mod.get("early_spawn_window_minutes", 2.0)))
+		var early_t := clampf(_elapsed_minutes() / early_window, 0.0, 1.0)
+		base += int(round(float(early_add) * (1.0 - early_t)))
 	return maxi(1, int(round(float(base) * float(_map_mod.get("max_enemies_mult", 1.0)))))
 
 func _current_spawn_burst() -> int:
@@ -2340,14 +2350,22 @@ func _show_recruit_draft() -> void:
 func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool) -> void:
 	var options: Array[CharacterData] = []
 	var now_m := _elapsed_minutes()
+	var max_rarity_rank := _max_recruit_rarity_rank_for_map()
 
 	# Option 1-2: trophies from recent kills
 	_recent_trophy_pool.shuffle()
-	for i in range(mini(2, _recent_trophy_pool.size())):
-		options.append(_recent_trophy_pool[i])
+	for t in _recent_trophy_pool:
+		if options.size() >= 2:
+			break
+		var tc := t as CharacterData
+		if tc == null:
+			continue
+		if _rarity_rank(tc.rarity_id) > max_rarity_rank:
+			continue
+		options.append(tc)
 
 	# Option 3: random recruit roll; bias upward so each draft has a "worth checking" card.
-	var cd := CharacterRegistryUtil.build_random_character_data("recruit", rng, now_m + (5.0 if is_rift else 2.0), _map_mod)
+	var cd := _roll_recruit_for_current_map(now_m + (5.0 if is_rift else 2.0), 24)
 	if cd != null:
 		options.append(cd)
 
@@ -2355,7 +2373,7 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 	var fill_tries := 0
 	while options.size() < 3 and fill_tries < 24:
 		fill_tries += 1
-		var cd2 := CharacterRegistryUtil.build_random_character_data("recruit", rng, now_m + 1.5, _map_mod)
+		var cd2 := _roll_recruit_for_current_map(now_m + 1.5, 14)
 		if cd2 != null:
 			options.append(cd2)
 	# Hard fallback: duplicate existing valid options so the UI always renders 3 cards.
@@ -2374,7 +2392,7 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 				break
 		if not has_rare_plus:
 			for _i in range(14):
-				var boosted := CharacterRegistryUtil.build_random_character_data("recruit", rng, now_m + 8.0, _map_mod)
+				var boosted := _roll_recruit_for_current_map(now_m + 8.0, 20)
 				if boosted != null and _rarity_rank(boosted.rarity_id) >= 1:
 					options[options.size() - 1] = boosted
 					break
@@ -2394,6 +2412,31 @@ func _rarity_rank(rarity_id: String) -> int:
 			return 1
 		_:
 			return 0
+
+func _map_tier() -> int:
+	return maxi(1, int(_map_mod.get("tier", 1)))
+
+func _max_recruit_rarity_rank_for_map() -> int:
+	var tier := _map_tier()
+	if tier <= 1:
+		return 1 # up to rare on easiest maps
+	if tier == 2:
+		return 2 # up to epic
+	if tier == 3:
+		return 3 # up to legendary
+	return 4 # mythic allowed on top tier
+
+func _roll_recruit_for_current_map(effective_minutes: float, tries: int = 16) -> CharacterData:
+	var max_rank := _max_recruit_rarity_rank_for_map()
+	for _i in range(maxi(1, tries)):
+		var c := CharacterRegistryUtil.build_random_character_data("recruit", rng, effective_minutes, _map_mod)
+		if c == null:
+			continue
+		var rr := _rarity_rank(c.rarity_id)
+		if rr <= max_rank:
+			return c
+	# Fallback if rolls keep missing the cap.
+	return null
 
 func _draft_class_name(class_type: int) -> String:
 	match class_type:
@@ -3426,10 +3469,10 @@ func _apply_map_pacing_overrides() -> void:
 		draft_drop_pity_cap = maxf(draft_drop_pity_cap, 0.05)
 		draft_drop_min_seconds_between = minf(draft_drop_min_seconds_between, 52.0)
 		reroll_cost_essence = mini(reroll_cost_essence, 2)
-		spawn_interval_start = minf(spawn_interval_start, 2.25)
-		spawn_interval_end = minf(spawn_interval_end, 0.84)
-		max_enemies_start = maxi(max_enemies_start, 18)
-		max_enemies_end = maxi(max_enemies_end, 132)
+		spawn_interval_start = minf(spawn_interval_start, 1.40)
+		spawn_interval_end = minf(spawn_interval_end, 0.62)
+		max_enemies_start = maxi(max_enemies_start, 26)
+		max_enemies_end = maxi(max_enemies_end, 138)
 		# Keep pressure arcs visible on church without overwhelming beginners.
 		_objective_events = PackedFloat32Array([1.8, 4.5, 7.0, 10.0, 13.0, 16.0])
 	else:
@@ -3812,12 +3855,16 @@ func _award_meta(victory: bool) -> void:
 	# Hard progression: meaningful but slow.
 	var mins := _elapsed_minutes()
 	var base := int(floor(mins * 18.0)) # ~18 per minute survived
+	var tier := maxi(1, int(_map_mod.get("tier", 1)))
+	var tier_scale := maxi(0, tier - 1)
 	var bonus := 0
 	if victory:
-		bonus += 220
+		bonus += 220 + tier_scale * 70
+	var difficulty_flat := tier_scale * 45
+	var elite_bonus := _run_elite_kills * tier_scale * 4
 	# Map multiplier (harder maps => faster meta progress)
 	var mult := float(_map_mod.get("meta_sigils_mult", 1.0))
-	var total := int(round(float(base + bonus) * mult))
+	var total := int(round(float(base + bonus + difficulty_flat + elite_bonus) * mult))
 	total = maxi(5, total)
 	mp.add_sigils(total)
 

@@ -2090,43 +2090,44 @@ func _update_protocol_grid() -> void:
 				_protocol_buy_btn.disabled = true
 		else:
 			_protocol_sel_title.text = String(nd.get("name", detail_id))
-			_protocol_sel_desc.text = String(nd.get("desc", ""))
+			var detail_desc := String(nd.get("desc", ""))
 			var cst := int(nd.get("cost", 0))
 			var owned := detail_id in unlocked
-			_protocol_sel_cost.text = "Owned" if owned else ("Cost: ★ %d" % cst)
+			var req_tier := 1
+			var cur_tier := 1
+			var tier_blocked := false
+			if mp != null and is_instance_valid(mp) and mp.has_method("get_node_unlock_requirements"):
+				var req: Dictionary = mp.get_node_unlock_requirements(detail_id) as Dictionary
+				if not req.is_empty():
+					req_tier = int(req.get("required_map_tier", 1))
+					cur_tier = int(req.get("current_map_tier", 1))
+					tier_blocked = bool(req.get("map_tier_blocked", false))
+			if tier_blocked:
+				detail_desc += "\n\n[Tier Gate] Requires map tier %d (current: %d)." % [req_tier, cur_tier]
+			_protocol_sel_desc.text = detail_desc
+			if owned:
+				_protocol_sel_cost.text = "Owned"
+			elif tier_blocked:
+				_protocol_sel_cost.text = "Locked: Map Tier %d required" % req_tier
+			else:
+				_protocol_sel_cost.text = "Cost: ★ %d" % cst
 			if _protocol_sel_effects:
 				_protocol_sel_effects.text = _protocol_effects_bbcode(nd)
 			if _protocol_buy_btn:
-				var pre_ok := true
-				for pr in nd.get("prereq", []):
-					if not String(pr) in unlocked:
-						pre_ok = false
-						break
-				_protocol_buy_btn.disabled = owned or (not pre_ok) or (sigils < cst)
+				var can_buy := false
+				if mp != null and is_instance_valid(mp) and mp.has_method("can_buy_node"):
+					can_buy = bool(mp.can_buy_node(detail_id))
+				_protocol_buy_btn.disabled = owned or (not can_buy)
 func _unlock_protocol_node(upgrade_id: String) -> void:
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
 		return
-	var upgrade := _protocol_find_upgrade(upgrade_id)
-	if upgrade.is_empty():
-		return
-	var unlocked: Array = mp.get_unlocked_upgrades() if mp.has_method("get_unlocked_upgrades") else []
-	if upgrade_id in unlocked:
+	if not mp.has_method("buy_node"):
 		_play_ui("ui.error")
 		return
-	for prereq_id in upgrade.get("prereq", []):
-		if not String(prereq_id) in unlocked:
-			_play_ui("ui.error")
-			return
-	var cost := int(upgrade.get("cost", 0))
-	var sigils := int(mp.get_sigils()) if mp.has_method("get_sigils") else 0
-	if sigils < cost:
+	if not bool(mp.buy_node(upgrade_id)):
 		_play_ui("ui.error")
 		return
-	if mp.has_method("spend_sigils"):
-		mp.spend_sigils(cost)
-	if mp.has_method("unlock_upgrade"):
-		mp.unlock_upgrade(upgrade_id)
 	_play_ui("ui.levelup")
 	_update_protocol_grid()
 

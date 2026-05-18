@@ -5,6 +5,13 @@ extends Node
 
 const SAVE_PATH := "user://meta.json"
 const SAVE_VERSION := 1
+const MAP_TIER_FALLBACK_BY_ID := {
+	"graveyard": 1,
+	"church": 1,
+	"library": 2,
+	"foundry": 3,
+	"cathedral": 4
+}
 
 @export var max_squad_slots_cap: int = 8
 @export var max_roster_cap: int = 18
@@ -55,6 +62,76 @@ func tree_data() -> Dictionary:
 	_load_tree()
 	return _tree_cache
 
+func _find_node_by_id(id: String) -> Dictionary:
+	_load_tree()
+	if id == "":
+		return {}
+	var nodes: Array = _tree_cache.get("nodes", [])
+	for n in nodes:
+		if typeof(n) != TYPE_DICTIONARY:
+			continue
+		var d := n as Dictionary
+		if String(d.get("id", "")) == id:
+			return d
+	return {}
+
+func _node_map_tier_req(node: Dictionary) -> int:
+	if node.has("map_tier_req"):
+		return maxi(1, int(node.get("map_tier_req", 1)))
+	var cost := int(node.get("cost", 0))
+	var tags: Array = node.get("tags", []) as Array
+	var is_keystone := false
+	for t in tags:
+		if String(t) == "keystone":
+			is_keystone = true
+			break
+	if is_keystone:
+		if cost >= 4600:
+			return 4
+		if cost >= 3300:
+			return 3
+		return 2
+	if cost >= 4200:
+		return 3
+	if cost >= 2800:
+		return 2
+	return 1
+
+func get_map_tier(map_id: String) -> int:
+	var mid := map_id.strip_edges().to_lower()
+	if mid == "":
+		return 1
+	var rc := get_node_or_null("/root/RunConfig")
+	if rc != null and is_instance_valid(rc) and rc.has_method("get_map"):
+		var md: Dictionary = rc.get_map(mid) as Dictionary
+		if not md.is_empty():
+			var mt := int(md.get("tier", 0))
+			if mt > 0:
+				return mt
+	if MAP_TIER_FALLBACK_BY_ID.has(mid):
+		return int(MAP_TIER_FALLBACK_BY_ID[mid])
+	return 1
+
+func get_highest_unlocked_map_tier() -> int:
+	var highest := 1
+	if map_unlocks.is_empty():
+		return highest
+	for mid in map_unlocks:
+		highest = maxi(highest, get_map_tier(String(mid)))
+	return highest
+
+func get_node_unlock_requirements(id: String) -> Dictionary:
+	var node := _find_node_by_id(id)
+	if node.is_empty():
+		return {}
+	var req_tier := _node_map_tier_req(node)
+	var cur_tier := get_highest_unlocked_map_tier()
+	return {
+		"required_map_tier": req_tier,
+		"current_map_tier": cur_tier,
+		"map_tier_blocked": cur_tier < req_tier
+	}
+
 func owns_node(id: String) -> bool:
 	return meta_nodes_owned.has(id)
 
@@ -62,16 +139,15 @@ func can_buy_node(id: String) -> bool:
 	_load_tree()
 	if id == "" or owns_node(id):
 		return false
-	var nodes: Array = _tree_cache.get("nodes", [])
-	var node: Dictionary = {}
-	for n in nodes:
-		if typeof(n) == TYPE_DICTIONARY and String((n as Dictionary).get("id", "")) == id:
-			node = n as Dictionary
-			break
+	var node := _find_node_by_id(id)
 	if node.is_empty():
 		return false
 	var cost := int(node.get("cost", 0))
 	if sigils < cost:
+		return false
+	var req_tier := _node_map_tier_req(node)
+	var cur_tier := get_highest_unlocked_map_tier()
+	if cur_tier < req_tier:
 		return false
 	var prereq: Array = node.get("prereq", [])
 	for p in prereq:
