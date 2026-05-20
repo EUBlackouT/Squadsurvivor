@@ -43,6 +43,7 @@ extends Node2D
 const PLAYER_SCENE: PackedScene = preload("res://scenes/Player.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://scenes/Enemy.tscn")
 const RIFT_SCENE: PackedScene = preload("res://scenes/RiftNode.tscn")
+const SHRINE_SCENE: PackedScene = preload("res://scenes/ShrineNode.tscn")
 
 const DAMAGE_NUMBERS_LAYER_SCRIPT: Script = preload("res://scripts/DamageNumbersLayer.gd")
 const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
@@ -152,6 +153,14 @@ var _arc_surge_dmg_mult: float = 0.22
 var _map_mod: Dictionary = {}
 var _authored_map_world: Node2D = null
 var _map_atmo_overlay: Node2D = null
+var _spawned_shrines: Array[Node2D] = []
+var _shrine_war_t: float = 0.0
+var _shrine_greed_t: float = 0.0
+var _shrine_frost_t: float = 0.0
+var _shrine_frost_tick_t: float = 0.0
+var _shrine_war_ultra_t: float = 0.0
+var _shrine_greed_ultra_t: float = 0.0
+var _shrine_frost_ultra_t: float = 0.0
 
 # Autosave node (ticks while paused)
 var _autosave_node: Node = null
@@ -223,6 +232,7 @@ func _ready() -> void:
 	# No capture meter; drafts come from RNG drops on kills.
 
 	_spawn_player()
+	_spawn_map_shrines()
 	_spawn_initial_enemies()
 	if enable_rifts:
 		_spawn_rifts()
@@ -688,6 +698,195 @@ func _spawn_rifts() -> void:
 		var dist := rng.randf_range(900.0, 1400.0)
 		r.global_position = Vector2(cos(ang), sin(ang)) * dist
 
+func _spawn_map_shrines() -> void:
+	if SHRINE_SCENE == null:
+		return
+	var count := maxi(0, int(_map_mod.get("shrine_count", 3)))
+	if count <= 0:
+		return
+	var type_source: Array = _map_mod.get("shrine_types", ["war", "frost", "greed"]) as Array
+	var shrine_types: Array[String] = []
+	for t in type_source:
+		var id := String(t).strip_edges().to_lower()
+		if id == "":
+			continue
+		shrine_types.append(id)
+	if shrine_types.is_empty():
+		shrine_types = ["war", "frost", "greed"]
+	var player := get_player_node()
+	var player_pos := Vector2.ZERO
+	if player != null and is_instance_valid(player):
+		player_pos = player.global_position
+	var placed: Array[Vector2] = []
+	var ultra_type_flags: Dictionary = {}
+	for i in range(count):
+		var sid := shrine_types[i % shrine_types.size()]
+		var pos := _find_random_shrine_position(player_pos, placed)
+		var rarity := _roll_shrine_rarity()
+		var sn := SHRINE_SCENE.instantiate() as Node2D
+		if sn == null:
+			continue
+		sn.global_position = pos
+		if sn.has_method("set"):
+			sn.set("shrine_id", sid)
+			sn.set("rarity", rarity)
+		add_child(sn)
+		_spawned_shrines.append(sn)
+		placed.append(pos)
+		if rarity == "ultra":
+			ultra_type_flags[sid] = true
+	_announce_ultra_shrines(ultra_type_flags)
+
+func _announce_ultra_shrines(ultra_type_flags: Dictionary) -> void:
+	if ultra_type_flags.is_empty():
+		return
+	var ultra_types: Array[String] = []
+	for k in ultra_type_flags.keys():
+		ultra_types.append(String(k))
+	ultra_types.sort()
+	var labels: Array[String] = []
+	for t in ultra_types:
+		labels.append(t.capitalize())
+	var details := ", ".join(labels)
+	if toast_layer != null:
+		toast_layer.show_toast("Golden Shrine detected: %s." % details, Color(1.0, 0.92, 0.56, 1.0))
+	var s := get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_ui"):
+		s.play_ui("ui.levelup")
+
+func _roll_shrine_rarity() -> String:
+	var base_ultra := clampf(float(_map_mod.get("shrine_ultra_chance", 0.0045)), 0.0, 0.20)
+	var tier_bonus := float(maxi(0, _map_tier() - 1)) * 0.0012
+	var chance := minf(0.015, base_ultra + tier_bonus)
+	return "ultra" if rng.randf() < chance else "normal"
+
+func _find_random_shrine_position(player_pos: Vector2, existing: Array[Vector2]) -> Vector2:
+	var world_rect := _current_world_rect()
+	var min_player_dist := clampf(minf(world_rect.size.x, world_rect.size.y) * 0.22, 420.0, 1200.0)
+	var min_shrine_spacing := clampf(minf(world_rect.size.x, world_rect.size.y) * 0.14, 260.0, 700.0)
+	for _i in range(160):
+		var p := _sample_random_world_point(world_rect)
+		if p.distance_to(player_pos) < min_player_dist:
+			continue
+		var too_close := false
+		for ep in existing:
+			if ep.distance_to(p) < min_shrine_spacing:
+				too_close = true
+				break
+		if too_close:
+			continue
+		return p
+	return _sample_random_world_point(world_rect)
+
+func _sample_random_world_point(world_rect: Rect2) -> Vector2:
+	if _authored_map_world != null and is_instance_valid(_authored_map_world) and _authored_map_world.has_method("get_random_walkable_point"):
+		return _authored_map_world.get_random_walkable_point(rng)
+	return Vector2(
+		rng.randf_range(world_rect.position.x, world_rect.position.x + world_rect.size.x),
+		rng.randf_range(world_rect.position.y, world_rect.position.y + world_rect.size.y)
+	)
+
+func _current_world_rect() -> Rect2:
+	if _authored_map_world != null and is_instance_valid(_authored_map_world) and _authored_map_world.has_method("get_world_rect"):
+		return _authored_map_world.get_world_rect()
+	return Rect2(Vector2(-map_size.x * 0.5, -map_size.y * 0.5), map_size)
+
+func activate_map_shrine(_shrine_node: Node, shrine_id: String, shrine_name: String = "", rarity: String = "normal") -> bool:
+	if _game_over or _victory:
+		return false
+	var id := shrine_id.strip_edges().to_lower()
+	var rr := rarity.strip_edges().to_lower()
+	var ultra := rr == "ultra"
+	if id == "":
+		return false
+	var nm := shrine_name if shrine_name != "" else ("%s Shrine" % id.capitalize())
+	match id:
+		"war":
+			if ultra:
+				_shrine_war_ultra_t = maxf(_shrine_war_ultra_t, 72.0)
+				for _i in range(14):
+					_spawn_enemy(rng.randf() < 0.90, true, false)
+			else:
+				_shrine_war_t = maxf(_shrine_war_t, 45.0)
+				for _j in range(8):
+					_spawn_enemy(rng.randf() < 0.65, true, false)
+			if toast_layer != null:
+				toast_layer.show_toast(
+					("%s [ULTRA]: absurd damage tempo. Brutal elite ambush!" if ultra else "%s: +attack speed +damage. Elite ambush!") % nm,
+					Color(1.0, 0.56, 0.38, 1.0)
+				)
+		"greed":
+			if ultra:
+				_shrine_greed_ultra_t = maxf(_shrine_greed_ultra_t, 86.0)
+				essence += 110
+				for _k in range(10):
+					_spawn_enemy(rng.randf() < 0.70, true, false)
+			else:
+				_shrine_greed_t = maxf(_shrine_greed_t, 60.0)
+				essence += 30
+				for _l in range(5):
+					_spawn_enemy(rng.randf() < 0.45, true, false)
+			if toast_layer != null:
+				toast_layer.show_toast(
+					("%s [ULTRA]: jackpot mode active. Massive danger, massive rewards." if ultra else "%s: huge loot boost, enemy pressure rises.") % nm,
+					Color(0.98, 0.90, 0.42, 1.0)
+				)
+		"frost":
+			if ultra:
+				_shrine_frost_ultra_t = maxf(_shrine_frost_ultra_t, 70.0)
+			else:
+				_shrine_frost_t = maxf(_shrine_frost_t, 42.0)
+			_shrine_frost_tick_t = 0.2
+			if toast_layer != null:
+				toast_layer.show_toast(
+					("%s [ULTRA]: relentless freezing shockwaves." if ultra else "%s: periodic frost shockwaves.") % nm,
+					Color(0.62, 0.88, 1.0, 1.0)
+				)
+		_:
+			return false
+	return true
+
+func _tick_shrine_effects(delta: float) -> void:
+	_shrine_war_t = maxf(0.0, _shrine_war_t - delta)
+	_shrine_greed_t = maxf(0.0, _shrine_greed_t - delta)
+	_shrine_frost_t = maxf(0.0, _shrine_frost_t - delta)
+	_shrine_war_ultra_t = maxf(0.0, _shrine_war_ultra_t - delta)
+	_shrine_greed_ultra_t = maxf(0.0, _shrine_greed_ultra_t - delta)
+	_shrine_frost_ultra_t = maxf(0.0, _shrine_frost_ultra_t - delta)
+	if _shrine_frost_t <= 0.0 and _shrine_frost_ultra_t <= 0.0:
+		return
+	_shrine_frost_tick_t -= delta
+	if _shrine_frost_tick_t > 0.0:
+		return
+	_shrine_frost_tick_t = 0.78 if _shrine_frost_ultra_t > 0.0 else 1.15
+	_emit_frost_shrine_pulse()
+
+func _emit_frost_shrine_pulse() -> void:
+	var p := get_player_node()
+	if p == null or not is_instance_valid(p):
+		return
+	var center := p.global_position
+	var ultra := _shrine_frost_ultra_t > 0.0
+	var radius := 520.0 if ultra else 360.0
+	var r2 := radius * radius
+	for e in live_enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(center) > r2:
+			continue
+		if n2.has_method("apply_slow"):
+			n2.apply_slow(0.42 if ultra else 0.70, 3.2 if ultra else 1.9)
+		if n2.has_method("apply_execute_vulnerability"):
+			n2.apply_execute_vulnerability(0.12 if ultra else 0.05, 3.0 if ultra else 2.3)
+		if ultra and n2.has_method("take_damage"):
+			n2.take_damage(18, false, "frost_shrine_ultra")
+	var sw := VfxShockwave.new()
+	sw.setup(center, Color(0.97, 0.95, 0.62, 0.98) if ultra else Color(0.60, 0.86, 1.0, 0.95), 10.0, radius * 0.44, 4.0, 0.18)
+	add_child(sw)
+
 func _physics_process(delta: float) -> void:
 	if _live_smoke_enabled:
 		_tick_live_smoke(delta)
@@ -724,6 +923,7 @@ func _physics_process(delta: float) -> void:
 		_callout_cd_s = maxf(0.0, _callout_cd_s - delta)
 	if _arc_surge_until_s > 0.0:
 		_arc_surge_until_s = maxf(0.0, _arc_surge_until_s - delta)
+	_tick_shrine_effects(delta)
 	if hitch_probe_enabled:
 		seg_a_us = int(Time.get_ticks_usec())
 	_probe_last_spawn_ms = 0.0
@@ -1388,13 +1588,15 @@ func get_overclock_cd_left() -> float:
 
 func get_overclock_rate_mult() -> float:
 	# Attack speed multiplier while active - MAKE IT FEEL POWERFUL
-	if not is_overclock_active():
-		return 1.0
-	var mp := get_node_or_null("/root/MetaProgression")
-	var rate_mult := 1.65  # 65% faster attacks - noticeable power spike
-	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
-		rate_mult *= float(mp.get_mod("overclock_attack_speed_mult", 1.0))
-	return rate_mult
+	var out := 1.0
+	if is_overclock_active():
+		var mp := get_node_or_null("/root/MetaProgression")
+		var rate_mult := 1.65  # 65% faster attacks - noticeable power spike
+		if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+			rate_mult *= float(mp.get_mod("overclock_attack_speed_mult", 1.0))
+		out *= rate_mult
+	out *= _shrine_attack_speed_mult()
+	return out
 
 func get_overclock_move_speed_mult() -> float:
 	if not is_overclock_active():
@@ -1406,13 +1608,15 @@ func get_overclock_move_speed_mult() -> float:
 	return ms_mult
 
 func get_overclock_damage_mult() -> float:
-	if not is_overclock_active():
-		return 1.0
-	var mp := get_node_or_null("/root/MetaProgression")
-	var dmg_mult := 1.30  # 30% damage boost during overclock
-	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
-		dmg_mult *= float(mp.get_mod("overclock_damage_mult", 1.0))
-	return dmg_mult
+	var out := 1.0
+	if is_overclock_active():
+		var mp := get_node_or_null("/root/MetaProgression")
+		var dmg_mult := 1.30  # 30% damage boost during overclock
+		if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
+			dmg_mult *= float(mp.get_mod("overclock_damage_mult", 1.0))
+		out *= dmg_mult
+	out *= _shrine_damage_mult()
+	return out
 
 func get_overclock_focus_bias_mult() -> float:
 	if not is_overclock_active():
@@ -1593,6 +1797,7 @@ func _current_spawn_interval() -> float:
 	var early_mult := float(_map_mod.get("early_spawn_interval_mult", 0.84))
 	var early_t := clampf(_elapsed_minutes() / early_window, 0.0, 1.0)
 	base *= lerpf(early_mult, 1.0, early_t)
+	base *= _shrine_spawn_interval_mult()
 	return base * float(_map_mod.get("spawn_interval_mult", 1.0))
 
 func _current_max_enemies() -> int:
@@ -1605,12 +1810,55 @@ func _current_max_enemies() -> int:
 		var early_window := maxf(0.25, float(_map_mod.get("early_spawn_window_minutes", 2.0)))
 		var early_t := clampf(_elapsed_minutes() / early_window, 0.0, 1.0)
 		base += int(round(float(early_add) * (1.0 - early_t)))
+	base = int(round(float(base) * _shrine_max_enemies_mult()))
 	return maxi(1, int(round(float(base) * float(_map_mod.get("max_enemies_mult", 1.0)))))
 
 func _current_spawn_burst() -> int:
 	# Burst spawning only in true late-game.
 	var r := _ramp01_curved()
 	return 1 if r < 0.84 else 2
+
+func _shrine_spawn_interval_mult() -> float:
+	if _shrine_greed_ultra_t > 0.0:
+		return 0.72
+	if _shrine_greed_t > 0.0:
+		return 0.84
+	return 1.0
+
+func _shrine_max_enemies_mult() -> float:
+	if _shrine_greed_ultra_t > 0.0:
+		return 1.45
+	if _shrine_greed_t > 0.0:
+		return 1.24
+	return 1.0
+
+func _shrine_essence_mult() -> float:
+	if _shrine_greed_ultra_t > 0.0:
+		return 3.2
+	if _shrine_greed_t > 0.0:
+		return 1.85
+	return 1.0
+
+func _shrine_draft_drop_bonus() -> float:
+	if _shrine_greed_ultra_t > 0.0:
+		return 0.16
+	if _shrine_greed_t > 0.0:
+		return 0.050
+	return 0.0
+
+func _shrine_attack_speed_mult() -> float:
+	if _shrine_war_ultra_t > 0.0:
+		return 1.55
+	if _shrine_war_t > 0.0:
+		return 1.22
+	return 1.0
+
+func _shrine_damage_mult() -> float:
+	if _shrine_war_ultra_t > 0.0:
+		return 1.50
+	if _shrine_war_t > 0.0:
+		return 1.18
+	return 1.0
 
 func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	if ENEMY_SCENE == null:
@@ -2008,6 +2256,7 @@ func on_enemy_killed(is_elite: bool, cd: CharacterData, from_rift: bool, was_bos
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp and is_instance_valid(mp) and mp.has_method("get_mod"):
 		mult *= float(mp.get_mod("essence_mult", 1.0))
+	mult *= _shrine_essence_mult()
 	essence += maxi(1, int(round(float(base) * mult)))
 	_apply_meta_on_kill_heal()
 
@@ -2200,7 +2449,7 @@ func _roll_draft_drop(is_elite: bool, was_boss: bool) -> void:
 
 	var base := draft_drop_chance_elite if is_elite else draft_drop_chance_normal
 	var map_bonus := float(_map_mod.get("draft_drop_bonus", 0.0)) # optional per-map tuning
-	var chance := clampf(base + _draft_pity + map_bonus, 0.0, 0.85)
+	var chance := clampf(base + _draft_pity + map_bonus + _shrine_draft_drop_bonus(), 0.0, 0.85)
 
 	if rng.randf() < chance:
 		_last_draft_time_s = now_s

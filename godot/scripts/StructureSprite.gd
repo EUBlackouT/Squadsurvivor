@@ -1,6 +1,6 @@
 extends Node2D
 
-@export_file("*.png") var sheet_path: String
+@export_file("*.png,*.webp") var sheet_path: String
 @export var hframes: int = 8
 @export var vframes: int = 1
 @export var fps: float = 10.0
@@ -109,7 +109,8 @@ func _ready() -> void:
 		else:
 			sc2 = maxf(0.1, float(scale_percent) / 100.0)
 		sprite.scale = Vector2(sc2, sc2)
-		sprite.frame = 0
+		frame_index = 0
+		_apply_sprite_frame(tex, frame_index)
 		# Optional lightweight VFX
 		_setup_pulse_shader_if_needed()
 		_setup_sparks_if_needed()
@@ -135,7 +136,27 @@ func _process(delta: float) -> void:
 		while time_accum >= step:
 			time_accum -= step
 			frame_index = (frame_index + 1) % frame_count
-			sprite.frame = frame_index
+			var tex := sprite.texture
+			if tex != null:
+				_apply_sprite_frame(tex, frame_index)
+
+func _apply_sprite_frame(tex: Texture2D, idx: int) -> void:
+	if sprite == null or tex == null:
+		return
+	var clamped := posmod(idx, frame_count)
+	var fx := (clamped % hframes) * frame_w
+	var fy := int(clamped / hframes) * frame_h
+	var rx := fx
+	var ry := fy
+	var rw := frame_w
+	var rh := frame_h
+	if pad_px > 0:
+		rx = max(0, rx - pad_px)
+		ry = max(0, ry - pad_px)
+		rw = min(tex.get_width() - rx, rw + pad_px * 2)
+		rh = min(tex.get_height() - ry, rh + pad_px * 2)
+	sprite.region_enabled = true
+	sprite.region_rect = Rect2(rx, ry, rw, rh)
 
 func _setup_pulse_shader_if_needed() -> void:
 	if not enable_pulse or sprite == null:

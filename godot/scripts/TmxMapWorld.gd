@@ -72,6 +72,15 @@ func get_random_spawn_around(center: Vector2, min_radius: float, max_radius: flo
 			return p2
 	return center
 
+func get_random_walkable_point(rng: RandomNumberGenerator) -> Vector2:
+	if _walkable_points.is_empty():
+		return _spawn_point
+	for _i in range(96):
+		var p := _walkable_points[rng.randi_range(0, _walkable_points.size() - 1)]
+		if _is_point_walkable(p):
+			return p
+	return _spawn_point
+
 func _is_point_walkable(p: Vector2) -> bool:
 	for r in _blockers:
 		if r.has_point(p):
