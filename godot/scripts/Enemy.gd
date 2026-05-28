@@ -71,10 +71,12 @@ var _move_speed_mult: float = 1.0
 var _dmg_mult: float = 1.0
 var _hp_mult: float = 1.0
 var _scale_mult: float = 1.0
-const TARGET_SPRITE_HEIGHT: float = 14.0
+const TARGET_SPRITE_HEIGHT: float = 12.0
+const ENEMY_BASE_SCALE_MIN: float = 0.34
+const ENEMY_BASE_SCALE_MAX: float = 0.95
 const ENEMY_WORLD_SPEED_MULT: float = 0.20
-const TARGET_SEPARATION_RADIUS: float = 26.0
-const ACTOR_SEPARATION_RADIUS: float = 24.0
+const TARGET_SEPARATION_RADIUS: float = 12.0
+const ACTOR_SEPARATION_RADIUS: float = 18.0
 const OUTLINE_SHADER: Shader = preload("res://shaders/pixel_outline.gdshader")
 
 var current_hp: int = 30
@@ -108,6 +110,8 @@ var _smoke_time_left: float = 0.0
 
 var _target: Node2D = null
 var _pulse_tw: Tween = null
+var _stuck_t: float = 0.0
+var _stuck_side: float = 1.0
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -116,11 +120,10 @@ func _ready() -> void:
 		_main.register_enemy(self)
 
 	# Physics layers: enemies = 2.
-	# Keep hard body collision only against enemies to avoid player "rubberband"/stuck feeling.
-	# Player/squad separation is handled manually in _resolve_actor_overlap().
+	# Do not use enemy-enemy hard body collision; it creates traffic jams/ring-locking.
+	# Separation is handled manually in _resolve_actor_overlap().
 	collision_layer = 2
 	collision_mask = 0
-	collision_mask |= 1 << 1 # layer 2 (enemy-enemy body collision)
 	collision_mask |= 1 << 0 # layer 1 (map blockers from authored TMX)
 
 	# Apply archetype + affixes before stats/visuals.
@@ -150,11 +153,12 @@ func _apply_visuals() -> void:
 	if frames != null:
 		var base_scale := anim.scale
 		var scale_mult := 1.0
-		if _scale_mult_cache.has(pixellab_south_path):
-			scale_mult = float(_scale_mult_cache.get(pixellab_south_path, 1.0))
+		var cache_key := "%s|h=%.2f|min=%.2f|max=%.2f" % [pixellab_south_path, TARGET_SPRITE_HEIGHT, ENEMY_BASE_SCALE_MIN, ENEMY_BASE_SCALE_MAX]
+		if _scale_mult_cache.has(cache_key):
+			scale_mult = float(_scale_mult_cache.get(cache_key, 1.0))
 		else:
-			scale_mult = PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, 0.22, 0.72)
-			_scale_mult_cache[pixellab_south_path] = scale_mult
+			scale_mult = PixellabUtil.scale_for_target_height(frames, TARGET_SPRITE_HEIGHT, ENEMY_BASE_SCALE_MIN, ENEMY_BASE_SCALE_MAX)
+			_scale_mult_cache[cache_key] = scale_mult
 		anim.scale = base_scale * scale_mult
 		anim.sprite_frames = frames
 	_current_anim = "walk_south"
@@ -219,7 +223,9 @@ func _enemy_presence_mult() -> float:
 			mult *= 0.92
 		if character_data.origin == CharacterData.Origin.DEMON or character_data.origin == CharacterData.Origin.BEAST:
 			mult *= 1.08
-	return clampf(mult, 0.80, 1.75)
+	if _main != null and is_instance_valid(_main) and _main.has_method("get_enemy_presence_mult"):
+		mult *= float(_main.get_enemy_presence_mult())
+	return clampf(mult, 0.80, 2.20)
 
 static func _get_outline_material(color: Color, px: float) -> ShaderMaterial:
 	var key := "%s|%.2f" % [color.to_html(true), px]
@@ -317,7 +323,7 @@ func _resolve_target_overlap() -> void:
 	if dist >= TARGET_SEPARATION_RADIUS:
 		return
 	# Soft positional pushback so enemies don't sit inside player/squad bodies.
-	var push := (TARGET_SEPARATION_RADIUS - dist) * 0.65
+	var push := (TARGET_SEPARATION_RADIUS - dist) * 0.25
 	global_position -= to_target.normalized() * push
 
 func _resolve_actor_overlap() -> void:
@@ -357,8 +363,7 @@ func _base_move_speed() -> float:
 
 func _melee_step(_delta: float, _dist: float, dir: Vector2) -> void:
 	var spd := _base_move_speed()
-	velocity = dir * spd
-	move_and_slide()
+	_advance_toward(dir, spd, _delta)
 
 func _charger_step(delta: float, dist: float, dir: Vector2) -> void:
 	# Occasional dash toward target, otherwise normal chase.
@@ -376,8 +381,7 @@ func _charger_step(delta: float, dist: float, dir: Vector2) -> void:
 
 	if _dash_t > 0.0:
 		_dash_t -= delta
-		velocity = _dash_dir * (_base_move_speed() * 3.2)
-		move_and_slide()
+		_advance_toward(_dash_dir, _base_move_speed() * 3.2, delta)
 		return
 	if dist < 320.0 and dist > 110.0 and _dash_cd <= 0.0:
 		_dash_cd = 2.4
@@ -462,11 +466,9 @@ func _spitter_step(delta: float, dist: float, dir: Vector2) -> void:
 	var spd := _base_move_speed()
 	var desired := 240.0
 	if dist < desired * 0.85:
-		velocity = -dir * (spd * 0.65)
-		move_and_slide()
+		_advance_toward(-dir, spd * 0.65, delta)
 	elif dist > desired * 1.25:
-		velocity = dir * (spd * 0.85)
-		move_and_slide()
+		_advance_toward(dir, spd * 0.85, delta)
 	else:
 		velocity = Vector2.ZERO
 
@@ -477,8 +479,7 @@ func _spitter_step(delta: float, dist: float, dir: Vector2) -> void:
 func _bomber_step(delta: float, dist: float, dir: Vector2) -> void:
 	# Slow chase, explode when close.
 	var spd := _base_move_speed() * 0.85
-	velocity = dir * spd
-	move_and_slide()
+	_advance_toward(dir, spd, delta)
 	if dist <= 66.0 and _attack_t <= 0.0:
 		_attack_t = 999.0
 		_explode(120.0, maxi(4, int(round(float(contact_damage) * 2.4))))
@@ -629,13 +630,20 @@ func _apply_archetype_and_affixes() -> void:
 				pass
 
 func _find_target() -> Node2D:
+	# Pick the nearest live combatant (player + squad). This prevents
+	# center-lock behavior when the player anchor is stationary.
+	var player: Node2D = null
+	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_node"):
+		player = _main.get_player_node()
+	if player == null or not is_instance_valid(player):
+		player = get_tree().get_first_node_in_group("player") as Node2D
 	var nearest: Node2D = null
-	var nearest_dist := INF
-
-	# Always chase nearest valid squad unit anywhere on the map.
-	# Do not gate by aggression_radius; that caused center-map idling.
+	var nearest_d2 := INF
+	if player != null and is_instance_valid(player):
+		nearest = player
+		nearest_d2 = global_position.distance_squared_to(player.global_position)
 	var squad: Array = []
-	if _main and is_instance_valid(_main) and _main.has_method("get_cached_squad_units"):
+	if _main != null and is_instance_valid(_main) and _main.has_method("get_cached_squad_units"):
 		squad = _main.get_cached_squad_units()
 	else:
 		squad = get_tree().get_nodes_in_group("squad_units")
@@ -645,33 +653,46 @@ func _find_target() -> Node2D:
 		var n2 := u as Node2D
 		if n2 == null:
 			continue
-		var d := global_position.distance_to(n2.global_position)
-		if d < nearest_dist:
-			nearest_dist = d
+		var d2 := global_position.distance_squared_to(n2.global_position)
+		if nearest == null or d2 < nearest_d2:
 			nearest = n2
-
-	# Player is always a valid fallback target (no radius gate).
-	var player: Node2D = null
-	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_node"):
-		player = _main.get_player_node()
-	if player == null or not is_instance_valid(player):
-		player = get_tree().get_first_node_in_group("player") as Node2D
-	if player != null and is_instance_valid(player):
-		var d2 := global_position.distance_to(player.global_position)
-		if d2 < nearest_dist:
-			nearest = player
-			nearest_dist = d2
-
-	if nearest != null:
+			nearest_d2 = d2
+	if nearest != null and is_instance_valid(nearest):
 		return nearest
-	if player != null and is_instance_valid(player):
-		return player
 	# Last fallback to avoid null-target idle loops in edge cases.
 	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_node"):
 		var p2: Node2D = _main.get_player_node() as Node2D
 		if p2 != null and is_instance_valid(p2):
 			return p2
 	return null
+
+func _advance_toward(dir: Vector2, speed: float, delta: float) -> void:
+	var d := dir.normalized() if dir.length_squared() > 0.0001 else Vector2.ZERO
+	if d == Vector2.ZERO or speed <= 0.001:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		_stuck_t = maxf(0.0, _stuck_t - delta * 0.6)
+		return
+	var before := global_position
+	velocity = d * speed
+	move_and_slide()
+	var moved := before.distance_to(global_position)
+	var expected := maxf(0.0001, speed * maxf(0.001, delta))
+	if moved >= expected * 0.22:
+		_stuck_t = maxf(0.0, _stuck_t - delta * 0.8)
+		return
+	_stuck_t += delta
+	if _stuck_t < 0.12:
+		return
+	# If we keep colliding into a wall, bias movement sideways to flow around blockers.
+	var side := Vector2(-d.y, d.x) * _stuck_side
+	var steer := (d * 0.35 + side * 0.95).normalized()
+	var before2 := global_position
+	velocity = steer * speed
+	move_and_slide()
+	var moved2 := before2.distance_to(global_position)
+	if moved2 < expected * 0.10:
+		_stuck_side *= -1.0
 
 func _update_anim_from_motion(motion: Vector2, look_dir: Vector2) -> void:
 	if anim == null or anim.sprite_frames == null:

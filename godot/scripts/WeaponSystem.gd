@@ -228,6 +228,7 @@ static func _spawn_melee_arc_vfx(main_node: Node2D, origin: Vector2, dir: Vector
 static func _fire_bomb(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var bomb := WP.BombProjectile.new()
 	var radius := float(w.get("explosion_radius", 70)) + _get_mp_add(main_node, "bomb_radius_add", 0.0)
+	radius *= _keystone_power_scale(main_node, 0.035)
 	var delay_mult := maxf(0.6, _get_mp_mod(main_node, "bomb_delay_mult", 1.0))
 	var speed := float(w.get("projectile_speed", 380)) / delay_mult
 	var out_damage := maxi(1, int(round(float(damage) * _get_mp_mod(main_node, "bomb_damage_mult", 1.0))))
@@ -457,15 +458,16 @@ static func _fire_beam(attacker: Node2D, target: Node2D, damage: int, is_crit: b
 	var sec_count := maxi(0, int(round(_get_mp_add(main_node, "beam_secondary_targets_add", 0.0))))
 	var sec_mult := clampf(_get_mp_mod(main_node, "beam_secondary_damage_mult", 0.0), 0.0, 2.0)
 	var lock_single := _get_mp_add(main_node, "beam_target_swap_resets_ramp", 0.0) >= 1.0
+	var keystone_scale := _keystone_power_scale(main_node, 0.022)
 	beam.setup(
 		attacker,
 		(target.global_position - attacker.global_position).normalized(),
 		damage,
 		is_crit,
-		float(w.get("beam_length", 350)),
+		float(w.get("beam_length", 350)) * keystone_scale,
 		float(w.get("beam_width", 16)),
 		float(w.get("width_growth", 0.0)),
-		float(w.get("duration", 0.5)),
+		float(w.get("duration", 0.5)) * lerpf(1.0, 1.20, keystone_scale - 1.0),
 		float(w.get("tick_rate", 0.1)),
 		main_node,
 		cd,
@@ -1030,7 +1032,7 @@ static func _fire_ricochet(attacker: Node2D, target: Node2D, damage: int, is_cri
 
 static func _fire_orbital_strike(attacker: Node2D, target: Node2D, damage: int, is_crit: bool, main_node: Node2D, cd: CharacterData, w: Dictionary) -> void:
 	var delay := float(w.get("delay", 1.2)) * _get_mp_mod(main_node, "orbital_delay_mult", 1.0)
-	var radius := float(w.get("explosion_radius", 90))
+	var radius := float(w.get("explosion_radius", 90)) * _keystone_power_scale(main_node, 0.03)
 	var dmg_mult := float(w.get("damage_mult", 1.8)) * _get_mp_mod(main_node, "orbital_damage_mult", 1.0)
 	var cluster_bonus := float(w.get("cluster_bonus", 0.0))
 	var strike_pos := target.global_position
@@ -1093,10 +1095,18 @@ static func _play_sfx(main_node: Node2D, event: String, pos: Vector2) -> void:
 	var s := main_node.get_node_or_null("/root/SfxSystem")
 	if s and is_instance_valid(s) and s.has_method("play_event"):
 		s.play_event(event, pos, main_node)
+		var tier := int(round(_get_mp_add(main_node, "weapon_keystone_tier", 0.0)))
+		if tier >= 4:
+			match event:
+				"weapon.chain_lightning", "weapon.beam":
+					s.play_event("syn.arc", pos, main_node)
+				"weapon.bomb_explode", "weapon.orbital_strike", "weapon.slam":
+					s.play_event("syn.shock", pos, main_node)
 
 static func _play_vfx(main_node: Node2D, event: String, pos: Vector2, tint: Color = Color.WHITE, scale: float = 1.0) -> void:
 	if main_node == null:
 		return
+	scale *= _keystone_vfx_scale(main_node)
 	var v := main_node.get_node_or_null("/root/VfxSystem")
 	var ok := false
 	if v and is_instance_valid(v) and v.has_method("play_event"):
@@ -1108,6 +1118,14 @@ static func _play_vfx(main_node: Node2D, event: String, pos: Vector2, tint: Colo
 		var flash := VfxImpactFlash.new()
 		flash.setup(pos, Color(1.0, 0.92, 0.70, 1.0), 18.0 * scale, 0.11)
 		main_node.add_child(flash)
+
+static func _keystone_vfx_scale(main_node: Node2D) -> float:
+	var boost := _get_mp_add(main_node, "weapon_keystone_vfx_scale_add", 0.0)
+	return clampf(1.0 + boost, 1.0, 2.4)
+
+static func _keystone_power_scale(main_node: Node2D, per_tier: float) -> float:
+	var tiers := _get_mp_add(main_node, "weapon_keystone_tier", 0.0)
+	return clampf(1.0 + tiers * per_tier, 1.0, 2.0)
 
 static func _spawn_arc_vfx(main_node: Node2D, pos: Vector2, dir: Vector2, radius: float, color: Color) -> void:
 	var v := main_node.get_node_or_null("/root/VfxSystem") if main_node else null

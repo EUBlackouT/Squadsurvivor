@@ -35,6 +35,8 @@ class BombProjectile extends Node2D:
 		
 		_sprite = Sprite2D.new()
 		_sprite.texture = _make_bomb_tex()
+		_sprite.z_index = 2350
+		_sprite.scale = Vector2.ONE * 1.45
 		add_child(_sprite)
 	
 	func _make_bomb_tex() -> ImageTexture:
@@ -56,6 +58,7 @@ class BombProjectile extends Node2D:
 		var arc_height := 60.0 * sin(progress * PI)
 		global_position = lerped + Vector2(0, -arc_height)
 		_sprite.rotation += delta * 8.0
+		_sprite.modulate = Color(1.0, 0.88, 0.70, 0.88 + 0.12 * sin(_t * 36.0))
 		
 		if progress >= 1.0:
 			_explode()
@@ -97,17 +100,31 @@ class BombProjectile extends Node2D:
 			# Fallback
 			var sw := VfxShockwave.new()
 			sw.setup(global_position, Color(1.0, 0.5, 0.1, 1.0), 15.0, _radius, 5.0, 0.2)
+			sw.z_index = 2380
 			_main.add_child(sw)
+		var flash := VfxImpactFlash.new()
+		flash.setup(global_position, Color(1.0, 0.72, 0.30, 1.0), maxf(18.0, _radius * 0.42), 0.16)
+		flash.z_index = 2390
+		_main.add_child(flash)
+		var flash2 := VfxImpactFlash.new()
+		flash2.setup(global_position, Color(1.0, 0.92, 0.68, 1.0), maxf(14.0, _radius * 0.28), 0.10)
+		flash2.z_index = 2392
+		_main.add_child(flash2)
+		var burst := VfxFlameBurst.new()
+		burst.setup(global_position, Color(1.0, 0.58, 0.22, 1.0), maxf(24.0, _radius * 0.52), 16, 0.24, Vector2.ZERO)
+		burst.z_index = 2385
+		_main.add_child(burst)
 		
 		# SFX
 		var s := _main.get_node_or_null("/root/SfxSystem") if _main else null
 		if s and is_instance_valid(s) and s.has_method("play_event"):
 			s.play_event("weapon.bomb_explode", global_position, self)
+			s.play_event("syn.shock", global_position, self)
 		
 		# Screen shake
 		var shake := _main.get_node_or_null("/root/ScreenShake") if _main else null
 		if shake and is_instance_valid(shake) and shake.has_method("shake"):
-			shake.shake(5.0, 0.12)
+			shake.shake(7.0, 0.16)
 		
 		queue_free()
 
@@ -222,6 +239,7 @@ class BeamAttack extends Node2D:
 	var _lock_focus_target: bool = false
 	var _focus_target_id: int = -1
 	var _focus_ramp_t: float = 0.0
+	var _beam_fx_ctr: int = 0
 	
 	func setup(owner: Node2D, dir: Vector2, dmg: int, crit: bool, length: float, width: float, width_growth: float, duration: float, tick: float, main: Node2D, cd: CharacterData, ramp_per_second: float = 0.0, ramp_cap: float = 1.0, initial_mult: float = 1.0, secondary_targets_add: int = 0, secondary_damage_mult: float = 0.0, lock_focus_target: bool = false) -> void:
 		_owner_ref = weakref(owner)
@@ -243,8 +261,10 @@ class BeamAttack extends Node2D:
 		_lock_focus_target = lock_focus_target
 		
 		_line = Line2D.new()
-		_line.width = width
-		_line.default_color = Color(1.0, 0.3, 0.3, 0.9)
+		_line.width = width * 1.20
+		_line.default_color = Color(1.0, 0.45, 0.42, 0.92)
+		_line.z_index = 2355
+		z_index = 2355
 		_line.add_point(Vector2.ZERO)
 		_line.add_point(_direction * _length)
 		add_child(_line)
@@ -258,10 +278,13 @@ class BeamAttack extends Node2D:
 			global_position = owner_node.global_position
 		
 		# Pulse effect + optional growth
-		_line.default_color.a = 0.6 + 0.4 * sin(_elapsed * 20.0)
+		_line.default_color.a = 0.68 + 0.32 * sin(_elapsed * 20.0)
+		_line.default_color.r = 1.0
+		_line.default_color.g = 0.38 + 0.10 * sin(_elapsed * 11.0)
+		_line.default_color.b = 0.35 + 0.12 * sin(_elapsed * 7.0)
 		if _width_growth > 0.0 and _duration > 0.0:
 			var t := clampf(_elapsed / _duration, 0.0, 1.0)
-			_line.width = _width * (1.0 + _width_growth * t)
+			_line.width = (_width * 1.20) * (1.0 + _width_growth * t)
 		
 		if _tick_t >= _tick_rate:
 			_tick_t = 0.0
@@ -311,6 +334,23 @@ class BeamAttack extends Node2D:
 		var ramp_mult := clampf(_initial_mult + _ramp_per_second * _focus_ramp_t, 0.1, _ramp_cap)
 		if primary.has_method("take_damage"):
 			primary.take_damage(maxi(1, int(round(float(tick_dmg) * ramp_mult))), _is_crit, "beam")
+		_beam_fx_ctr += 1
+		if _main != null and is_instance_valid(_main):
+			var fx_scale := clampf(0.85 + ramp_mult * 0.35, 0.8, 1.7)
+			if (_beam_fx_ctr % 2) == 0:
+				var flash := VfxImpactFlash.new()
+				flash.setup(primary.global_position + Vector2(0, -10), Color(1.0, 0.52, 0.42, 1.0), 14.0 * fx_scale, 0.10)
+				flash.z_index = 2380
+				_main.add_child(flash)
+			if (_beam_fx_ctr % 3) == 0:
+				var sw := VfxShockwave.new()
+				sw.setup(primary.global_position, Color(1.0, 0.50, 0.36, 0.90), 7.0, (28.0 + _width * 0.7) * fx_scale, 3.0, 0.13)
+				sw.z_index = 2375
+				_main.add_child(sw)
+			if (_beam_fx_ctr % 4) == 0:
+				var s := _main.get_node_or_null("/root/SfxSystem")
+				if s and is_instance_valid(s) and s.has_method("play_event"):
+					s.play_event("syn.shock", primary.global_position, self)
 		var sec_n := mini(_secondary_targets_add, maxi(0, hit_list.size() - 1))
 		for i in range(sec_n):
 			var n := hit_list[i + 1]
@@ -719,6 +759,7 @@ class OrbitalStrike extends Node2D:
 		_indicator = Sprite2D.new()
 		_indicator.texture = _make_target_tex()
 		_indicator.modulate = Color(1.0, 0.3, 0.1, 0.6)
+		_indicator.z_index = 2280
 		add_child(_indicator)
 		
 		# Beam line from sky
@@ -727,6 +768,7 @@ class OrbitalStrike extends Node2D:
 		_warning_line.add_point(Vector2.ZERO)
 		_warning_line.width = 4
 		_warning_line.default_color = Color(1.0, 0.5, 0.2, 0.3)
+		_warning_line.z_index = 2290
 		add_child(_warning_line)
 		
 		# Play warning VFX
@@ -756,6 +798,7 @@ class OrbitalStrike extends Node2D:
 		_indicator.modulate.a = 0.3 + 0.5 * progress
 		_warning_line.default_color.a = 0.2 + 0.6 * progress
 		_warning_line.width = 4 + 12 * progress
+		_warning_line.default_color = _warning_line.default_color.lerp(Color(1.0, 0.82, 0.45, _warning_line.default_color.a), progress * 0.7)
 		
 		# Play charge SFX midway
 		if not _played_charge_sfx and progress > 0.3:
@@ -808,17 +851,31 @@ class OrbitalStrike extends Node2D:
 			# Fallback
 			var sw := VfxShockwave.new()
 			sw.setup(global_position, Color(1.0, 0.5, 0.1, 1.0), 20.0, _radius * 1.5, 6.0, 0.3)
+			sw.z_index = 2400
 			_main.add_child(sw)
+		var flash := VfxImpactFlash.new()
+		flash.setup(global_position, Color(1.0, 0.82, 0.42, 1.0), maxf(26.0, _radius * 0.55), 0.18)
+		flash.z_index = 2410
+		_main.add_child(flash)
+		var flash2 := VfxImpactFlash.new()
+		flash2.setup(global_position, Color(1.0, 0.94, 0.76, 1.0), maxf(18.0, _radius * 0.34), 0.11)
+		flash2.z_index = 2412
+		_main.add_child(flash2)
+		var burst := VfxFlameBurst.new()
+		burst.setup(global_position, Color(1.0, 0.62, 0.24, 1.0), maxf(36.0, _radius * 0.68), 18, 0.28, Vector2.ZERO)
+		burst.z_index = 2408
+		_main.add_child(burst)
 		
 		# Screen shake - BIG
 		var shake := _main.get_node_or_null("/root/ScreenShake")
 		if shake and is_instance_valid(shake) and shake.has_method("shake"):
-			shake.shake(12.0, 0.25)
+			shake.shake(14.0, 0.30)
 		
 		# SFX
 		var s := _main.get_node_or_null("/root/SfxSystem")
 		if s and is_instance_valid(s) and s.has_method("play_event"):
 			s.play_event("weapon.orbital_strike", global_position, self)
+			s.play_event("syn.shock", global_position, self)
 		
 		queue_free()
 
@@ -839,8 +896,10 @@ class LightningVfx extends Node2D:
 		_duration = duration
 		
 		_line = Line2D.new()
-		_line.width = 3
+		_line.width = 5.0
 		_line.default_color = color
+		_line.z_index = 2360
+		z_index = 2360
 		_generate_lightning_points()
 		add_child(_line)
 	

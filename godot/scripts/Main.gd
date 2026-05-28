@@ -35,6 +35,8 @@ extends Node2D
 @export var debug_perf_overlay_enabled: bool = false
 @export var hitch_probe_enabled: bool = true
 @export var hitch_probe_threshold_ms: float = 120.0
+@export var perf_trace_enabled: bool = true
+@export var perf_trace_spawn_threshold_ms: float = 12.0
 
 # Autosave (run state)
 @export var autosave_enabled: bool = true
@@ -49,9 +51,11 @@ const DAMAGE_NUMBERS_LAYER_SCRIPT: Script = preload("res://scripts/DamageNumbers
 const MAP_RENDERER_SCENE: PackedScene = preload("res://scenes/MapRenderer.tscn")
 const TILE_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TileMapWorld.gd")
 const TMX_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TmxMapWorld.gd")
+const METADATA_MAP_WORLD_SCRIPT: Script = preload("res://scripts/MetadataMapWorld.gd")
 const VFX_ARC_SCENE: PackedScene = preload("res://scenes/VfxArcLightning.tscn")
 const HUD_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
 const DRAFT_BG_PATH: String = "res://assets/ui/revamp/draft_bg.png"
+const DRAFT_BG_TEXTURE: Texture2D = preload("res://assets/ui/revamp/draft_bg.png")
 const USE_UI_MOCKUPS: bool = false
 
 var damage_numbers: Node = null
@@ -165,6 +169,17 @@ var _shrine_frost_ultra_t: float = 0.0
 # Autosave node (ticks while paused)
 var _autosave_node: Node = null
 var _enemy_visual_pool: PackedStringArray = PackedStringArray()
+var _enemy_visual_bag: Array[String] = []
+var _enemy_visual_ready: PackedStringArray = PackedStringArray()
+var _enemy_visual_warmed: Dictionary = {}
+var _enemy_visual_ready_target: int = 2
+var _enemy_template_pool: Array[CharacterData] = []
+var _enemy_template_target: int = 28
+var _enemy_template_refill_budget_ms: float = 2.4
+var _enemy_template_refill_per_frame: int = 3
+var _perf_boot_t0_us: int = 0
+var _perf_boot_last_us: int = 0
+var _perf_spawn_detail: String = ""
 const _LIVE_SMOKE_STARTERS: Array[String] = ["insectoid", "ion_scout", "reef_medic"]
 var _live_smoke_enabled: bool = false
 var _live_smoke_case: String = ""
@@ -175,9 +190,13 @@ var _live_smoke_last_tick_s: float = 0.0
 var _live_smoke_reported: bool = false
 
 func _ready() -> void:
+	_perf_boot_t0_us = int(Time.get_ticks_usec())
+	_perf_boot_last_us = _perf_boot_t0_us
 	UiSkin.apply_global_font()
+	_perf_boot_mark("UiSkin.apply_global_font")
 	add_to_group("main")
 	_init_rng()
+	_perf_boot_mark("_init_rng")
 	run_start_time = Time.get_ticks_msec() / 1000.0
 	var uargs := OS.get_cmdline_user_args()
 	_boss_test_mode = uargs.has("boss_test")
@@ -195,13 +214,17 @@ func _ready() -> void:
 	UnitFactory.ensure_loaded()
 	PassiveSystem.ensure_loaded()
 	EnemyFactory.ensure_loaded()
-	_build_enemy_visual_pool()
+	_perf_boot_mark("ensure_loaded systems")
+	call_deferred("_build_enemy_visual_pool_deferred")
+	call_deferred("_prime_enemy_templates_deferred")
 	var rc := get_node_or_null("/root/RunConfig")
 	if rc and is_instance_valid(rc):
 		if rc.has_method("ensure_loaded"):
 			rc.ensure_loaded()
 		if rc.has_method("get_selected_map"):
 			_map_mod = rc.get_selected_map()
+	_apply_map_size_override()
+	_perf_boot_mark("run config + map selection")
 
 	# Bosses: default to map-driven if available.
 	if not _map_mod.is_empty():
@@ -217,6 +240,7 @@ func _ready() -> void:
 		_apply_live_smoke_overrides()
 
 	_make_background()
+	_perf_boot_mark("_make_background")
 
 	# Avoid relying on global class lookup; preload is robust under strict typing.
 	damage_numbers = DAMAGE_NUMBERS_LAYER_SCRIPT.new()
@@ -233,11 +257,13 @@ func _ready() -> void:
 
 	_spawn_player()
 	_spawn_map_shrines()
-	_spawn_initial_enemies()
+	call_deferred("_spawn_initial_enemies_deferred")
+	_perf_boot_mark("spawn player/shrines/initial enemies")
 	if enable_rifts:
 		_spawn_rifts()
 	_setup_hud()
 	_setup_selection_ui()
+	_perf_boot_mark("hud + selection ui")
 
 	# Global systems - play map-specific combat music
 	var mm := get_node_or_null("/root/MusicManager")
@@ -259,8 +285,15 @@ func _ready() -> void:
 
 	# Resume run snapshot (if requested from Menu).
 	_try_apply_run_resume()
+	_perf_boot_mark("_try_apply_run_resume")
 
 	_setup_autosave()
+	_perf_boot_mark("_setup_autosave")
+	_perf_boot_done()
+
+func _process(_delta: float) -> void:
+	_warm_enemy_visuals_incremental()
+	_refill_enemy_templates()
 
 func _init_rng() -> void:
 	rng = RandomNumberGenerator.new()
@@ -268,6 +301,50 @@ func _init_rng() -> void:
 		rng.seed = int(Time.get_unix_time_from_system())
 	else:
 		rng.seed = random_seed
+
+func _perf_boot_mark(stage: String) -> void:
+	if not perf_trace_enabled:
+		return
+	var now_us := int(Time.get_ticks_usec())
+	var seg_ms := float(now_us - _perf_boot_last_us) / 1000.0
+	var total_ms := float(now_us - _perf_boot_t0_us) / 1000.0
+	_perf_boot_last_us = now_us
+	print("BOOT_TRACE stage=%s seg_ms=%.2f total_ms=%.2f map=%s" % [stage, seg_ms, total_ms, String(_map_mod.get("id", "unknown"))])
+
+func _perf_boot_done() -> void:
+	if not perf_trace_enabled:
+		return
+	var total_ms := float(int(Time.get_ticks_usec()) - _perf_boot_t0_us) / 1000.0
+	print("BOOT_TRACE_DONE total_ms=%.2f map=%s enemy_templates=%d enemy_visuals=%d" % [total_ms, String(_map_mod.get("id", "unknown")), _enemy_template_pool.size(), _enemy_visual_pool.size()])
+
+func _prime_enemy_templates_deferred() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_refill_enemy_templates()
+
+func _refill_enemy_templates() -> void:
+	if rng == null:
+		return
+	if _enemy_template_pool.size() >= _enemy_template_target:
+		return
+	var t0_us := int(Time.get_ticks_usec())
+	var built := 0
+	while _enemy_template_pool.size() < _enemy_template_target and built < _enemy_template_refill_per_frame:
+		var elapsed_ms := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+		if elapsed_ms >= _enemy_template_refill_budget_ms:
+			break
+		var south := _pick_enemy_visual_path()
+		if south == "":
+			break
+		var cd := UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south, _map_mod)
+		if cd == null:
+			break
+		_enemy_template_pool.append(cd)
+		built += 1
+	if perf_trace_enabled and built > 0:
+		var spent_ms := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+		if spent_ms >= perf_trace_spawn_threshold_ms:
+			print("SPAWN_TEMPLATE_REFILL built=%d pool=%d/%d spent_ms=%.2f map=%s" % [built, _enemy_template_pool.size(), _enemy_template_target, spent_ms, String(_map_mod.get("id", "unknown"))])
 
 func _init_live_smoke_args(uargs: PackedStringArray) -> void:
 	var case_id := _arg_value(uargs, "live_smoke_case", "")
@@ -470,6 +547,23 @@ func _configure_boss_schedule() -> void:
 		boss_spawn_time_minutes = float(_boss_wave_times[0])
 		run_timer_max_minutes = maxf(run_timer_max_minutes, 12.0)
 
+func _apply_map_size_override() -> void:
+	if _map_mod.is_empty():
+		return
+	var v: Variant = _map_mod.get("map_size", null)
+	if v == null:
+		return
+	var override: Vector2 = map_size
+	if typeof(v) == TYPE_ARRAY:
+		var arr: Array = v as Array
+		if arr.size() >= 2:
+			override = Vector2(float(arr[0]), float(arr[1]))
+	elif typeof(v) == TYPE_DICTIONARY:
+		var d: Dictionary = v as Dictionary
+		override = Vector2(float(d.get("x", map_size.x)), float(d.get("y", map_size.y)))
+	if override.x >= 512.0 and override.y >= 512.0:
+		map_size = override
+
 func _make_background() -> void:
 	# Determine biome from map_mod or theme_id
 	var biome := "graveyard"
@@ -484,6 +578,28 @@ func _make_background() -> void:
 			biome = String(_map_mod.get("id"))
 	if biome.is_empty():
 		biome = map_theme_id
+
+	# Prefer authored TMX maps when provided by map data.
+	var metadata_path := String(_map_mod.get("metadata_path", ""))
+	if use_rich_map and not metadata_path.is_empty() and METADATA_MAP_WORLD_SCRIPT != null:
+		var md_world := Node2D.new()
+		md_world.set_script(METADATA_MAP_WORLD_SCRIPT)
+		md_world.name = "MetadataMapWorld"
+		md_world.set("metadata_path", metadata_path)
+		md_world.set("map_size", map_size)
+		var md_img := String(_map_mod.get("metadata_image_path", ""))
+		if md_img != "":
+			md_world.set("metadata_image_override", md_img)
+		md_world.set("metadata_points_scale_mult", maxf(0.01, float(_map_mod.get("metadata_points_scale_mult", 1.0))))
+		md_world.call("build_if_needed")
+		if md_world.has_method("get_world_size"):
+			var ws_md: Vector2 = md_world.get_world_size()
+			if ws_md.x > 64.0 and ws_md.y > 64.0:
+				map_size = ws_md
+		add_child(md_world)
+		_authored_map_world = md_world
+		_add_tmx_atmo_overlay(vis)
+		return
 
 	# Prefer authored TMX maps when provided by map data.
 	var tmx_path := String(_map_mod.get("tmx_path", ""))
@@ -502,6 +618,23 @@ func _make_background() -> void:
 		_authored_map_world = authored
 		_add_tmx_atmo_overlay(vis)
 		return
+
+	# If visuals explicitly provide a background image and there's no authored map,
+	# render it directly as a static world sprite so tests see the exact PNG.
+	var visual_bg_path := String(vis.get("bg_image_path", ""))
+	if use_rich_map and not visual_bg_path.is_empty():
+		var tex := _load_map_bg_texture(visual_bg_path)
+		if tex != null:
+			# Use the image's native pixel dimensions for a truthful visual test.
+			map_size = tex.get_size()
+			var bg := Sprite2D.new()
+			bg.texture = tex
+			bg.centered = false
+			bg.position = Vector2(-map_size.x * 0.5, -map_size.y * 0.5)
+			bg.z_index = -100
+			bg.modulate = Color(1, 1, 1, clampf(float(vis.get("bg_image_alpha", 1.0)), 0.0, 1.0))
+			add_child(bg)
+			return
 	
 	# Try TileMapWorld (tile-based real maps) first
 	if use_rich_map and TILE_MAP_WORLD_SCRIPT != null:
@@ -565,6 +698,21 @@ func _make_background() -> void:
 	bg.z_index = -100
 	add_child(bg)
 
+func _load_map_bg_texture(path: String) -> Texture2D:
+	if path == "":
+		return null
+	var candidates: Array[String] = [path]
+	if path.begins_with("res://"):
+		candidates.append(ProjectSettings.globalize_path(path))
+	for p in candidates:
+		if FileAccess.file_exists(p):
+			var img := Image.load_from_file(p)
+			if img != null and not img.is_empty():
+				return ImageTexture.create_from_image(img)
+	if ResourceLoader.exists(path):
+		return load(path) as Texture2D
+	return null
+
 func _add_tmx_atmo_overlay(vis: Dictionary) -> void:
 	if _map_atmo_overlay != null and is_instance_valid(_map_atmo_overlay):
 		_map_atmo_overlay.queue_free()
@@ -580,6 +728,31 @@ func _add_tmx_atmo_overlay(vis: Dictionary) -> void:
 	root.z_index = 1400
 	add_child(root)
 	_map_atmo_overlay = root
+
+	# Optional authored background image (used for quick visual map tests while
+	# still keeping TMX collisions/spawn and all gameplay data intact).
+	var bg_image_path := String(vis.get("bg_image_path", ""))
+	if not bg_image_path.is_empty():
+		var bg_tex: Texture2D = null
+		if FileAccess.file_exists(bg_image_path):
+			var bg_img := Image.load_from_file(bg_image_path)
+			if bg_img != null and not bg_img.is_empty():
+				bg_tex = ImageTexture.create_from_image(bg_img)
+		else:
+			# Allow imported resources too when the file is not directly available.
+			bg_tex = load(bg_image_path) as Texture2D
+		if bg_tex != null:
+			var bg := Sprite2D.new()
+			bg.texture = bg_tex
+			bg.centered = false
+			bg.position = Vector2(-map_size.x * 0.5, -map_size.y * 0.5)
+			bg.scale = Vector2(
+				map_size.x / maxf(1.0, float(bg_tex.get_width())),
+				map_size.y / maxf(1.0, float(bg_tex.get_height()))
+			)
+			bg.modulate = Color(1, 1, 1, clampf(float(vis.get("bg_image_alpha", 1.0)), 0.0, 1.0))
+			bg.z_index = 1
+			root.add_child(bg)
 
 	# Fine noise tint to unify noisy authored tiles into one lighting mood.
 	var fog_tex := _build_map_tint_texture(
@@ -687,6 +860,15 @@ func _spawn_initial_enemies() -> void:
 	for i in range(count):
 		_spawn_enemy(false, false, false)
 
+func _spawn_initial_enemies_deferred() -> void:
+	await get_tree().process_frame
+	var tries := 0
+	while _enemy_visual_ready.is_empty() and tries < 120:
+		tries += 1
+		await get_tree().process_frame
+	_refill_enemy_templates()
+	_spawn_initial_enemies()
+
 func _spawn_rifts() -> void:
 	if RIFT_SCENE == null:
 		return
@@ -787,6 +969,8 @@ func _sample_random_world_point(world_rect: Rect2) -> Vector2:
 	)
 
 func _current_world_rect() -> Rect2:
+	if _authored_map_world != null and is_instance_valid(_authored_map_world) and _authored_map_world.has_method("get_camera_rect"):
+		return _authored_map_world.get_camera_rect()
 	if _authored_map_world != null and is_instance_valid(_authored_map_world) and _authored_map_world.has_method("get_world_rect"):
 		return _authored_map_world.get_world_rect()
 	return Rect2(Vector2(-map_size.x * 0.5, -map_size.y * 0.5), map_size)
@@ -991,6 +1175,8 @@ func _physics_process(delta: float) -> void:
 				total_ms2, pre_ms, core_ms, post_ms, live_enemies.size(), live_squad_units.size(), map_id,
 				("1" if did_spawn_tick else "0"), _probe_last_spawn_ms, _probe_last_spawn_count
 			])
+			if _perf_spawn_detail != "":
+				print("HITCH_SPAWN_DETAIL %s" % _perf_spawn_detail)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# TAB: Show/hide passive overlay
@@ -1165,30 +1351,54 @@ func _update_camera_follow(delta: float) -> void:
 	# Locked mode: hard-follow player with zero lag.
 	if not _camera_unlock_mode:
 		var anchor_world := _camera_locked_anchor_world()
-		_player_cam_ref.position = anchor_world - _player_node_ref.global_position
+		_player_cam_ref.position = (_clamp_camera_anchor(anchor_world) - _player_node_ref.global_position).round()
 		return
 	# Unlocked mode: manual camera pan handled by Player.gd with WASD.
-	# Do not override local camera position here.
+	var manual_anchor := _player_node_ref.global_position + _player_cam_ref.position
+	_player_cam_ref.position = (_clamp_camera_anchor(manual_anchor) - _player_node_ref.global_position).round()
 
 func is_camera_manual_mode_enabled() -> bool:
 	return _camera_unlock_mode
 
 func _camera_locked_anchor_world() -> Vector2:
 	# Locked camera auto-follows the squad group, but never uses click selection.
+	if _player_node_ref == null or not is_instance_valid(_player_node_ref):
+		return Vector2.ZERO
+	var player_pos := _player_node_ref.global_position
 	var sum := Vector2.ZERO
 	var count := 0
-	if _player_node_ref != null and is_instance_valid(_player_node_ref):
-		sum += _player_node_ref.global_position
-		count += 1
 	for u2 in live_squad_units:
 		var n3 := u2 as Node2D
 		if n3 == null or not is_instance_valid(n3):
 			continue
 		sum += n3.global_position
 		count += 1
-	if count > 0:
-		return sum / float(count)
-	return Vector2.ZERO
+	if count <= 0:
+		return player_pos
+	var squad_center := sum / float(count)
+	# Keep anchor stable (reduces micro-jerk) while still reflecting squad drift.
+	return player_pos.lerp(squad_center, 0.22)
+
+func _clamp_camera_anchor(anchor_world: Vector2) -> Vector2:
+	var world_rect := _current_world_rect()
+	var vp_size := get_viewport_rect().size
+	var zoom := Vector2.ONE
+	if _player_cam_ref != null and is_instance_valid(_player_cam_ref):
+		zoom = _player_cam_ref.zoom
+	var half := Vector2(vp_size.x * 0.5 * zoom.x, vp_size.y * 0.5 * zoom.y)
+	var min_x := world_rect.position.x + half.x
+	var max_x := world_rect.position.x + world_rect.size.x - half.x
+	var min_y := world_rect.position.y + half.y
+	var max_y := world_rect.position.y + world_rect.size.y - half.y
+	if min_x > max_x:
+		anchor_world.x = world_rect.position.x + world_rect.size.x * 0.5
+	else:
+		anchor_world.x = clampf(anchor_world.x, min_x, max_x)
+	if min_y > max_y:
+		anchor_world.y = world_rect.position.y + world_rect.size.y * 0.5
+	else:
+		anchor_world.y = clampf(anchor_world.y, min_y, max_y)
+	return anchor_world
 
 func _clear_selection() -> void:
 	for u in _selected_units:
@@ -1746,6 +1956,7 @@ func get_rally_time_left() -> float:
 
 func _tick_spawns() -> void:
 	var t0_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
+	_perf_spawn_detail = ""
 	var spawned := 0
 	# During boss phase, stop normal spawns (reads like a proper boss fight).
 	if _boss_fight_active and _boss_node != null and is_instance_valid(_boss_node):
@@ -1773,6 +1984,11 @@ func _tick_spawns() -> void:
 	if hitch_probe_enabled:
 		_probe_last_spawn_ms = float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
 		_probe_last_spawn_count = spawned
+	if perf_trace_enabled:
+		print("SPAWN_TICK_TRACE ms=%.2f spawned=%d enemies=%d cap=%d interval=%.3f templates=%d/%d visuals=%d" % [
+			_probe_last_spawn_ms, spawned, live_enemies.size(), _current_max_enemies(), _current_spawn_interval(),
+			_enemy_template_pool.size(), _enemy_template_target, _enemy_visual_pool.size()
+		])
 
 func _ramp01() -> float:
 	var t := _elapsed_minutes()
@@ -1861,23 +2077,31 @@ func _shrine_damage_mult() -> float:
 	return 1.0
 
 func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
+	var t0_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
 	if ENEMY_SCENE == null:
 		return
 	var e := ENEMY_SCENE.instantiate()
 
-	var player := get_player_node()
-	var center := Vector2.ZERO
-	if player and is_instance_valid(player):
-		center = player.global_position
+	var center := _camera_locked_anchor_world()
+	if center == Vector2.ZERO:
+		var player := get_player_node()
+		if player and is_instance_valid(player):
+			center = player.global_position
 
-	# Enemy spawning must stay hitch-free in combat. Use a small prewarmed visual pool
-	# instead of full registry scans/loading a brand-new character every spawn.
-	var south := _pick_enemy_visual_path()
-	if south == "":
-		return
-	var cd := UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south, _map_mod)
+	var t_template0_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
+	var cd: CharacterData = null
+	if not _enemy_template_pool.is_empty():
+		cd = _enemy_template_pool.pop_back().duplicate(true) as CharacterData
+	if cd == null:
+		var south_fallback := _pick_enemy_visual_path()
+		if south_fallback == "":
+			return
+		cd = UnitFactory.build_character_data("enemy", rng, _elapsed_minutes(), south_fallback, _map_mod)
 	if cd == null:
 		return
+	var south := String(cd.sprite_path)
+	var template_ms := float(int(Time.get_ticks_usec()) - t_template0_us) / 1000.0 if hitch_probe_enabled else 0.0
+	_refill_enemy_templates()
 	if is_elite:
 		cd.max_hp = int(round(float(cd.max_hp) * 1.55))
 		cd.attack_damage = int(round(float(cd.attack_damage) * 1.25))
@@ -1890,6 +2114,7 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		cd.attack_damage = int(round(float(cd.attack_damage) * maxf(1.0, bdmg)))
 
 	# Enemy archetype + affixes (behavior variety)
+	var t_ai0_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
 	var ai_id := EnemyFactory.roll_enemy_ai_id(rng, _elapsed_minutes())
 	var affixes := PackedStringArray()
 	if is_elite:
@@ -1901,8 +2126,10 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		affixes = EnemyFactory.roll_elite_affixes(rng, _elapsed_minutes(), maxi(0, want))
 		if affixes.is_empty():
 			affixes = PackedStringArray(["arcane", "volatile"])
+	var ai_ms := float(int(Time.get_ticks_usec()) - t_ai0_us) / 1000.0 if hitch_probe_enabled else 0.0
 
 	# IMPORTANT: set exported fields BEFORE add_child so Enemy._ready() sees them.
+	var t_scene0_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
 	e.set_meta("rift", from_rift)
 	e.set_meta("boss", is_boss)
 	e.character_data = cd
@@ -1911,12 +2138,15 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 	e.ai_id = ai_id
 	e.affix_ids = affixes
 	add_child(e)
+	var scene_ms := float(int(Time.get_ticks_usec()) - t_scene0_us) / 1000.0 if hitch_probe_enabled else 0.0
+	var t_pos0_us := int(Time.get_ticks_usec()) if hitch_probe_enabled else 0
 	if _authored_map_world != null and is_instance_valid(_authored_map_world) and _authored_map_world.has_method("get_random_spawn_around"):
 		e.global_position = _authored_map_world.get_random_spawn_around(center, spawn_radius_min, spawn_radius_max, rng)
 	else:
 		var ang := rng.randf_range(0.0, TAU)
 		var dist := rng.randf_range(spawn_radius_min, spawn_radius_max)
 		e.global_position = center + Vector2(cos(ang), sin(ang)) * dist
+	var pos_ms := float(int(Time.get_ticks_usec()) - t_pos0_us) / 1000.0 if hitch_probe_enabled else 0.0
 	# SFX: elite spawns read as events (throttled).
 	if is_elite and (not is_boss):
 		var s := get_node_or_null("/root/SfxSystem")
@@ -1925,26 +2155,89 @@ func _spawn_enemy(is_elite: bool, from_rift: bool, is_boss: bool) -> void:
 		var v := get_node_or_null("/root/VfxSystem")
 		if v and is_instance_valid(v) and v.has_method("play_event"):
 			v.play_event("enemy.elite_spawn", e.global_position, self)
+	if hitch_probe_enabled:
+		var total_ms := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+		_perf_spawn_detail = "spawn_total=%.2fms template=%.2f ai=%.2f scene=%.2f pos=%.2f pool=%d/%d visuals=%d elite=%s boss=%s" % [
+			total_ms, template_ms, ai_ms, scene_ms, pos_ms, _enemy_template_pool.size(), _enemy_template_target, _enemy_visual_pool.size(),
+			("1" if is_elite else "0"), ("1" if is_boss else "0")
+		]
+		if perf_trace_enabled and total_ms >= perf_trace_spawn_threshold_ms:
+			print("SPAWN_TRACE %s" % _perf_spawn_detail)
 
 func _build_enemy_visual_pool() -> void:
+	var t0_us := int(Time.get_ticks_usec())
 	_enemy_visual_pool = PackedStringArray()
-	var want := maxi(1, enemy_visual_pool_size)
-	var seen: Dictionary = {}
-	var tries := 0
-	while _enemy_visual_pool.size() < want and tries < want * 50:
-		tries += 1
-		var cd := CharacterRegistryUtil.build_random_character_data("enemy", rng, _elapsed_minutes(), _map_mod)
-		if cd == null:
+	_enemy_visual_bag.clear()
+	_enemy_visual_ready = PackedStringArray()
+	_enemy_visual_warmed.clear()
+	var all_paths := CharacterRegistryUtil.get_sprite_paths_for_context("enemy", _map_mod)
+	# Default to full eligible map pool so race variety is preserved.
+	# Optional cap is still supported for performance testing.
+	var cap := int(_map_mod.get("enemy_visual_pool_cap", 0))
+	if cap > 0 and all_paths.size() > cap:
+		var tmp: Array[String] = []
+		for p in all_paths:
+			tmp.append(String(p))
+		tmp.shuffle()
+		for i in range(cap):
+			_enemy_visual_pool.append(tmp[i])
+	else:
+		_enemy_visual_pool = all_paths
+	if _enemy_visual_pool.is_empty():
+		# Fallback for edge cases if registry/pool is empty.
+		var want := mini(maxi(1, enemy_visual_pool_size), 8)
+		var seen: Dictionary = {}
+		var tries := 0
+		while _enemy_visual_pool.size() < want and tries < want * 50:
+			tries += 1
+			var cd := CharacterRegistryUtil.build_random_character_data("enemy", rng, _elapsed_minutes(), _map_mod)
+			if cd == null:
+				continue
+			var p2 := String(cd.sprite_path)
+			if p2 == "":
+				continue
+			if seen.has(p2):
+				continue
+			seen[p2] = true
+			_enemy_visual_pool.append(p2)
+	if perf_trace_enabled:
+		var ms := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+		print("SPAWN_VISUAL_POOL_TRACE size=%d ms=%.2f map=%s" % [_enemy_visual_pool.size(), ms, String(_map_mod.get("id", "unknown"))])
+
+func _refill_enemy_visual_bag() -> void:
+	_enemy_visual_bag.clear()
+	for p in _enemy_visual_pool:
+		_enemy_visual_bag.append(String(p))
+	_enemy_visual_bag.shuffle()
+
+func _build_enemy_visual_pool_deferred() -> void:
+	# Let gameplay become interactive before optional visual cache priming.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_build_enemy_visual_pool()
+
+func _warm_enemy_visuals_incremental() -> void:
+	if _enemy_visual_pool.is_empty():
+		return
+	if _enemy_visual_ready.size() >= mini(_enemy_visual_pool.size(), maxi(1, _enemy_visual_ready_target)):
+		return
+	var t0_us := int(Time.get_ticks_usec())
+	var warmed := 0
+	for p in _enemy_visual_pool:
+		var path := String(p)
+		if bool(_enemy_visual_warmed.get(path, false)):
 			continue
-		var p := String(cd.sprite_path)
-		if p == "":
-			continue
-		if seen.has(p):
-			continue
-		seen[p] = true
-		_enemy_visual_pool.append(p)
-		# Warm SpriteFrames cache now (one-time) instead of hitching during combat spawn.
-		PixellabUtil.walk_frames_from_south_path(p)
+		PixellabUtil.walk_frames_from_south_path(path)
+		_enemy_visual_warmed[path] = true
+		_enemy_visual_ready.append(path)
+		warmed += 1
+		var spent_ms := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+		if spent_ms >= _enemy_template_refill_budget_ms:
+			break
+	if perf_trace_enabled and warmed > 0:
+		var spent_ms2 := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+		if spent_ms2 >= perf_trace_spawn_threshold_ms:
+			print("SPAWN_VISUAL_WARM_TRACE warmed=%d ready=%d/%d ms=%.2f" % [warmed, _enemy_visual_ready.size(), _enemy_visual_pool.size(), spent_ms2])
 
 func _pick_enemy_visual_path() -> String:
 	if _enemy_visual_pool.is_empty():
@@ -1955,7 +2248,12 @@ func _pick_enemy_visual_path() -> String:
 			if p != "":
 				return p
 		return ""
-	return String(_enemy_visual_pool[rng.randi_range(0, _enemy_visual_pool.size() - 1)])
+	# Pull from a shuffled bag so all eligible race visuals are seen before repeats.
+	if _enemy_visual_bag.is_empty():
+		_refill_enemy_visual_bag()
+	if _enemy_visual_bag.is_empty():
+		return String(_enemy_visual_pool[rng.randi_range(0, _enemy_visual_pool.size() - 1)])
+	return String(_enemy_visual_bag.pop_back())
 
 func get_player_node() -> Node2D:
 	if _player_node_ref != null and is_instance_valid(_player_node_ref):
@@ -1965,6 +2263,12 @@ func get_player_node() -> Node2D:
 		_player_node_ref = p
 		return p
 	return null
+
+func get_player_presence_mult() -> float:
+	return clampf(float(_map_mod.get("player_presence_mult", 1.16)), 0.70, 2.20)
+
+func get_enemy_presence_mult() -> float:
+	return clampf(float(_map_mod.get("enemy_presence_mult", 1.18)), 0.70, 2.20)
 
 func _spawn_boss() -> void:
 	_boss_spawned = true
@@ -2471,12 +2775,12 @@ func _show_recruit_draft() -> void:
 	add_child(draft_ui)
 
 	# Background art for the draft screen.
-	if ResourceLoader.exists(DRAFT_BG_PATH):
+	if DRAFT_BG_TEXTURE != null:
 		var draft_bg := TextureRect.new()
 		draft_bg.name = "DraftBgArt"
 		draft_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 		draft_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		draft_bg.texture = load(DRAFT_BG_PATH) as Texture2D
+		draft_bg.texture = DRAFT_BG_TEXTURE
 		draft_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		draft_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		draft_bg.modulate = Color(1, 1, 1, 0.95)

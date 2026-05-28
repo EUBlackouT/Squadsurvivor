@@ -132,16 +132,27 @@ func _apply_visuals(vis: Dictionary) -> void:
 	# - Otherwise, generate a procedural backdrop texture (no external assets).
 	if bg_image != null:
 		var p := String(vis.get("bg_image_path", ""))
-		if p != "" and ResourceLoader.exists(p):
-			bg_image.texture = load(p) as Texture2D
+		var has_custom_bg := false
+		if p != "":
+			var tex := _load_texture_any_path(p)
+			bg_image.texture = tex
 			bg_image.visible = (bg_image.texture != null)
 			bg_image.modulate = Color(1, 1, 1, _float_from(vis.get("bg_image_alpha"), 0.75))
+			has_custom_bg = bg_image.visible
+			if not has_custom_bg:
+				push_warning("MapRenderer: failed to load bg_image_path: %s" % p)
+			# Let custom authored backgrounds actually show through.
+			if ground != null:
+				var ga := _float_from(vis.get("bg_image_ground_alpha"), 0.22) if has_custom_bg else 1.0
+				ground.modulate = Color(1, 1, 1, clampf(ga, 0.0, 1.0))
 		else:
 			var style := String(vis.get("bg_style", theme_id))
 			var alpha := _float_from(vis.get("bg_image_alpha"), 0.75)
 			bg_image.texture = _get_or_make_bg(style, seed, base, alt, acc)
 			bg_image.visible = (bg_image.texture != null)
 			bg_image.modulate = Color(1, 1, 1, alpha)
+			if ground != null:
+				ground.modulate = Color(1, 1, 1, 1.0)
 
 	# Optional richness params (safe even if shader doesn't expose them).
 	if vis.has("scale"):
@@ -197,6 +208,23 @@ func _apply_visuals(vis: Dictionary) -> void:
 	# If prop_sheets is provided, prefer it over theme defaults.
 	if vis.has("prop_sheets"):
 		set_meta("_prop_sheets_override", _strings_from(vis.get("prop_sheets")))
+
+func _load_texture_any_path(path: String) -> Texture2D:
+	if path == "":
+		return null
+	# 1) Direct load from file path (supports files with spaces/special names reliably).
+	var direct_paths: Array[String] = [path]
+	if path.begins_with("res://"):
+		direct_paths.append(ProjectSettings.globalize_path(path))
+	for p in direct_paths:
+		if FileAccess.file_exists(p):
+			var img := Image.load_from_file(p)
+			if img != null and not img.is_empty():
+				return ImageTexture.create_from_image(img)
+	# 2) Fallback to Godot resource loader (imported textures).
+	if ResourceLoader.exists(path):
+		return load(path) as Texture2D
+	return null
 
 func _init_rng() -> void:
 	_rng = RandomNumberGenerator.new()

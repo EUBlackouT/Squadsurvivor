@@ -4,6 +4,7 @@ extends Node
 # Saved to: user://meta.json
 
 const SAVE_PATH := "user://meta.json"
+const DEBUG_BACKUP_PATH := "user://meta_debug_backup.json"
 const SAVE_VERSION := 1
 const MAP_TIER_FALLBACK_BY_ID := {
 	"graveyard": 1,
@@ -36,6 +37,18 @@ var meta_nodes_owned: PackedStringArray = PackedStringArray(["core_0"])
 var _tree_cache: Dictionary = {}
 var _mods_cache: Dictionary = {}
 var _mods_dirty: bool = true
+
+const KEYSTONE_POWER_SPIKES := {
+	"storm_closed_circuit": {"chain_jumps_add": 2.0, "chain_rehit_damage_mult": 1.35, "weapon_keystone_nova_hits_add": 2.0},
+	"bomb_delayed_catastrophe": {"bomb_damage_mult": 1.35, "bomb_radius_add": 26.0, "weapon_keystone_vfx_scale_add": 0.16},
+	"beam_surgical_continuity": {"beam_damage_ramp_per_second_add": 0.20, "beam_damage_ramp_cap": 1.18, "weapon_keystone_vfx_scale_add": 0.12},
+	"orbital_judgment_delay": {"orbital_damage_mult": 1.45, "orbital_delay_mult": 0.84, "weapon_keystone_vfx_scale_add": 0.22},
+	"butcher_protocol": {"execute_blast_damage_mult": 1.35, "execute_blast_radius_add": 90.0, "weapon_keystone_nova_damage_mult_add": 0.18},
+	"rico_violence_geometry": {"post_ricochet_projectile_damage_mult": 1.22, "ricochet_count_add": 1.0, "weapon_keystone_nova_hits_add": 1.0},
+	"pierce_execution_line": {"projectile_pierce_add": 1.0, "execute_threshold_add": 0.02, "weapon_keystone_nova_radius_add": 30.0},
+	"scatter_shotgun_saint": {"projectile_count_add": 2.0, "projectile_damage_mult": 1.18, "weapon_keystone_vfx_scale_add": 0.10},
+	"proj_converging_fire": {"projectile_damage_mult": 1.20, "projectile_pierce_add": 1.0, "weapon_keystone_nova_damage_mult_add": 0.10}
+}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -229,6 +242,7 @@ func _rebuild_mods() -> void:
 	_load_tree()
 	_mods_cache = {}
 	var nodes: Array = _tree_cache.get("nodes", [])
+	var owned_keystones := PackedStringArray()
 	for n in nodes:
 		if typeof(n) != TYPE_DICTIONARY:
 			continue
@@ -236,6 +250,9 @@ func _rebuild_mods() -> void:
 		var id := String(d.get("id", ""))
 		if not owns_node(id):
 			continue
+		var tags: Array = d.get("tags", []) as Array
+		if tags.has("keystone"):
+			owned_keystones.append(id)
 		var mods_d: Dictionary = d.get("mods", {}) as Dictionary
 		for k in mods_d.keys():
 			var key := String(k)
@@ -250,7 +267,48 @@ func _rebuild_mods() -> void:
 				var cur2 := float(_mods_cache.get(key, 0.0))
 				var v_add: float = float(mods_d.get(k, 0.0))
 				_mods_cache[key] = cur2 + v_add
+	_apply_keystone_power_curve(owned_keystones)
 	_mods_dirty = false
+
+func _add_mod(key: String, amount: float) -> void:
+	_mods_cache[key] = float(_mods_cache.get(key, 0.0)) + amount
+
+func _mul_mod(key: String, mult: float) -> void:
+	_mods_cache[key] = float(_mods_cache.get(key, 1.0)) * mult
+
+func _apply_keystone_power_curve(owned_keystones: PackedStringArray) -> void:
+	var kc := owned_keystones.size()
+	if kc <= 0:
+		return
+	# Baseline power curve: each keystone should feel like a direct power stride,
+	# not only an occasional proc spike.
+	_mul_mod("squad_damage_mult", pow(1.045, kc))
+	_mul_mod("squad_attack_speed_mult", pow(1.020, kc))
+	_mul_mod("projectile_damage_mult", pow(1.032, kc))
+	_mul_mod("bomb_damage_mult", pow(1.026, kc))
+	_mul_mod("orbital_damage_mult", pow(1.030, kc))
+	_mul_mod("beam_initial_damage_mult", pow(1.026, kc))
+	_mul_mod("post_ricochet_projectile_damage_mult", pow(1.020, kc))
+	_add_mod("weapon_keystone_tier", float(kc))
+	_add_mod("weapon_keystone_vfx_scale_add", minf(1.25, 0.08 * float(kc)))
+	_add_mod("weapon_keystone_nova_damage_mult_add", minf(1.10, 0.07 * float(kc)))
+	_add_mod("weapon_keystone_nova_radius_add", 24.0 + 7.0 * float(kc))
+	_add_mod("weapon_keystone_nova_hits_add", minf(10.0, 2.0 + floorf(float(kc) * 0.5)))
+	_add_mod("weapon_keystone_nova_interval_sub", minf(6.0, floorf(float(kc) * 0.45)))
+
+	# Keystone identity spikes: major archetype keystones unlock bigger
+	# "Vampire Survivors" style milestones.
+	for kid in owned_keystones:
+		var spike := KEYSTONE_POWER_SPIKES.get(String(kid), {}) as Dictionary
+		if spike.is_empty():
+			continue
+		for k in spike.keys():
+			var key := String(k)
+			var v := float(spike.get(key, 0.0))
+			if key.ends_with("_mult"):
+				_mul_mod(key, v)
+			else:
+				_add_mod(key, v)
 
 func get_squad_slots() -> int:
 	var base := clampi(squad_slots, 3, max_squad_slots_cap)
@@ -371,7 +429,37 @@ func load_save() -> void:
 	if not out.has("core_0"):
 		out.append("core_0")
 	meta_nodes_owned = out
+	_sanitize_debug_profile()
 	_mods_dirty = true
+
+func _sanitize_debug_profile() -> void:
+	# Guardrail: if a debug/test profile leaked into normal play, reset to natural progression.
+	# Thresholds are intentionally very high to avoid touching legitimate saves.
+	var suspicious_sigils := sigils >= 5_000_000
+	var suspicious_nodes := meta_nodes_owned.size() >= 120
+	if not (suspicious_sigils or suspicious_nodes):
+		return
+	# Best-effort backup for recovery if this was intentional.
+	var backup := {
+		"version": SAVE_VERSION,
+		"sigils": sigils,
+		"squad_slots": squad_slots,
+		"last_run": last_run,
+		"map_unlocks": Array(map_unlocks),
+		"meta_nodes_owned": Array(meta_nodes_owned)
+	}
+	var fb := FileAccess.open(DEBUG_BACKUP_PATH, FileAccess.WRITE)
+	if fb != null:
+		fb.store_string(JSON.stringify(backup))
+		fb.close()
+	sigils = 0
+	squad_slots = 3
+	last_run = {}
+	map_unlocks = PackedStringArray(["graveyard"])
+	meta_nodes_owned = PackedStringArray(["core_0"])
+	_mods_dirty = true
+	save()
+	print("META_SANITY_RESET applied=true backup=%s" % DEBUG_BACKUP_PATH)
 
 func save() -> void:
 	var root := {

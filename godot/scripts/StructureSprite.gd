@@ -1,6 +1,6 @@
 extends Node2D
 
-@export_file("*.png,*.webp") var sheet_path: String
+@export_file("*.png", "*.webp") var sheet_path: String
 @export var hframes: int = 8
 @export var vframes: int = 1
 @export var fps: float = 10.0

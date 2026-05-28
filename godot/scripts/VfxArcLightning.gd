@@ -19,6 +19,7 @@ func setup(start: Vector2, end: Vector2, color: Color) -> void:
 
 func _ready() -> void:
 	top_level = true
+	z_index = 2365
 	# IMPORTANT: this VFX must tick during gameplay; WHEN_PAUSED would freeze it on-screen.
 	process_mode = Node.PROCESS_MODE_INHERIT
 	set_process(true)
@@ -84,9 +85,10 @@ func _draw() -> void:
 		return
 	var col := _color
 	# Core bolt (layered glow -> core)
-	draw_polyline(_segments, Color(col.r, col.g, col.b, 0.18), 10.0, true)
-	draw_polyline(_segments, Color(col.r, col.g, col.b, 0.55), 5.0, true)
-	draw_polyline(_segments, Color(1, 1, 1, 0.95), 2.0, true)
+	draw_polyline(_segments, Color(col.r, col.g, col.b, 0.14), 14.0, true)
+	draw_polyline(_segments, Color(col.r, col.g, col.b, 0.35), 9.0, true)
+	draw_polyline(_segments, Color(col.r, col.g, col.b, 0.62), 5.5, true)
+	draw_polyline(_segments, Color(1, 1, 1, 0.98), 2.4, true)
 
 	# Branches (thinner)
 	for b in _branches:

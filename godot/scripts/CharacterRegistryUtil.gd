@@ -264,6 +264,26 @@ static func build_random_character_data(context: String, rng: RandomNumberGenera
 	var entry: Dictionary = pool[idx]
 	return _build_character_data_from_entry(entry, context, rng, elapsed_minutes, map_mod)
 
+static func get_sprite_paths_for_context(context: String, map_mod: Dictionary = {}) -> PackedStringArray:
+	ensure_loaded()
+	var pool := _entries_for_map(context, map_mod)
+	if pool.is_empty():
+		pool = _entries_with_assets(_entries)
+	var seen: Dictionary = {}
+	var out := PackedStringArray()
+	for entry in pool:
+		var folder := String(entry.get("folder", ""))
+		if folder == "":
+			continue
+		var south_path := "res://assets/characters/%s/frames/walk_front/frame_000.png" % folder
+		if not ResourceLoader.exists(south_path):
+			continue
+		if seen.has(south_path):
+			continue
+		seen[south_path] = true
+		out.append(south_path)
+	return out
+
 static func _entries_for_map(context: String, map_mod: Dictionary) -> Array[Dictionary]:
 	var cache_key := _map_pool_cache_key(context, map_mod)
 	if _entries_for_map_cache.has(cache_key):

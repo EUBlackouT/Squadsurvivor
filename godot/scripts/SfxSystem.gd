@@ -8,6 +8,7 @@ extends Node
 @export var max_voices: int = 20
 @export var default_pitch_jitter: float = 0.06
 @export var loud_mode: bool = false
+@export var use_external_library: bool = false
 
 const SAMPLE_RATE: int = 44100
 const EXTERNAL_SFX_ROOT: String = "res://assets/audio/Fantasy_Game_24bit_Updated/Fantasy_Game_24bit_Updated/Fantasy_Game_24bit"
@@ -25,10 +26,21 @@ var _last_global_ms: Dictionary = {} # event_id -> int
 var _last_emitter_ms: Dictionary = {} # emitterKey|event_id -> int
 
 func _ready() -> void:
+	var t0_us := int(Time.get_ticks_usec())
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_streams()
+	var t_streams_us := int(Time.get_ticks_usec())
 	_build_event_cfg()
+	var t_cfg_us := int(Time.get_ticks_usec())
 	_build_pool()
+	var t_pool_us := int(Time.get_ticks_usec())
+	print("SFX_BOOT_TRACE streams_ms=%.2f cfg_ms=%.2f pool_ms=%.2f total_ms=%.2f streams=%d variants=%d voices=%d external=%s" % [
+		float(t_streams_us - t0_us) / 1000.0,
+		float(t_cfg_us - t_streams_us) / 1000.0,
+		float(t_pool_us - t_cfg_us) / 1000.0,
+		float(t_pool_us - t0_us) / 1000.0,
+		_streams.size(), _stream_variants.size(), _pool.size(), ("1" if use_external_library else "0")
+	])
 
 func play_2d(id: String, world_pos: Vector2, gain_db: float = 0.0, pitch: float = 1.0, pitch_jitter: float = -1.0) -> void:
 	if not _streams.has(id):
@@ -73,10 +85,16 @@ func play_event(event_id: String, world_pos: Vector2, emitter: Object = null) ->
 		return
 
 	var emitter_key := "global"
+	var bypass_emitter_gate := false
 	if emitter != null and emitter is Object:
 		# Use instance id if possible.
 		if emitter is Node:
-			emitter_key = str((emitter as Node).get_instance_id())
+			var en := emitter as Node
+			emitter_key = str(en.get_instance_id())
+			# Many high-frequency combat events pass the main world as emitter.
+			# Treat that as global-only gating; otherwise per-emitter throttles mute combat.
+			if en.is_in_group("main"):
+				bypass_emitter_gate = true
 		else:
 			emitter_key = str(emitter.get_instance_id())
 
@@ -84,7 +102,7 @@ func play_event(event_id: String, world_pos: Vector2, emitter: Object = null) ->
 	var min_e: int = int(cfg.get("min_ms_emitter", 0))
 	if min_g > 0 and not _gate_global(event_id, min_g, now_ms):
 		return
-	if min_e > 0 and not _gate_emitter(emitter_key, event_id, min_e, now_ms):
+	if (not bypass_emitter_gate) and min_e > 0 and not _gate_emitter(emitter_key, event_id, min_e, now_ms):
 		return
 
 	var stream_id := String(cfg.get("stream", event_id))
@@ -206,13 +224,18 @@ func _build_streams() -> void:
 	_streams["weapon_ricochet"] = _make_tick(0.05, 1100.0, 0.18)
 	_streams["weapon_orbital_charge"] = _make_beam(0.35, 180.0, 0.15)
 	_streams["weapon_orbital_strike"] = _make_explosion(0.30, 80.0, 0.95)
-	_attach_external_library()
+	if use_external_library:
+		_attach_external_library()
 
 func _attach_external_library() -> void:
+	var t0_us := int(Time.get_ticks_usec())
 	if DirAccess.open(EXTERNAL_SFX_ROOT) == null:
+		print("SFX_LIBRARY_TRACE status=missing_root path=%s" % EXTERNAL_SFX_ROOT)
 		return
 	var wav_paths := _scan_wav_paths(EXTERNAL_SFX_ROOT)
+	var scan_ms := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
 	if wav_paths.is_empty():
+		print("SFX_LIBRARY_TRACE status=no_wavs scan_ms=%.2f path=%s" % [scan_ms, EXTERNAL_SFX_ROOT])
 		return
 
 	# Prefer purpose-built samples from the external pack.
@@ -281,6 +304,10 @@ func _attach_external_library() -> void:
 	_attach_variants("weapon_ricochet", wav_paths, PackedStringArray(["crossbow", "bow_"]))
 	_attach_variants("weapon_orbital_charge", wav_paths, PackedStringArray(["thunderstorm_cast", "arcane_long_cast"]))
 	_attach_variants("weapon_orbital_strike", wav_paths, PackedStringArray(["meteor_spell_hit", "molten_lave_hit", "weapon_impact"]))
+	var total_ms := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+	print("SFX_LIBRARY_TRACE status=ok wavs=%d scan_ms=%.2f total_ms=%.2f attached_variants=%d" % [
+		wav_paths.size(), scan_ms, total_ms, _stream_variants.size()
+	])
 
 func _attach_variants(stream_id: String, all_paths: Array[String], include_tokens: PackedStringArray) -> void:
 	var picked := _pick_paths_by_tokens(all_paths, include_tokens)
@@ -387,14 +414,14 @@ func _build_event_cfg() -> void:
 	_event_cfg["boss.spawn"] = {"stream": "enemy_spawn_elite", "gain_db": 4.0 + loud, "pitch": 0.92, "jitter": 0.02, "min_ms_global": 600, "min_ms_emitter": 600}
 
 	# Synergy procs (big moments, but still throttled)
-	_event_cfg["syn.arc"] = {"stream": "arc_zap", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 90, "min_ms_emitter": 140}
-	_event_cfg["syn.shock"] = {"stream": "shockwave", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 120, "min_ms_emitter": 180}
+	_event_cfg["syn.arc"] = {"stream": "arc_zap", "gain_db": 1.4 + loud, "pitch": 1.0, "jitter": 0.07, "min_ms_global": 70, "min_ms_emitter": 120}
+	_event_cfg["syn.shock"] = {"stream": "shockwave", "gain_db": 3.0 + loud, "pitch": 0.98, "jitter": 0.05, "min_ms_global": 90, "min_ms_emitter": 150}
 	_event_cfg["syn.frost"] = {"stream": "frost_nova", "gain_db": 2.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 160, "min_ms_emitter": 240}
 	_event_cfg["syn.flame"] = {"stream": "flame_burst", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 140, "min_ms_emitter": 220}
 	_event_cfg["syn.wisp"] = {"stream": "focus_tick", "gain_db": -1.0 + loud, "pitch": 1.12, "jitter": 0.03, "min_ms_global": 60, "min_ms_emitter": 140}
 	_event_cfg["syn.holy"] = {"stream": "holy_pulse", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 200}
 	_event_cfg["syn.focus_tick"] = {"stream": "focus_tick", "gain_db": -3.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 40, "min_ms_emitter": 120}
-	_event_cfg["syn.execute"] = {"stream": "execute", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 120, "min_ms_emitter": 240}
+	_event_cfg["syn.execute"] = {"stream": "execute", "gain_db": 3.4 + loud, "pitch": 0.97, "jitter": 0.03, "min_ms_global": 90, "min_ms_emitter": 180}
 	# Passive procs (rarer, punchier)
 	_event_cfg["passive.web_snare"] = {"stream": "web_snare", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 220}
 	_event_cfg["passive.spore_bloom"] = {"stream": "spore_bloom", "gain_db": 1.5 + loud, "pitch": 0.96, "jitter": 0.05, "min_ms_global": 140, "min_ms_emitter": 260}
@@ -438,12 +465,12 @@ func _build_event_cfg() -> void:
 	# Weapon-specific sounds
 	_event_cfg["weapon.reaper_slash"] = {"stream": "weapon_slash", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 60, "min_ms_emitter": 150}
 	_event_cfg["weapon.bomb_launch"] = {"stream": "weapon_bomb_launch", "gain_db": -1.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 80, "min_ms_emitter": 200}
-	_event_cfg["weapon.bomb_explode"] = {"stream": "weapon_bomb_explode", "gain_db": 3.0 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 100, "min_ms_emitter": 250}
-	_event_cfg["weapon.chain_lightning"] = {"stream": "weapon_chain_zap", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 30, "min_ms_emitter": 80}
+	_event_cfg["weapon.bomb_explode"] = {"stream": "weapon_bomb_explode", "gain_db": 4.8 + loud, "pitch": 0.96, "jitter": 0.04, "min_ms_global": 70, "min_ms_emitter": 200}
+	_event_cfg["weapon.chain_lightning"] = {"stream": "weapon_chain_zap", "gain_db": 1.6 + loud, "pitch": 1.0, "jitter": 0.10, "min_ms_global": 25, "min_ms_emitter": 70}
 	_event_cfg["weapon.pierce"] = {"stream": "weapon_pierce", "gain_db": -0.5 + loud, "pitch": 1.05, "jitter": 0.06, "min_ms_global": 50, "min_ms_emitter": 120}
 	_event_cfg["weapon.scatter"] = {"stream": "weapon_scatter", "gain_db": 0.5 + loud, "pitch": 1.0, "jitter": 0.08, "min_ms_global": 60, "min_ms_emitter": 150}
 	_event_cfg["weapon.boomerang"] = {"stream": "weapon_boomerang", "gain_db": -1.0 + loud, "pitch": 1.0, "jitter": 0.05, "min_ms_global": 100, "min_ms_emitter": 250}
-	_event_cfg["weapon.beam"] = {"stream": "weapon_beam", "gain_db": 1.5 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 150, "min_ms_emitter": 300}
+	_event_cfg["weapon.beam"] = {"stream": "weapon_beam", "gain_db": 2.6 + loud, "pitch": 0.98, "jitter": 0.03, "min_ms_global": 110, "min_ms_emitter": 200}
 	_event_cfg["weapon.slam"] = {"stream": "weapon_slam", "gain_db": 2.5 + loud, "pitch": 1.0, "jitter": 0.04, "min_ms_global": 120, "min_ms_emitter": 280}
 	_event_cfg["weapon.poison"] = {"stream": "weapon_poison", "gain_db": -2.0 + loud, "pitch": 1.0, "jitter": 0.06, "min_ms_global": 60, "min_ms_emitter": 140}
 	_event_cfg["weapon.poison_hit"] = {"stream": "weapon_poison", "gain_db": -1.0 + loud, "pitch": 1.05, "jitter": 0.06, "min_ms_global": 40, "min_ms_emitter": 80}
@@ -456,8 +483,8 @@ func _build_event_cfg() -> void:
 	_event_cfg["weapon.ricochet"] = {"stream": "weapon_ricochet", "gain_db": -1.5 + loud, "pitch": 1.0, "jitter": 0.10, "min_ms_global": 30, "min_ms_emitter": 60}
 	_event_cfg["weapon.ricochet_bounce"] = {"stream": "weapon_ricochet", "gain_db": -1.0 + loud, "pitch": 1.08, "jitter": 0.10, "min_ms_global": 30, "min_ms_emitter": 60}
 	_event_cfg["weapon.orbital_warning"] = {"stream": "weapon_orbital_charge", "gain_db": 0.5 + loud, "pitch": 0.95, "jitter": 0.03, "min_ms_global": 180, "min_ms_emitter": 350}
-	_event_cfg["weapon.orbital_charge"] = {"stream": "weapon_orbital_charge", "gain_db": 1.0 + loud, "pitch": 1.0, "jitter": 0.03, "min_ms_global": 200, "min_ms_emitter": 400}
-	_event_cfg["weapon.orbital_strike"] = {"stream": "weapon_orbital_strike", "gain_db": 4.0 + loud, "pitch": 1.0, "jitter": 0.02, "min_ms_global": 300, "min_ms_emitter": 500}
+	_event_cfg["weapon.orbital_charge"] = {"stream": "weapon_orbital_charge", "gain_db": 2.0 + loud, "pitch": 0.96, "jitter": 0.03, "min_ms_global": 150, "min_ms_emitter": 280}
+	_event_cfg["weapon.orbital_strike"] = {"stream": "weapon_orbital_strike", "gain_db": 6.2 + loud, "pitch": 0.94, "jitter": 0.02, "min_ms_global": 220, "min_ms_emitter": 360}
 	_event_cfg["weapon.orbital_beam"] = {"stream": "weapon_orbital_charge", "gain_db": 1.2 + loud, "pitch": 0.90, "jitter": 0.03, "min_ms_global": 150, "min_ms_emitter": 300}
 
 #

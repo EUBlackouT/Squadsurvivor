@@ -10,6 +10,7 @@ extends CharacterBody2D
 @onready var health_bar: ProgressBar = get_node_or_null("HealthBar")
 
 const PROJ_SCENE: PackedScene = preload("res://scenes/Projectile.tscn")
+const ARC_SCENE: PackedScene = preload("res://scenes/VfxArcLightning.tscn")
 
 var _main: Node2D = null
 var _attack_timer: float = 0.0
@@ -63,9 +64,9 @@ func _ready() -> void:
 	if _main and is_instance_valid(_main) and _main.has_method("register_squad_unit"):
 		_main.register_squad_unit(self)
 
-	# Physics layers: squad = 3, collide with enemies(2) only
+	# Physics layers: squad = 3, collide with enemies(2) and map blockers(1).
 	collision_layer = 1 << 2
-	collision_mask = 1 << 1
+	collision_mask = (1 << 1) | (1 << 0)
 
 	if character_data != null:
 		_apply_from_data()
@@ -165,7 +166,9 @@ func _character_size_presence_mult() -> float:
 			pass
 	if character_data.class_type == CharacterData.Class.GUARDIAN:
 		mult *= 1.08
-	return clampf(mult, 0.84, 1.55)
+	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_presence_mult"):
+		mult *= float(_main.get_player_presence_mult())
+	return clampf(mult, 0.84, 2.20)
 
 func set_squad_leader(leader: Node2D, offset: Vector2) -> void:
 	_leader = leader
@@ -557,7 +560,15 @@ func _attack(target: Node2D) -> void:
 		exec_th = clampf(exec_th, 0.0, 0.9)
 		if exec_th > 0.0 and float(target.get_hp_ratio()) <= exec_th:
 			execute_proc = true
-			final_damage = maxi(final_damage, 999999)
+			var finisher_mult := 5.0
+			if mp.has_method("get_mod"):
+				# Scale finishers with doctrine investment without jumping to absurd debug-like numbers.
+				finisher_mult *= clampf(float(mp.get_mod("execute_blast_damage_mult", 1.0)), 1.0, 2.5)
+			var finisher_damage := maxi(final_damage, int(round(float(final_damage) * finisher_mult)))
+			var hp_now := int(target.get("current_hp"))
+			if hp_now > 0:
+				finisher_damage = maxi(finisher_damage, int(round(float(hp_now) * 1.10)))
+			final_damage = finisher_damage
 		elif target.has_method("is_slowed") and (not bool(target.is_slowed())):
 			final_damage = int(round(float(final_damage) * float(mp.get_mod("unslowed_enemy_damage_taken_mult", 1.0))))
 	
@@ -599,6 +610,7 @@ func _attack(target: Node2D) -> void:
 			target.apply_execute_vulnerability(vuln, 3.0)
 	if execute_proc and _main and is_instance_valid(_main) and _main.has_method("proc_execute_blast"):
 		_main.proc_execute_blast(target.global_position, execute_source_damage)
+	_try_keystone_weapon_nova(target, final_damage, mp)
 	
 	# Trigger passive/synergy callbacks
 	PassiveSystem.on_unit_attack(character_data, self, target, final_damage, is_crit, is_melee)
@@ -707,6 +719,83 @@ func _try_overclock_chain(primary_target: Node2D, base_damage: int, is_crit: boo
 		_main.add_child(streak)
 		from = best
 		falloff *= 0.78
+
+func _try_keystone_weapon_nova(primary_target: Node2D, base_damage: int, mp: Node) -> void:
+	if primary_target == null or not is_instance_valid(primary_target):
+		return
+	if mp == null or not is_instance_valid(mp) or (not mp.has_method("get_add")):
+		return
+	var tier := int(round(float(mp.get_add("weapon_keystone_tier", 0.0))))
+	if tier <= 0:
+		return
+	var interval_sub := int(round(float(mp.get_add("weapon_keystone_nova_interval_sub", 0.0))))
+	var interval := clampi(10 - interval_sub, 3, 10)
+	var c: int = int(get_meta("_keystone_nova_ctr", 0)) + 1
+	set_meta("_keystone_nova_ctr", c)
+	if (c % interval) != 0:
+		return
+	if _main == null or not is_instance_valid(_main):
+		_main = get_tree().get_first_node_in_group("main") as Node2D
+	if _main == null:
+		return
+	var radius := 76.0 + float(mp.get_add("weapon_keystone_nova_radius_add", 0.0))
+	var nova_mult := 0.20 + float(mp.get_add("weapon_keystone_nova_damage_mult_add", 0.0))
+	var max_hits := clampi(int(round(2.0 + float(mp.get_add("weapon_keystone_nova_hits_add", 0.0)))), 2, 18)
+	var nova_damage := maxi(1, int(round(float(base_damage) * maxf(0.1, nova_mult))))
+	var enemies: Array = _main.get_cached_enemies() if _main.has_method("get_cached_enemies") else []
+	var victims: Array[Node2D] = []
+	var r2 := radius * radius
+	for e in enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+		var n2 := e as Node2D
+		if n2 == null:
+			continue
+		if n2.global_position.distance_squared_to(primary_target.global_position) <= r2:
+			victims.append(n2)
+	if victims.is_empty():
+		return
+	victims.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		return a.global_position.distance_squared_to(primary_target.global_position) < b.global_position.distance_squared_to(primary_target.global_position)
+	)
+	for i in range(mini(max_hits, victims.size())):
+		var v := victims[i]
+		if v != null and is_instance_valid(v) and v.has_method("take_damage"):
+			v.take_damage(nova_damage, false, "keystone_nova")
+			if v.has_method("pulse_vfx"):
+				v.pulse_vfx(Color(1.0, 0.75, 0.35, 1.0))
+			_spawn_keystone_arc(primary_target.global_position, v.global_position, i, max_hits)
+	var flash := VfxImpactFlash.new()
+	flash.setup(primary_target.global_position + Vector2(0, -14), Color(1.0, 0.78, 0.30, 1.0), radius * 0.30, 0.14)
+	_main.add_child(flash)
+	var wave := VfxShockwave.new()
+	wave.setup(primary_target.global_position, Color(1.0, 0.52, 0.22, 0.95), 10.0, radius * 1.15, 5.0, 0.20)
+	_main.add_child(wave)
+	var burst := VfxFlameBurst.new()
+	burst.setup(primary_target.global_position, Color(1.0, 0.65, 0.25, 1.0), radius * 0.42, 14, 0.22, Vector2.ZERO)
+	_main.add_child(burst)
+	var s := _main.get_node_or_null("/root/SfxSystem")
+	if s and is_instance_valid(s) and s.has_method("play_event"):
+		s.play_event("syn.shock", primary_target.global_position, self)
+	var shake := _main.get_node_or_null("/root/ScreenShake")
+	if shake and is_instance_valid(shake) and shake.has_method("shake"):
+		shake.shake(4.0 + minf(8.0, float(tier) * 0.6), 0.12)
+
+func _spawn_keystone_arc(from_pos: Vector2, to_pos: Vector2, idx: int, max_hits: int) -> void:
+	if _main == null or not is_instance_valid(_main):
+		return
+	if ARC_SCENE == null:
+		return
+	# Keep arc count controlled while still making the nova visually loud.
+	if idx >= mini(6, max_hits):
+		return
+	var arc := ARC_SCENE.instantiate()
+	if arc == null:
+		return
+	_main.add_child(arc)
+	if arc.has_method("setup"):
+		var tint := Color(1.0, 0.82, 0.35, 0.96) if idx % 2 == 0 else Color(0.65, 0.92, 1.0, 0.96)
+		arc.setup(from_pos, to_pos, tint)
 
 func _spawn_melee_hit_vfx(target: Node2D, dir: Vector2, is_crit: bool) -> void:
 	if _main == null or not is_instance_valid(_main):

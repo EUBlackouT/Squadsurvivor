@@ -31,6 +31,8 @@ var _map_ids: Array[String] = []
 var _crowd: Node2D = null
 var _preview_root: Node = null
 var _selected_map_locked: bool = false
+var _map_preview_last_id: String = ""
+var _map_preview_tex_cache: Dictionary = {}
 var _bg_far: TextureRect = null
 var _bg_near: TextureRect = null
 var _bg_light: ColorRect = null
@@ -59,6 +61,8 @@ const BG_PATH: String = "res://assets/ui/revamp/menu_factory_bg.png"
 const BG_NEAR_PATH: String = ""
 const ASSET_PANEL: String = "res://assets/ui/revamp/codex_panel.png"
 const CODEX_PANEL_PATH: String = "res://assets/ui/revamp/codex_panel.png"
+const MAIN_SCENE: PackedScene = preload("res://scenes/Main.tscn")
+const ARMORY_SCENE: PackedScene = preload("res://scenes/Menu.tscn")
 
 const BTN_NORMAL: String = ""
 const BTN_HOVER: String = ""
@@ -118,7 +122,13 @@ func _ready() -> void:
 	_build_menu()
 	_spawn_menu_crowd()
 	_build_map_overlay()
+	call_deferred("_prewarm_protocol_runtime")
 	_connect_signals()
+
+func _prewarm_protocol_runtime() -> void:
+	if not _protocol_upgrades_runtime.is_empty():
+		return
+	_protocol_upgrades_runtime = _protocol_data()
 
 func _process(delta: float) -> void:
 	_menu_anim_t += delta
@@ -715,13 +725,13 @@ func _connect_signals() -> void:
 			_resume_btn.pressed.connect(func():
 				_play_ui("ui.resume_load")
 				if sv and sv.has_method("request_resume") and bool(sv.request_resume()):
-					get_tree().change_scene_to_file("res://scenes/Main.tscn")
+					get_tree().change_scene_to_packed(MAIN_SCENE)
 			)
 
 	if _armory_btn:
 		_armory_btn.pressed.connect(func():
 			_play_ui("ui.click")
-			get_tree().change_scene_to_file("res://scenes/Menu.tscn")
+			get_tree().change_scene_to_packed(ARMORY_SCENE)
 		)
 
 	if _protocol_btn:
@@ -898,6 +908,9 @@ func _update_map_preview(rc: Node) -> void:
 	if _map_preview_vp == null:
 		return
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
+	if cur == _map_preview_last_id and _preview_root != null and is_instance_valid(_preview_root):
+		return
+	_map_preview_last_id = cur
 	var m: Dictionary = rc.get_map(cur) if rc.has_method("get_map") else {}
 	var vis: Dictionary = {}
 	var vv: Variant = m.get("visuals", {})
@@ -927,26 +940,107 @@ func _update_map_preview(rc: Node) -> void:
 	root.add_child(cam)
 	cam.make_current()
 
-	var biome := cur
-	if vis.has("theme_id"):
-		biome = String(vis.get("theme_id"))
+	var tex := _map_preview_texture(m, vis, cur)
+	if tex != null:
+		var sp := Sprite2D.new()
+		sp.texture = tex
+		sp.centered = true
+		sp.position = Vector2.ZERO
+		sp.scale = Vector2(
+			2400.0 / maxf(1.0, float(tex.get_width())),
+			1800.0 / maxf(1.0, float(tex.get_height()))
+		)
+		root.add_child(sp)
 
-	var tmw := Node2D.new()
-	tmw.name = "TileMapWorld"
-	tmw.process_mode = Node.PROCESS_MODE_ALWAYS
-	var tmx_path := String(m.get("tmx_path", ""))
-	if not tmx_path.is_empty():
-		tmw.set_script(preload("res://scripts/TmxMapWorld.gd"))
-		tmw.set("tmx_path", tmx_path)
-		tmw.set("map_size", Vector2(2400, 1800))
-	else:
-		tmw.set_script(preload("res://scripts/TileMapWorld.gd"))
-		tmw.set("map_size", Vector2(2400, 1800))
-		tmw.set("biome", biome)
-		tmw.set("seed_value", _hash32(cur))
-		tmw.set("prop_count", 18)
-		tmw.set("prop_min_dist_from_center", 60.0)
-	root.add_child(tmw)
+func _map_preview_texture(map_data: Dictionary, vis: Dictionary, map_id: String) -> Texture2D:
+	if _map_preview_tex_cache.has(map_id):
+		return _map_preview_tex_cache[map_id] as Texture2D
+	var metadata_img := String(map_data.get("metadata_image_path", ""))
+	var md_path := String(map_data.get("metadata_path", ""))
+	if metadata_img != "":
+		var t := _load_preview_texture(metadata_img)
+		if t != null:
+			_map_preview_tex_cache[map_id] = t
+			return t
+	if md_path != "":
+		var t2 := _load_preview_from_metadata(md_path)
+		if t2 != null:
+			_map_preview_tex_cache[map_id] = t2
+			return t2
+	var proc := _build_map_preview_fallback(vis, map_id)
+	_map_preview_tex_cache[map_id] = proc
+	return proc
+
+func _load_preview_texture(path: String) -> Texture2D:
+	if path == "":
+		return null
+	if ResourceLoader.exists(path):
+		return load(path) as Texture2D
+	return null
+
+func _load_preview_from_metadata(metadata_path: String) -> Texture2D:
+	if metadata_path == "" or not ResourceLoader.exists(metadata_path):
+		return null
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(metadata_path))
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return null
+	var d := parsed as Dictionary
+	var base_dir := metadata_path.get_base_dir()
+	var src := String(d.get("source_image", ""))
+	if src != "":
+		var p := base_dir.path_join(src)
+		var tex := _load_preview_texture(p)
+		if tex != null:
+			return tex
+	var dir := DirAccess.open(base_dir)
+	if dir == null:
+		return null
+	var best := ""
+	var best_score := -999
+	for f in dir.get_files():
+		var low := f.to_lower()
+		if not (low.ends_with(".png") or low.ends_with(".webp")):
+			continue
+		var score := 0
+		if low.find("mask") >= 0: score -= 20
+		if low.find("overlay") >= 0: score -= 20
+		if low.find("metadata") >= 0: score -= 20
+		if low.find("clean") >= 0: score += 20
+		if low.find("upscaled") >= 0: score += 10
+		if low.find("chatgpt") >= 0: score += 5
+		if score > best_score:
+			best_score = score
+			best = base_dir.path_join(f)
+	if best != "":
+		return _load_preview_texture(best)
+	return null
+
+func _build_map_preview_fallback(vis: Dictionary, map_id: String) -> Texture2D:
+	var w := 512
+	var h := 256
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var base := Color(0.10, 0.12, 0.16, 1.0)
+	var alt := Color(0.13, 0.16, 0.22, 1.0)
+	if vis.has("base_color"):
+		base = Color.html(String(vis.get("base_color")))
+	if vis.has("alt_color"):
+		alt = Color.html(String(vis.get("alt_color")))
+	var tile := 16
+	for y in range(0, h, tile):
+		for x in range(0, w, tile):
+			img.fill_rect(Rect2i(x, y, tile, tile), base if ((x / tile + y / tile) % 2 == 0) else alt)
+	var tag := map_id.to_lower()
+	var tint := Color(1, 1, 1, 0.0)
+	if tag.find("grave") >= 0:
+		tint = Color(0.35, 0.75, 0.55, 0.20)
+	elif tag.find("library") >= 0:
+		tint = Color(0.55, 0.48, 0.95, 0.20)
+	elif tag.find("foundry") >= 0:
+		tint = Color(0.95, 0.48, 0.30, 0.18)
+	elif tag.find("cathedral") >= 0 or tag.find("church") >= 0:
+		tint = Color(0.72, 0.82, 1.0, 0.18)
+	img.fill_rect(Rect2i(0, 0, w, h), tint)
+	return ImageTexture.create_from_image(img)
 
 func _open_map_overlay() -> void:
 	if _map_overlay == null:
@@ -998,9 +1092,19 @@ func _start_run_with_selected_map() -> void:
 	if _selected_map_locked:
 		_play_ui("ui.error")
 		return
-	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+	var rc := get_node_or_null("/root/RunConfig")
+	var mid := ""
+	if rc != null and is_instance_valid(rc):
+		mid = String(rc.get("selected_map_id"))
+	print("DEPLOY_TRACE click map=%s t_ms=%d" % [mid, int(Time.get_ticks_msec())])
+	get_tree().change_scene_to_packed(MAIN_SCENE)
 
 func _is_map_unlocked(map_id: String) -> bool:
+	var rc := get_node_or_null("/root/RunConfig")
+	if rc != null and is_instance_valid(rc) and rc.has_method("get_map"):
+		var md: Dictionary = rc.get_map(map_id) as Dictionary
+		if not md.is_empty() and bool(md.get("always_unlocked", false)):
+			return true
 	if map_id == "" or map_id == "graveyard" or map_id == "cathedral" or map_id == "church":
 		return true
 	var mp := get_node_or_null("/root/MetaProgression")

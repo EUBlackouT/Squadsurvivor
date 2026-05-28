@@ -27,9 +27,19 @@ func shake(intensity: float = 8.0, duration: float = 0.15) -> void:
 	if _cam == null:
 		return
 
+	# Layer shakes instead of replacing them: frequent impactful events should feel additive.
+	var req_dur := maxf(0.01, duration)
+	var req_int := maxf(0.0, intensity)
+	if _shake_dur <= 0.0:
+		_shake_t = 0.0
+		_shake_dur = req_dur
+		_shake_intensity = req_int
+		return
+	# Extend remaining time and blend intensity toward stronger impacts.
+	var remain := maxf(0.0, _shake_dur - _shake_t)
+	_shake_dur = clampf(maxf(remain, req_dur), 0.01, 0.45)
 	_shake_t = 0.0
-	_shake_dur = maxf(0.01, duration)
-	_shake_intensity = maxf(0.0, intensity)
+	_shake_intensity = clampf(maxf(_shake_intensity * 0.85, req_int), 0.0, 18.0)
 
 func hit_stop(duration: float = 0.05) -> void:
 	if _hit_stop_running:
