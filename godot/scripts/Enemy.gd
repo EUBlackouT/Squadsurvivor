@@ -630,18 +630,11 @@ func _apply_archetype_and_affixes() -> void:
 				pass
 
 func _find_target() -> Node2D:
-	# Pick the nearest live combatant (player + squad). This prevents
-	# center-lock behavior when the player anchor is stationary.
-	var player: Node2D = null
-	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_node"):
-		player = _main.get_player_node()
-	if player == null or not is_instance_valid(player):
-		player = get_tree().get_first_node_in_group("player") as Node2D
+	# IMPORTANT: prioritize live squad units first.
+	# The player node can act as a center anchor in some command/camera modes,
+	# which causes apparent "run to center" behavior if we target it directly.
 	var nearest: Node2D = null
 	var nearest_d2 := INF
-	if player != null and is_instance_valid(player):
-		nearest = player
-		nearest_d2 = global_position.distance_squared_to(player.global_position)
 	var squad: Array = []
 	if _main != null and is_instance_valid(_main) and _main.has_method("get_cached_squad_units"):
 		squad = _main.get_cached_squad_units()
@@ -659,6 +652,14 @@ func _find_target() -> Node2D:
 			nearest_d2 = d2
 	if nearest != null and is_instance_valid(nearest):
 		return nearest
+	# Fallback to player only when no squad units are valid.
+	var player: Node2D = null
+	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_node"):
+		player = _main.get_player_node()
+	if player == null or not is_instance_valid(player):
+		player = get_tree().get_first_node_in_group("player") as Node2D
+	if player != null and is_instance_valid(player):
+		return player
 	# Last fallback to avoid null-target idle loops in edge cases.
 	if _main != null and is_instance_valid(_main) and _main.has_method("get_player_node"):
 		var p2: Node2D = _main.get_player_node() as Node2D

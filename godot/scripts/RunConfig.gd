@@ -59,6 +59,10 @@ func get_map_ids_ordered() -> Array[String]:
 	if out.has("church"):
 		out.erase("church")
 		out.insert(0, "church")
+	# Keep robot visual test as map #2 when present.
+	if out.has("robot_map_test"):
+		out.erase("robot_map_test")
+		out.insert(mini(1, out.size()), "robot_map_test")
 	return out
 
 func get_map(map_id: String) -> Dictionary:

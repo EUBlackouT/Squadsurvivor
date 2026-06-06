@@ -157,6 +157,7 @@ var _arc_surge_dmg_mult: float = 0.22
 var _map_mod: Dictionary = {}
 var _authored_map_world: Node2D = null
 var _map_atmo_overlay: Node2D = null
+var _map_bg_texture_cache: Dictionary = {} # path -> Texture2D
 var _spawned_shrines: Array[Node2D] = []
 var _shrine_war_t: float = 0.0
 var _shrine_greed_t: float = 0.0
@@ -292,8 +293,20 @@ func _ready() -> void:
 	_perf_boot_done()
 
 func _process(_delta: float) -> void:
-	_warm_enemy_visuals_incremental()
+	if _enemy_runtime_warm_enabled():
+		_warm_enemy_visuals_incremental()
 	_refill_enemy_templates()
+
+func _enemy_runtime_warm_enabled() -> bool:
+	# Runtime warm can cause frame hitches on large sprite sets.
+	# Keep it opt-in per map.
+	return bool(_map_mod.get("enemy_runtime_warm", false))
+
+func _enemy_startup_warm_count() -> int:
+	if bool(_map_mod.get("enemy_startup_warm_all", false)):
+		return maxi(1, _enemy_visual_pool.size())
+	var target := int(_map_mod.get("enemy_startup_warm_count", 4))
+	return clampi(target, 1, 64)
 
 func _init_rng() -> void:
 	rng = RandomNumberGenerator.new()
@@ -701,16 +714,36 @@ func _make_background() -> void:
 func _load_map_bg_texture(path: String) -> Texture2D:
 	if path == "":
 		return null
+	if _map_bg_texture_cache.has(path):
+		var cached: Variant = _map_bg_texture_cache.get(path, null)
+		if cached is Texture2D:
+			return cached as Texture2D
+	# Fast path: use Godot imported resource for res:// assets.
+	# This avoids expensive raw PNG decode during boot.
+	if path.begins_with("res://") and ResourceLoader.exists(path):
+		var res_tex: Resource = ResourceLoader.load(path)
+		if res_tex is Texture2D:
+			var t2 := res_tex as Texture2D
+			_map_bg_texture_cache[path] = t2
+			return t2
 	var candidates: Array[String] = [path]
 	if path.begins_with("res://"):
 		candidates.append(ProjectSettings.globalize_path(path))
 	for p in candidates:
-		if FileAccess.file_exists(p):
-			var img := Image.load_from_file(p)
-			if img != null and not img.is_empty():
-				return ImageTexture.create_from_image(img)
-	if ResourceLoader.exists(path):
-		return load(path) as Texture2D
+		if not FileAccess.file_exists(p):
+			continue
+		var img := Image.load_from_file(p)
+		if img == null or img.is_empty():
+			continue
+		var tex := ImageTexture.create_from_image(img)
+		if tex != null:
+			_map_bg_texture_cache[path] = tex
+			return tex
+	var tex_any := load(path)
+	if tex_any is Texture2D:
+		var t3 := tex_any as Texture2D
+		_map_bg_texture_cache[path] = t3
+		return t3
 	return null
 
 func _add_tmx_atmo_overlay(vis: Dictionary) -> void:
@@ -733,14 +766,7 @@ func _add_tmx_atmo_overlay(vis: Dictionary) -> void:
 	# still keeping TMX collisions/spawn and all gameplay data intact).
 	var bg_image_path := String(vis.get("bg_image_path", ""))
 	if not bg_image_path.is_empty():
-		var bg_tex: Texture2D = null
-		if FileAccess.file_exists(bg_image_path):
-			var bg_img := Image.load_from_file(bg_image_path)
-			if bg_img != null and not bg_img.is_empty():
-				bg_tex = ImageTexture.create_from_image(bg_img)
-		else:
-			# Allow imported resources too when the file is not directly available.
-			bg_tex = load(bg_image_path) as Texture2D
+		var bg_tex := _load_map_bg_texture(bg_image_path)
 		if bg_tex != null:
 			var bg := Sprite2D.new()
 			bg.texture = bg_tex
@@ -2215,6 +2241,29 @@ func _build_enemy_visual_pool_deferred() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_build_enemy_visual_pool()
+	_warm_enemy_visuals_startup()
+
+func _warm_enemy_visuals_startup() -> void:
+	if _enemy_visual_pool.is_empty():
+		return
+	var target := mini(_enemy_visual_pool.size(), _enemy_startup_warm_count())
+	if target <= 0:
+		target = mini(_enemy_visual_pool.size(), 1)
+	var warmed := 0
+	for p in _enemy_visual_pool:
+		if _enemy_visual_ready.size() >= target:
+			break
+		var path := String(p)
+		if bool(_enemy_visual_warmed.get(path, false)):
+			continue
+		PixellabUtil.walk_frames_from_south_path(path)
+		_enemy_visual_warmed[path] = true
+		_enemy_visual_ready.append(path)
+		warmed += 1
+	if perf_trace_enabled and warmed > 0:
+		print("SPAWN_VISUAL_STARTUP_WARM warmed=%d ready=%d/%d target=%d map=%s" % [
+			warmed, _enemy_visual_ready.size(), _enemy_visual_pool.size(), target, String(_map_mod.get("id", "unknown"))
+		])
 
 func _warm_enemy_visuals_incremental() -> void:
 	if _enemy_visual_pool.is_empty():
@@ -2240,6 +2289,8 @@ func _warm_enemy_visuals_incremental() -> void:
 			print("SPAWN_VISUAL_WARM_TRACE warmed=%d ready=%d/%d ms=%.2f" % [warmed, _enemy_visual_ready.size(), _enemy_visual_pool.size(), spent_ms2])
 
 func _pick_enemy_visual_path() -> String:
+	if not _enemy_visual_ready.is_empty():
+		return String(_enemy_visual_ready[rng.randi_range(0, _enemy_visual_ready.size() - 1)])
 	if _enemy_visual_pool.is_empty():
 		# Emergency fallback still stays on curated CharacterRegistry (Ludo set), not PixelLab.
 		var cd := CharacterRegistryUtil.build_random_character_data("enemy", rng, _elapsed_minutes(), _map_mod)
@@ -2248,12 +2299,8 @@ func _pick_enemy_visual_path() -> String:
 			if p != "":
 				return p
 		return ""
-	# Pull from a shuffled bag so all eligible race visuals are seen before repeats.
-	if _enemy_visual_bag.is_empty():
-		_refill_enemy_visual_bag()
-	if _enemy_visual_bag.is_empty():
-		return String(_enemy_visual_pool[rng.randi_range(0, _enemy_visual_pool.size() - 1)])
-	return String(_enemy_visual_bag.pop_back())
+	# Avoid introducing new un-warmed visuals during active gameplay.
+	return ""
 
 func get_player_node() -> Node2D:
 	if _player_node_ref != null and is_instance_valid(_player_node_ref):

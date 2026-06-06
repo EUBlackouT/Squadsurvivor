@@ -255,12 +255,14 @@ static func _build_custom_walk_frames(root: String) -> SpriteFrames:
 	var base := "%s/frames" % root
 	var has_side := _custom_dir_has_frames(base, "walk_side")
 	var has_side_right := _custom_dir_has_frames(base, "walk_side_right")
-	var east_dir := "walk_side_right" if has_side_right else "walk_side"
-	var west_dir := "walk_side" if has_side else (("walk_side_right" if has_side_right else "walk_side"))
+	# Ludo exports are frequently authored with side naming opposite of gameplay
+	# screen direction. Prefer the swapped mapping so movement and facing match.
+	var east_dir := "walk_side" if has_side else (("walk_side_right" if has_side_right else "walk_side"))
+	var west_dir := "walk_side_right" if has_side_right else "walk_side"
 	var sf := SpriteFrames.new()
 	# If we only have one side direction, flip the opposite side.
-	sf.set_meta("flip_h_for_walk_east", has_side and (not has_side_right))
-	sf.set_meta("flip_h_for_walk_west", has_side_right and (not has_side))
+	sf.set_meta("flip_h_for_walk_east", has_side_right and (not has_side))
+	sf.set_meta("flip_h_for_walk_west", has_side and (not has_side_right))
 
 	var dirs := {
 		"walk_south": "walk_front",
