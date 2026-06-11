@@ -253,6 +253,11 @@ func _set_anim_from_dir(spr: AnimatedSprite2D, dir: Vector2, is_running: bool) -
 		flip = true
 	elif anim == "walk_west" and bool(spr.sprite_frames.get_meta("flip_h_for_walk_west", false)):
 		flip = true
+	if anim == "walk_west" and (not flip):
+		var src_e := String(spr.sprite_frames.get_meta("src_dir_walk_east", ""))
+		var src_w := String(spr.sprite_frames.get_meta("src_dir_walk_west", ""))
+		if src_e != "" and src_e == src_w:
+			flip = true
 	spr.flip_h = flip
 	spr.speed_scale = 1.85 if is_running else 1.0
 

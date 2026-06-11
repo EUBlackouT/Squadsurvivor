@@ -12,6 +12,7 @@ static var _loaded: bool = false
 static var _entries: Array[Dictionary] = []
 static var _walk_frames_cache: Dictionary = {} # id -> SpriteFrames
 static var _rotation_tex_cache: Dictionary = {} # path -> Texture2D
+const _WALK_CACHE_VERSION: String = "v3"
 
 static func ensure_loaded() -> void:
 	if _loaded:
@@ -131,10 +132,11 @@ static func walk_frames_from_south_path(south_path: String) -> SpriteFrames:
 	var pid := pixellab_id_from_south_path(south_path)
 	if pid == "":
 		return null
-	if _walk_frames_cache.has(pid):
-		return _walk_frames_cache[pid] as SpriteFrames
+	var cache_key := "%s|%s" % [pid, _WALK_CACHE_VERSION]
+	if _walk_frames_cache.has(cache_key):
+		return _walk_frames_cache[cache_key] as SpriteFrames
 	var frames := _build_walk_frames(pid)
-	_walk_frames_cache[pid] = frames
+	_walk_frames_cache[cache_key] = frames
 	return frames
 
 static func _build_walk_frames(pid: String) -> SpriteFrames:
@@ -187,6 +189,11 @@ static func _build_walk_frames(pid: String) -> SpriteFrames:
 			var t := load_rotation_texture(rot)
 			if t != null:
 				sf.add_frame(anim_name, t)
+	# Hard safety: if east/west collapse to the same source dir, west must mirror.
+	var src_e := String(sf.get_meta("src_dir_walk_east", ""))
+	var src_w := String(sf.get_meta("src_dir_walk_west", ""))
+	if src_e != "" and src_e == src_w:
+		sf.set_meta("flip_h_for_walk_west", true)
 	return sf
 
 static func _pick_best_walk_dir(pid: String, base: String, desired_dir: String) -> String:
@@ -230,7 +237,7 @@ static func _custom_walk_frames_from_south_path(south_path: String) -> SpriteFra
 	var root := _custom_root_from_south_path(south_path)
 	if root == "":
 		return null
-	var cache_key := "custom:%s" % root
+	var cache_key := "custom:%s|%s" % [root, _WALK_CACHE_VERSION]
 	if _walk_frames_cache.has(cache_key):
 		return _walk_frames_cache[cache_key] as SpriteFrames
 	var frames := _build_custom_walk_frames(root)
@@ -255,14 +262,27 @@ static func _build_custom_walk_frames(root: String) -> SpriteFrames:
 	var base := "%s/frames" % root
 	var has_side := _custom_dir_has_frames(base, "walk_side")
 	var has_side_right := _custom_dir_has_frames(base, "walk_side_right")
-	# Ludo exports are frequently authored with side naming opposite of gameplay
-	# screen direction. Prefer the swapped mapping so movement and facing match.
-	var east_dir := "walk_side" if has_side else (("walk_side_right" if has_side_right else "walk_side"))
-	var west_dir := "walk_side_right" if has_side_right else "walk_side"
+	# Canonical rule for custom character sets:
+	# - prefer the explicit right-facing side as source
+	# - derive left-facing by horizontal flip (no separate left generation needed)
+	var east_dir := ""
+	var west_dir := ""
 	var sf := SpriteFrames.new()
-	# If we only have one side direction, flip the opposite side.
-	sf.set_meta("flip_h_for_walk_east", has_side_right and (not has_side))
-	sf.set_meta("flip_h_for_walk_west", has_side and (not has_side_right))
+	sf.set_meta("flip_h_for_walk_east", false)
+	sf.set_meta("flip_h_for_walk_west", false)
+	if has_side_right:
+		east_dir = "walk_side_right"
+		west_dir = "walk_side_right"
+		sf.set_meta("flip_h_for_walk_west", true)
+	elif has_side:
+		# Fallback when only legacy side folder exists.
+		east_dir = "walk_side"
+		west_dir = "walk_side"
+		sf.set_meta("flip_h_for_walk_west", true)
+	else:
+		# Last fallback avoids hard failure; runtime will still try front/back.
+		east_dir = "walk_front"
+		west_dir = "walk_front"
 
 	var dirs := {
 		"walk_south": "walk_front",
@@ -270,6 +290,8 @@ static func _build_custom_walk_frames(root: String) -> SpriteFrames:
 		"walk_east": east_dir,
 		"walk_west": west_dir
 	}
+	sf.set_meta("src_dir_walk_east", east_dir)
+	sf.set_meta("src_dir_walk_west", west_dir)
 
 	for anim_name in dirs.keys():
 		var d := String(dirs[anim_name])

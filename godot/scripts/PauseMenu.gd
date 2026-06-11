@@ -1,112 +1,47 @@
 extends CanvasLayer
 
 # Pause menu that works while the tree is paused.
+# Built on the shared UiModal shell + UiComponents widgets (design system Phase 1).
 
-var _panel: PanelContainer = null
-const PAUSE_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
-const USE_UI_MOCKUPS: bool = false
+var _modal: UiModal = null
 
 func _ready() -> void:
-	UiSkin.apply_global_font()
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
-	layer = 230
+	layer = 229
 	_build_ui()
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		var k := event as InputEventKey
-		if k.keycode == KEY_ESCAPE:
-			_on_resume()
-
 func _build_ui() -> void:
-	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
+	_modal = UiModal.build({
+		"size": Vector2(560, 420),
+		"accent": UiSkin.ACCENT,
+		"layer": 230,
+		"process_mode": Node.PROCESS_MODE_WHEN_PAUSED,
+		"esc_closes": true,
+		"click_outside_closes": true,
+	})
+	add_child(_modal)
+	_modal.closed.connect(_on_resume)
 
-	if USE_UI_MOCKUPS and ResourceLoader.exists(PAUSE_BG_PATH):
-		var art := TextureRect.new()
-		art.name = "PauseBgArt"
-		art.set_anchors_preset(Control.PRESET_FULL_RECT)
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		art.texture = load(PAUSE_BG_PATH) as Texture2D
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.modulate = Color(1, 1, 1, 0.65)
-		root.add_child(art)
+	var c := _modal.content
+	c.add_child(UiComponents.title("Paused", 26))
 
-	var bg := ColorRect.new()
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.72)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	root.add_child(bg)
-	bg.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed:
-			_on_resume()
-	)
+	var resume := UiComponents.menu_button("Resume", UiSkin.ACCENT, true)
+	resume.pressed.connect(func(): _modal.close())
+	c.add_child(resume)
 
-	_panel = PanelContainer.new()
-	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.offset_left = -280
-	_panel.offset_right = 280
-	_panel.offset_top = -210
-	_panel.offset_bottom = 210
-	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	root.add_child(_panel)
-	_panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
-
-	var pad := MarginContainer.new()
-	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pad.add_theme_constant_override("margin_left", 18)
-	pad.add_theme_constant_override("margin_right", 18)
-	pad.add_theme_constant_override("margin_top", 16)
-	pad.add_theme_constant_override("margin_bottom", 16)
-	_panel.add_child(pad)
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	pad.add_child(v)
-
-	var title := Label.new()
-	title.text = "Paused"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 26)
-	title.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
-	v.add_child(title)
-
-	var resume := Button.new()
-	resume.text = "Resume"
-	resume.custom_minimum_size = Vector2(0, 44)
-	UiSkin.style_primary_button(resume, UiSkin.ACCENT)
-	resume.pressed.connect(func(): _on_resume())
-	v.add_child(resume)
-
-	var settings := Button.new()
-	settings.text = "Settings"
-	settings.custom_minimum_size = Vector2(0, 44)
-	UiSkin.style_secondary_button(settings, UiSkin.ACCENT_PURPLE)
+	var settings := UiComponents.menu_button("Settings", UiSkin.ACCENT_PURPLE)
 	settings.pressed.connect(func(): _on_settings())
-	v.add_child(settings)
+	c.add_child(settings)
 
-	var save_quit := Button.new()
-	save_quit.text = "Save & Quit"
-	save_quit.custom_minimum_size = Vector2(0, 44)
-	UiSkin.style_secondary_button(save_quit, UiSkin.ACCENT_GOLD)
+	var save_quit := UiComponents.menu_button("Save & Quit", UiSkin.ACCENT_GOLD)
 	save_quit.pressed.connect(func(): _on_save_and_quit())
-	v.add_child(save_quit)
+	c.add_child(save_quit)
 
-	var quit := Button.new()
-	quit.text = "Quit (No Save)"
-	quit.custom_minimum_size = Vector2(0, 44)
-	UiSkin.style_secondary_button(quit, UiSkin.ACCENT_RED)
+	var quit := UiComponents.menu_button("Quit (No Save)", UiSkin.ACCENT_RED)
 	quit.pressed.connect(func(): _on_quit_no_save())
-	v.add_child(quit)
+	c.add_child(quit)
 
-	var hint := Label.new()
-	hint.text = "Esc to resume"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", 12)
-	hint.add_theme_color_override("font_color", Color(0.75, 0.80, 0.86, 0.85))
-	v.add_child(hint)
+	c.add_child(UiComponents.hint("Esc to resume"))
 
 func _play_ui(id: String) -> void:
 	var s := get_node_or_null("/root/SfxSystem")
@@ -116,7 +51,11 @@ func _play_ui(id: String) -> void:
 func _on_resume() -> void:
 	_play_ui("ui.pause_close")
 	get_tree().paused = false
-	queue_free()
+	# Let the modal finish its close animation before freeing the host layer.
+	if _modal != null and is_instance_valid(_modal) and _modal.is_inside_tree():
+		_modal.tree_exited.connect(queue_free)
+	else:
+		queue_free()
 
 func _on_settings() -> void:
 	_play_ui("ui.click")
@@ -141,5 +80,3 @@ func _on_quit_no_save() -> void:
 	_play_ui("ui.cancel")
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/Menu.tscn")
-
-

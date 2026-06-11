@@ -18,6 +18,53 @@ const TEXT_DIM: Color = Color(0.70, 0.78, 0.88, 0.85)
 const BORDER_SOFT: Color = Color(1, 1, 1, 0.12)
 const BORDER_GLOW: Color = Color(0.20, 0.78, 0.82, 0.30)
 
+# === DESIGN TOKENS (Phase 1 foundation) ===
+# Spacing scale: use these instead of magic numbers in margins/separations.
+const SPACE_XS: int = 4
+const SPACE_SM: int = 8
+const SPACE_MD: int = 12
+const SPACE_LG: int = 18
+const SPACE_XL: int = 28
+
+# Typography scale: one source of truth for font sizes.
+const FONT_XS: int = 12
+const FONT_SM: int = 13
+const FONT_BODY: int = 14
+const FONT_LEAD: int = 16
+const FONT_H3: int = 20
+const FONT_H2: int = 24
+const FONT_H1: int = 32
+
+# Corner radius scale.
+const RADIUS_SM: int = 8
+const RADIUS_MD: int = 12
+const RADIUS_LG: int = 18
+
+# Motion durations: keep all UI animation timing consistent.
+const DUR_FAST: float = 0.12
+const DUR_MED: float = 0.22
+const DUR_SLOW: float = 0.35
+
+# Standard modal backdrop dim (single convention across all modals).
+const BACKDROP_DIM: Color = Color(0, 0, 0, 0.72)
+# Standard control heights.
+const BUTTON_HEIGHT: int = 44
+
+# Shared race identity palette (map cards, draft chips, codex).
+const RACE_COLORS: Dictionary = {
+	"HUMANOID": Color("d9c08c"), "MACHINE": Color("8cd9f2"), "ALIEN": Color("99f28c"),
+	"MUTANT": Color("ccf266"), "FAE": Color("f299e6"), "ELEMENTAL": Color("73b3ff"),
+	"SHADOWBORN": Color("9e80e6"), "DRACONIC": Color("ff8c66"), "CELESTIAL": Color("ffd973"),
+	"CRYSTALLINE": Color("99f2e6"), "AQUATIC": Color("66ccff"), "PLANTOID": Color("80e680"),
+	"SLIMEKIN": Color("99f2b3"), "INSECTOID": Color("ccb34d"), "UNDEAD": Color("b3ccb3"),
+}
+
+static func race_color(race_id: String) -> Color:
+	return RACE_COLORS.get(race_id.to_upper(), Color("a8b8c8"))
+
+static func race_hex(race_id: String) -> String:
+	return "#" + race_color(race_id).to_html(false)
+
 const PANEL_FRAME_PATH: String = "res://assets/ui/kit/panel_frame.webp"
 const BUTTON_PRIMARY_PATH: String = "res://assets/ui/kit/button_primary.webp"
 const BUTTON_SECONDARY_PATH: String = "res://assets/ui/kit/button_secondary.webp"
@@ -424,6 +471,37 @@ static func style_slider(slider: HSlider) -> void:
 		f.corner_radius_bottom_left = 6
 		f.corner_radius_bottom_right = 6
 		slider.add_theme_stylebox_override("grabber_area", f)
+
+static func inset_style(radius: int = RADIUS_MD, alpha: float = 0.86, surface: Color = Color(0.04, 0.06, 0.10, 1.0), border: Color = Color(0.50, 0.74, 1.0, 0.28)) -> StyleBoxFlat:
+	# Dark readable inset surface for lists/previews inside larger panels.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(surface.r, surface.g, surface.b, alpha)
+	sb.border_width_left = 1
+	sb.border_width_right = 1
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.border_color = border
+	sb.corner_radius_top_left = radius
+	sb.corner_radius_top_right = radius
+	sb.corner_radius_bottom_left = radius
+	sb.corner_radius_bottom_right = radius
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	return sb
+
+static func list_selected_style(accent: Color = ACCENT) -> StyleBoxFlat:
+	# Selected-row highlight for ItemList/Tree style controls.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(accent.r, accent.g, accent.b, 0.28)
+	sb.border_width_left = 2
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.85)
+	sb.corner_radius_top_left = RADIUS_SM
+	sb.corner_radius_top_right = RADIUS_SM
+	sb.corner_radius_bottom_left = RADIUS_SM
+	sb.corner_radius_bottom_right = RADIUS_SM
+	return sb
 
 static func tooltip_style(accent: Color = ACCENT) -> StyleBox:
 	var tex := _maybe_stylebox_texture(TOOLTIP_PATH, 18, 12)

@@ -732,6 +732,12 @@ func _apply_directional_flip(anim_name: String) -> void:
 		flip = true
 	elif anim_name == "walk_west" and bool(sf.get_meta("flip_h_for_walk_west", false)):
 		flip = true
+	# Safety: if west/east reuse the same source, force mirror for west.
+	if anim_name == "walk_west" and (not flip):
+		var src_e := String(sf.get_meta("src_dir_walk_east", ""))
+		var src_w := String(sf.get_meta("src_dir_walk_west", ""))
+		if src_e != "" and src_e == src_w:
+			flip = true
 	anim.flip_h = flip
 
 func _apply_walk_bob(moving: bool) -> void:

@@ -14,7 +14,8 @@ var _settings_btn: Button
 var _quit_btn: Button
 
 var _map_overlay: Control
-var _map_list: ItemList
+var _map_list_box: VBoxContainer = null
+var _map_cards: Dictionary = {} # map_id -> PanelContainer
 var _map_preview_vp: SubViewport
 var _map_tagline: Label
 var _map_details: RichTextLabel
@@ -34,7 +35,6 @@ var _selected_map_locked: bool = false
 var _map_preview_last_id: String = ""
 var _map_preview_tex_cache: Dictionary = {}
 var _bg_far: TextureRect = null
-var _bg_near: TextureRect = null
 var _bg_light: ColorRect = null
 var _bg_reactor_ring: Node2D = null
 var _menu_anim_t: float = 0.0
@@ -58,45 +58,28 @@ var _info_entries: Array[Dictionary] = []
 # ASSETS (put the generated PNGs here)
 # ─────────────────────────────────────────────────────────────────────────────
 const BG_PATH: String = "res://assets/ui/revamp/menu_factory_bg.png"
-const BG_NEAR_PATH: String = ""
 const ASSET_PANEL: String = "res://assets/ui/revamp/codex_panel.png"
 const CODEX_PANEL_PATH: String = "res://assets/ui/revamp/codex_panel.png"
 const MAIN_SCENE: PackedScene = preload("res://scenes/Main.tscn")
 const ARMORY_SCENE: PackedScene = preload("res://scenes/Menu.tscn")
 
-const BTN_NORMAL: String = ""
-const BTN_HOVER: String = ""
-const BTN_PRESSED: String = ""
-const BTN_DISABLED: String = ""
-
-const TAB_NORMAL: String = "res://assets/ui/wood_menu/tab_wood_normal_384x128.png"
-const TAB_HOVER: String = "res://assets/ui/wood_menu/tab_wood_hover_384x128.png"
-const TAB_PRESSED: String = "res://assets/ui/wood_menu/tab_wood_pressed_384x128.png"
-
 # Keep your existing font pipeline; swap FONT_PATH if you have a pixel font.
 const FONT_PATH: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
 
-# Optional intro splash if you still use it (safe to ignore if not present)
-const INTRO_BG_PATH: String = ""
-const USE_UI_MOCKUPS: bool = false
-
 # ─────────────────────────────────────────────────────────────────────────────
-# COLORS (fallback / text)
+# COLORS — aliases onto shared UiSkin tokens (single source of truth)
 # ─────────────────────────────────────────────────────────────────────────────
-const TITLE_COLOR: Color = Color(0.92, 0.97, 1.0, 1.0)
-const SUBTITLE_COLOR: Color = Color(0.70, 0.86, 1.0, 0.92)
-const TEXT_DARK: Color = Color(0.06, 0.09, 0.14, 1.0)
+const TITLE_COLOR: Color = UiSkin.TEXT
+const SUBTITLE_COLOR: Color = UiSkin.TEXT_SOFT
 
-const ACCENT_LEAF: Color = Color(0.35, 0.95, 0.85, 1.0)
-const ACCENT_SUN: Color = Color(1.0, 0.72, 0.38, 1.0)
-const ACCENT_BERRY: Color = Color(0.58, 0.72, 1.0, 1.0)
+const ACCENT_SUN: Color = UiSkin.ACCENT_GOLD
+const ACCENT_BERRY: Color = UiSkin.ACCENT_PURPLE
 
 # Readability surfaces for map overlay
 const SURFACE_BG := Color(0.04, 0.06, 0.10, 0.92)
-const SURFACE_BG_SOFT := Color(0.03, 0.05, 0.08, 0.86)
 const SURFACE_BORDER := Color(0.50, 0.74, 1.0, 0.28)
 const LOCKED_FG := Color(0.72, 0.80, 0.90, 0.45)
-const NORMAL_FG := Color(0.93, 0.97, 1.0, 1.0)
+const NORMAL_FG: Color = UiSkin.TEXT
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -113,7 +96,6 @@ func _ready() -> void:
 	set_process(true)
 
 	_apply_menu_art()
-	_play_intro_splash()
 
 	var mm := get_node_or_null("/root/MusicManager")
 	if mm and is_instance_valid(mm) and mm.has_method("play"):
@@ -123,6 +105,7 @@ func _ready() -> void:
 	_spawn_menu_crowd()
 	_build_map_overlay()
 	call_deferred("_prewarm_protocol_runtime")
+	call_deferred("_prewarm_info_overlay")
 	_connect_signals()
 
 func _prewarm_protocol_runtime() -> void:
@@ -130,17 +113,18 @@ func _prewarm_protocol_runtime() -> void:
 		return
 	_protocol_upgrades_runtime = _protocol_data()
 
+func _prewarm_info_overlay() -> void:
+	# Build the codex UI once at idle so the first open has zero hitch.
+	if _info_overlay == null or not is_instance_valid(_info_overlay):
+		_create_info_overlay()
+		_info_overlay.visible = false
+
 func _process(delta: float) -> void:
 	_menu_anim_t += delta
 	if _bg_far != null and is_instance_valid(_bg_far):
 		_bg_far.position = Vector2(
 			sin(_menu_anim_t * 0.16) * 20.0,
 			cos(_menu_anim_t * 0.11) * 9.0
-		)
-	if _bg_near != null and is_instance_valid(_bg_near):
-		_bg_near.position = Vector2(
-			sin(_menu_anim_t * 0.22 + 1.3) * 34.0,
-			cos(_menu_anim_t * 0.16 + 0.4) * 10.0
 		)
 	if _bg_light != null and is_instance_valid(_bg_light):
 		_bg_light.modulate.a = 0.26 + sin(_menu_anim_t * 0.32) * 0.07
@@ -171,22 +155,6 @@ func _apply_menu_art() -> void:
 	var t := _load_tex(BG_PATH)
 	_bg_far.texture = t
 
-	var near := get_node_or_null("MenuBackgroundNear") as TextureRect
-	if near == null:
-		near = TextureRect.new()
-		near.name = "MenuBackgroundNear"
-		near.set_anchors_preset(Control.PRESET_FULL_RECT)
-		near.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		near.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		near.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		near.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		near.z_index = -210
-		near.modulate = Color(1, 1, 1, 0.68)
-		add_child(near)
-		move_child(near, 1)
-	_bg_near = near
-	_bg_near.texture = _load_tex(BG_NEAR_PATH)
-
 	var light := get_node_or_null("MenuSunwash") as ColorRect
 	if light == null:
 		light = ColorRect.new()
@@ -216,24 +184,6 @@ func _apply_menu_art() -> void:
 	var fs := get_node_or_null("FrameShader") as CanvasItem
 	if fs:
 		fs.visible = (t == null)
-
-func _play_intro_splash() -> void:
-	if (not USE_UI_MOCKUPS) or INTRO_BG_PATH.is_empty() or (not ResourceLoader.exists(INTRO_BG_PATH)):
-		return
-	var splash := TextureRect.new()
-	splash.name = "IntroSplash"
-	splash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	splash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	splash.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	splash.texture = load(INTRO_BG_PATH) as Texture2D
-	splash.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	splash.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	add_child(splash)
-	move_child(splash, get_child_count() - 1)
-	var tw := create_tween()
-	tw.tween_interval(1.0)
-	tw.tween_property(splash, "modulate:a", 0.0, 0.4)
-	tw.tween_callback(splash.queue_free)
 
 func _spawn_menu_crowd() -> void:
 	# Your existing background FX/spawn
@@ -390,22 +340,6 @@ func _make_panel_style() -> StyleBox:
 	sb.shadow_size = 24
 	return sb
 
-func _stylebox_from(tex_path: String, tm: int, cm_v: int, cm_h: int) -> StyleBoxTexture:
-	var tex := _load_tex(tex_path)
-	if tex == null:
-		return null
-	var sbt := StyleBoxTexture.new()
-	sbt.texture = tex
-	sbt.texture_margin_left = tm
-	sbt.texture_margin_right = tm
-	sbt.texture_margin_top = tm
-	sbt.texture_margin_bottom = tm
-	sbt.content_margin_left = cm_h
-	sbt.content_margin_right = cm_h
-	sbt.content_margin_top = cm_v
-	sbt.content_margin_bottom = cm_v
-	return sbt
-
 func _make_menu_button(text: String, is_primary: bool, accent: Color = ACCENT_SUN) -> Button:
 	var btn := Button.new()
 	btn.text = text
@@ -464,31 +398,7 @@ func _apply_font(c: Control) -> void:
 # ─────────────────────────────────────────────────────────────────────────────
 
 func _sb_inset(radius: int = 12, alpha: float = 0.86) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(SURFACE_BG.r, SURFACE_BG.g, SURFACE_BG.b, alpha)
-	sb.border_width_left = 1
-	sb.border_width_right = 1
-	sb.border_width_top = 1
-	sb.border_width_bottom = 1
-	sb.border_color = SURFACE_BORDER
-	sb.corner_radius_top_left = radius
-	sb.corner_radius_top_right = radius
-	sb.corner_radius_bottom_left = radius
-	sb.corner_radius_bottom_right = radius
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
-	sb.content_margin_top = 10
-	sb.content_margin_bottom = 10
-	return sb
-
-func _sb_list_selected() -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.20, 0.34, 0.20, 0.92)
-	sb.corner_radius_top_left = 8
-	sb.corner_radius_top_right = 8
-	sb.corner_radius_bottom_left = 8
-	sb.corner_radius_bottom_right = 8
-	return sb
+	return UiSkin.inset_style(radius, alpha, SURFACE_BG, SURFACE_BORDER)
 
 func _make_vignette_material() -> ShaderMaterial:
 	var sh := Shader.new()
@@ -524,7 +434,7 @@ func _build_map_overlay() -> void:
 	# Strong scrim + vignette so UI wins vs crowd/background
 	var dim := ColorRect.new()
 	dim.name = "Dim"
-	dim.color = Color(0.03, 0.025, 0.02, 0.78)
+	dim.color = UiSkin.BACKDROP_DIM
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_map_overlay.add_child(dim)
@@ -574,7 +484,7 @@ func _build_map_overlay() -> void:
 
 	# LEFT: Zones list wrapped in readable inset panel
 	var left := VBoxContainer.new()
-	left.custom_minimum_size.x = 280
+	left.custom_minimum_size.x = 330
 	left.add_theme_constant_override("separation", 8)
 	hbox.add_child(left)
 
@@ -598,20 +508,16 @@ func _build_map_overlay() -> void:
 	lf_pad.add_theme_constant_override("margin_bottom", 6)
 	_map_list_frame.add_child(lf_pad)
 
-	_map_list = ItemList.new()
-	_map_list.custom_minimum_size.y = 320
-	_map_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_map_list.allow_reselect = true
-	_map_list.add_theme_font_size_override("font_size", 16)
-	_map_list.add_theme_color_override("font_color", NORMAL_FG)
-	_map_list.add_theme_color_override("font_selected_color", Color(1, 1, 1, 1))
-	_map_list.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	_apply_font(_map_list)
+	var list_scroll := ScrollContainer.new()
+	list_scroll.custom_minimum_size.y = 320
+	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	lf_pad.add_child(list_scroll)
 
-	var sel_sb := _sb_list_selected()
-	_map_list.add_theme_stylebox_override("selected", sel_sb)
-	_map_list.add_theme_stylebox_override("selected_focus", sel_sb)
-	lf_pad.add_child(_map_list)
+	_map_list_box = VBoxContainer.new()
+	_map_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_map_list_box.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	list_scroll.add_child(_map_list_box)
 
 	# RIGHT: Preview + info cards (all on dark surfaces)
 	var right := VBoxContainer.new()
@@ -770,7 +676,7 @@ func _connect_signals() -> void:
 		)
 
 func _setup_map_select_overlay() -> void:
-	if _map_list == null:
+	if _map_list_box == null:
 		return
 	var rc := get_node_or_null("/root/RunConfig")
 	if rc == null or not is_instance_valid(rc):
@@ -778,57 +684,154 @@ func _setup_map_select_overlay() -> void:
 	if rc.has_method("ensure_loaded"):
 		rc.ensure_loaded()
 
-	_map_list.clear()
+	for c in _map_list_box.get_children():
+		(c as Node).queue_free()
+	_map_cards.clear()
 	_map_ids.clear()
 	if rc.has_method("get_map_ids_ordered"):
 		_map_ids = rc.get_map_ids_ordered()
 	elif rc.has_method("get_map_ids"):
 		_map_ids = rc.get_map_ids()
+
 	for i in range(_map_ids.size()):
-		var m: Dictionary = rc.get_map(_map_ids[i]) if rc.has_method("get_map") else {}
-		var name := String(m.get("name", _map_ids[i]))
-		var mult := float(m.get("meta_sigils_mult", 1.0))
-		var tier := "★" if mult < 1.2 else ("★★" if mult < 1.5 else "★★★")
-		var locked := not _is_map_unlocked(_map_ids[i])
-		var label := name
-		if locked:
-			label = "🔒 " + name
-
-		var text := "%s    %s" % [label, tier]
-		_map_list.add_item(text)
-
-		_map_list.set_item_disabled(i, locked)
-		_map_list.set_item_custom_fg_color(i, LOCKED_FG if locked else NORMAL_FG)
-		if locked:
-			_map_list.set_item_custom_bg_color(i, Color(0, 0, 0, 0.10))
-			_map_list.set_item_tooltip(i, "Locked. Win the previous map to unlock.")
-		else:
-			_map_list.set_item_custom_bg_color(i, Color(0, 0, 0, 0.0))
+		var id := _map_ids[i]
+		var m: Dictionary = rc.get_map(id) if rc.has_method("get_map") else {}
+		var locked := not _is_map_unlocked(id)
+		var card := _make_zone_card(id, m, locked, rc)
+		_map_list_box.add_child(card)
+		_map_cards[id] = card
 
 	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
-	for i in range(_map_ids.size()):
-		if _map_ids[i] == cur:
-			_map_list.select(i)
-			break
-
+	_refresh_zone_card_styles(cur)
 	_update_map_tagline(rc)
 	_update_map_preview(rc)
 	_update_map_lock_state(rc)
 
-	_map_list.item_selected.connect(func(idx: int):
-		if idx < 0 or idx >= _map_ids.size():
-			return
-		if _map_list.is_item_disabled(idx):
-			_play_ui("ui.error")
-			return
-		var id := _map_ids[idx]
-		_play_ui("ui.click")
-		if rc.has_method("set_selected_map_id"):
-			rc.set_selected_map_id(id)
-		_update_map_tagline(rc)
-		_update_map_preview(rc)
-		_update_map_lock_state(rc)
+func _make_zone_card(id: String, m: Dictionary, locked: bool, rc: Node) -> PanelContainer:
+	var card := PanelContainer.new()
+	card.name = "ZoneCard_" + id
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.mouse_default_cursor_shape = Control.CURSOR_ARROW if locked else Control.CURSOR_POINTING_HAND
+	card.set_meta("locked", locked)
+	card.tooltip_text = "Locked. Win the previous map to unlock." if locked else ""
+
+	var pad := MarginContainer.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_theme_constant_override("margin_left", UiSkin.SPACE_MD)
+	pad.add_theme_constant_override("margin_right", UiSkin.SPACE_MD)
+	pad.add_theme_constant_override("margin_top", UiSkin.SPACE_SM)
+	pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_SM)
+	card.add_child(pad)
+
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 3)
+	pad.add_child(v)
+
+	# Row 1: zone name + tier stars
+	var row1 := HBoxContainer.new()
+	row1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row1.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	v.add_child(row1)
+
+	var name_lbl := Label.new()
+	name_lbl.text = ("🔒 " if locked else "") + String(m.get("name", id))
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UiSkin.style_label(name_lbl, UiSkin.FONT_LEAD, LOCKED_FG if locked else UiSkin.TEXT)
+	row1.add_child(name_lbl)
+
+	var mult := float(m.get("meta_sigils_mult", 1.0))
+	var stars_lbl := Label.new()
+	stars_lbl.text = "★" if mult < 1.2 else ("★★" if mult < 1.5 else "★★★")
+	stars_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UiSkin.style_label(stars_lbl, UiSkin.FONT_BODY, UiSkin.ACCENT_GOLD if not locked else LOCKED_FG)
+	row1.add_child(stars_lbl)
+
+	# Row 2: danger pips + reward multiplier
+	var score := _danger_score(m)
+	var row2 := RichTextLabel.new()
+	row2.bbcode_enabled = true
+	row2.fit_content = true
+	row2.scroll_active = false
+	row2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row2.add_theme_font_size_override("normal_font_size", UiSkin.FONT_XS)
+	row2.text = "[color=%s]%s[/color]  [color=#ffd070]★x%.2f[/color]" % [_tier_color(score), _bar(score), mult]
+	v.add_child(row2)
+
+	# Row 3: who lives here (race pool)
+	var races_line := _races_bbcode(m)
+	if races_line != "":
+		var row3 := RichTextLabel.new()
+		row3.bbcode_enabled = true
+		row3.fit_content = true
+		row3.scroll_active = false
+		row3.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row3.add_theme_font_size_override("normal_font_size", UiSkin.FONT_XS)
+		row3.text = races_line
+		v.add_child(row3)
+
+	if locked:
+		card.modulate = Color(1, 1, 1, 0.62)
+
+	card.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
+				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			_on_zone_card_clicked(id, rc)
 	)
+	card.mouse_entered.connect(func():
+		if not bool(card.get_meta("locked", false)) and not bool(card.get_meta("selected", false)):
+			card.add_theme_stylebox_override("panel", UiSkin.card_style_hover(UiSkin.ACCENT))
+	)
+	card.mouse_exited.connect(func():
+		if not bool(card.get_meta("selected", false)):
+			card.add_theme_stylebox_override("panel", _zone_card_style(false, bool(card.get_meta("locked", false))))
+	)
+	return card
+
+func _on_zone_card_clicked(id: String, rc: Node) -> void:
+	var card: PanelContainer = _map_cards.get(id, null)
+	if card == null or bool(card.get_meta("locked", false)):
+		_play_ui("ui.error")
+		return
+	_play_ui("ui.click")
+	if rc.has_method("set_selected_map_id"):
+		rc.set_selected_map_id(id)
+	_refresh_zone_card_styles(id)
+	_update_map_tagline(rc)
+	_update_map_preview(rc)
+	_update_map_lock_state(rc)
+
+func _zone_card_style(selected: bool, locked: bool) -> StyleBox:
+	if locked:
+		var sb := UiSkin.inset_style(UiSkin.RADIUS_MD, 0.70)
+		sb.border_color = Color(0.4, 0.45, 0.55, 0.20)
+		return sb
+	if selected:
+		return UiSkin.card_style_hover(UiSkin.ACCENT_GOLD)
+	return UiSkin.card_style(UiSkin.ACCENT, false)
+
+func _refresh_zone_card_styles(selected_id: String) -> void:
+	for id in _map_cards.keys():
+		var card: PanelContainer = _map_cards[id]
+		if card == null or not is_instance_valid(card):
+			continue
+		var selected: bool = String(id) == selected_id
+		card.set_meta("selected", selected)
+		card.add_theme_stylebox_override("panel", _zone_card_style(selected, bool(card.get_meta("locked", false))))
+
+func _races_bbcode(m: Dictionary) -> String:
+	var pool_v: Variant = m.get("race_pool_enemy", m.get("race_pool", []))
+	if typeof(pool_v) != TYPE_ARRAY:
+		return ""
+	var pool := pool_v as Array
+	if pool.is_empty():
+		return ""
+	var parts: Array[String] = []
+	for r in pool:
+		var rid := String(r).to_upper()
+		parts.append("[color=%s]%s[/color]" % [UiSkin.race_hex(rid), rid.capitalize()])
+	return "[color=#7a8a9a]☉[/color] " + " [color=#55636f]•[/color] ".join(parts)
 
 func _update_map_tagline(rc: Node) -> void:
 	if _map_tagline == null:
@@ -849,7 +852,7 @@ func _update_map_lock_state(rc: Node) -> void:
 
 	if _map_start_btn:
 		_map_start_btn.disabled = _selected_map_locked
-		_map_start_btn.text = "Locked" if _selected_map_locked else "Start"
+		_map_start_btn.text = "🔒 Locked" if _selected_map_locked else "▶ Deploy"
 
 	if _map_preview_lock_lbl:
 		_map_preview_lock_lbl.visible = _selected_map_locked
@@ -896,7 +899,11 @@ func _update_map_details(m: Dictionary) -> void:
 	var diff_line := "[color=#a8a0a0]Danger:[/color] %s [color=%s]%.1f[/color]" % [diff_bar, col, score]
 	var reward_line := "[color=#a8a0a0]Rewards:[/color] [color=#ffd070]★ x%.2f[/color]  [color=#70d0ff]◆ x%.2f[/color]" % [sig, ess]
 	var boss_text := "[color=#ff7070]Yes @ %.0fm[/color]" % boss_m if boss else "[color=#70ff70]No[/color]"
-	_map_details.text = "%s\n%s\n[color=#a8a0a0]Boss:[/color] %s" % [diff_line, reward_line, boss_text]
+	var lines := "%s\n%s\n[color=#a8a0a0]Boss:[/color] %s" % [diff_line, reward_line, boss_text]
+	var races := _races_bbcode(m)
+	if races != "":
+		lines += "\n[color=#a8a0a0]Hostiles:[/color] %s" % races
+	_map_details.text = lines
 
 func _hash32(s: String) -> int:
 	var h: int = 2166136261
@@ -1042,6 +1049,20 @@ func _build_map_preview_fallback(vis: Dictionary, map_id: String) -> Texture2D:
 	img.fill_rect(Rect2i(0, 0, w, h), tint)
 	return ImageTexture.create_from_image(img)
 
+func _animate_overlay_open(overlay: Control, panel: Control = null) -> void:
+	# Standard overlay entrance: fade in, optional panel pop (UiSkin motion tokens).
+	if overlay == null or not is_instance_valid(overlay):
+		return
+	overlay.modulate.a = 0.0
+	var tw := overlay.create_tween()
+	tw.tween_property(overlay, "modulate:a", 1.0, UiSkin.DUR_FAST)
+	if panel != null and is_instance_valid(panel):
+		panel.pivot_offset = panel.size * 0.5
+		panel.scale = Vector2(0.96, 0.96)
+		var tp := panel.create_tween()
+		tp.tween_property(panel, "scale", Vector2.ONE, UiSkin.DUR_MED) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 func _open_map_overlay() -> void:
 	if _map_overlay == null:
 		_start_run_with_selected_map()
@@ -1054,10 +1075,9 @@ func _open_map_overlay() -> void:
 		_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 
 	_map_overlay.visible = true
+	_animate_overlay_open(_map_overlay, _map_panel)
 	_map_overlay.grab_focus()
-	if _map_list:
-		_map_list.grab_focus()
-	elif _map_start_btn:
+	if _map_start_btn:
 		_map_start_btn.grab_focus()
 
 func _close_map_overlay() -> void:
@@ -1125,11 +1145,13 @@ func _open_info_overlay() -> void:
 			_crowd.visible = false
 			_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 		_info_overlay.visible = true
+		_animate_overlay_open(_info_overlay)
 		_reload_info_entries()
 		if _info_search:
 			_info_search.grab_focus()
 		return
 	_create_info_overlay()
+	_animate_overlay_open(_info_overlay)
 	_reload_info_entries()
 	if _info_search:
 		_info_search.grab_focus()
@@ -1159,7 +1181,7 @@ func _create_info_overlay() -> void:
 
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.06, 0.05, 0.04, 0.92)
+	bg.color = Color(UiSkin.BACKDROP_DIM.r, UiSkin.BACKDROP_DIM.g, UiSkin.BACKDROP_DIM.b, 0.90)
 	_info_overlay.add_child(bg)
 
 	var panel := PanelContainer.new()
@@ -1214,11 +1236,21 @@ func _create_info_overlay() -> void:
 	_info_section.add_item("Weapons", 5)
 	_info_section.add_item("Races", 6)
 	_info_section.selected = 0
+	_info_section.add_theme_stylebox_override("normal", UiSkin.inset_style(UiSkin.RADIUS_SM, 0.92))
+	_info_section.add_theme_stylebox_override("hover", UiSkin.inset_style(UiSkin.RADIUS_SM, 0.98))
+	_info_section.add_theme_stylebox_override("focus", UiSkin.inset_style(UiSkin.RADIUS_SM, 0.98))
+	_info_section.add_theme_color_override("font_color", UiSkin.TEXT)
+	_info_section.add_theme_color_override("font_hover_color", UiSkin.TEXT)
+	_info_section.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	filter_row.add_child(_info_section)
 
 	_info_search = LineEdit.new()
 	_info_search.placeholder_text = "Search (name, id, tags, description...)"
 	_info_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_info_search.add_theme_stylebox_override("normal", UiSkin.inset_style(UiSkin.RADIUS_SM, 0.92))
+	_info_search.add_theme_stylebox_override("focus", UiSkin.inset_style(UiSkin.RADIUS_SM, 0.98, Color(0.04, 0.06, 0.10, 1.0), Color(UiSkin.ACCENT.r, UiSkin.ACCENT.g, UiSkin.ACCENT.b, 0.55)))
+	_info_search.add_theme_color_override("font_color", UiSkin.TEXT)
+	_info_search.add_theme_color_override("font_placeholder_color", UiSkin.TEXT_DIM)
 	filter_row.add_child(_info_search)
 
 	var body := HBoxContainer.new()
@@ -1243,7 +1275,11 @@ func _create_info_overlay() -> void:
 	_info_list.select_mode = ItemList.SELECT_SINGLE
 	_info_list.allow_reselect = true
 	_info_list.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	_info_list.add_theme_stylebox_override("selected", UiSkin.list_selected_style(UiSkin.ACCENT))
+	_info_list.add_theme_stylebox_override("selected_focus", UiSkin.list_selected_style(UiSkin.ACCENT))
 	_info_list.add_theme_font_size_override("font_size", 14)
+	_info_list.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+	_info_list.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_info_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left_pad.add_child(_info_list)
 
@@ -1596,9 +1632,11 @@ func _open_protocol_grid() -> void:
 		_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 	if _protocol_overlay != null and is_instance_valid(_protocol_overlay):
 		_protocol_overlay.visible = true
+		_animate_overlay_open(_protocol_overlay)
 		_update_protocol_grid()
 		return
 	_create_protocol_overlay()
+	_animate_overlay_open(_protocol_overlay)
 	_update_protocol_grid()
 
 func _create_protocol_overlay() -> void:

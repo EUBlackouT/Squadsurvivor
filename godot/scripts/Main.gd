@@ -53,10 +53,7 @@ const TILE_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TileMapWorld.gd")
 const TMX_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TmxMapWorld.gd")
 const METADATA_MAP_WORLD_SCRIPT: Script = preload("res://scripts/MetadataMapWorld.gd")
 const VFX_ARC_SCENE: PackedScene = preload("res://scenes/VfxArcLightning.tscn")
-const HUD_BG_PATH: String = "res://assets/ui/mockups/hud.webp"
-const DRAFT_BG_PATH: String = "res://assets/ui/revamp/draft_bg.png"
 const DRAFT_BG_TEXTURE: Texture2D = preload("res://assets/ui/revamp/draft_bg.png")
-const USE_UI_MOCKUPS: bool = false
 
 var damage_numbers: Node = null
 var toast_layer: ToastLayer
@@ -2843,6 +2840,11 @@ func _show_recruit_draft() -> void:
 	backdrop_shader_mat.shader = preload("res://shaders/ui_arcane_scifi_backdrop.gdshader")
 	backdrop.material = backdrop_shader_mat
 
+	# Standard entrance: backdrop fade (panel pop happens after layout below).
+	backdrop.modulate.a = 0.0
+	var bd_tw := backdrop.create_tween()
+	bd_tw.tween_property(backdrop, "modulate:a", 1.0, UiSkin.DUR_FAST)
+
 	var modal := PanelContainer.new()
 	modal.set_anchors_preset(Control.PRESET_CENTER)
 	# Larger + calmer spacing so cards breathe and text stays readable.
@@ -2862,6 +2864,16 @@ func _show_recruit_draft() -> void:
 	neon_shader_mat.set_shader_parameter("pulse_speed", 1.2)
 	modal.material = neon_shader_mat
 
+	# Standard panel pop (matches UiModal motion tokens).
+	modal.pivot_offset = Vector2(560, 330)
+	modal.scale = Vector2(0.94, 0.94)
+	modal.modulate.a = 0.0
+	var modal_tw := modal.create_tween()
+	modal_tw.set_parallel(true)
+	modal_tw.tween_property(modal, "modulate:a", 1.0, UiSkin.DUR_FAST)
+	modal_tw.tween_property(modal, "scale", Vector2.ONE, UiSkin.DUR_MED) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
 	pad.add_theme_constant_override("margin_left", 26)
@@ -2878,24 +2890,22 @@ func _show_recruit_draft() -> void:
 	var title := Label.new()
 	title.text = "RECRUIT DRAFT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_page_title(title, UiSkin.ACCENT)
 	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Choose one recruit. Review race, origin, class, weapon, and passives before committing."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	subtitle.add_theme_font_size_override("font_size", 14)
-	subtitle.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92, 0.95))
+	UiSkin.style_label(subtitle, UiSkin.FONT_BODY, UiSkin.TEXT_SOFT)
 	vbox.add_child(subtitle)
 
 	var info := Label.new()
 	info.name = "InfoLabel"
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	info.text = "Essence: %d   (Reroll costs %d)" % [essence, reroll_cost_essence]
-	info.add_theme_font_size_override("font_size", 16)
-	info.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1))
+	info.text = "✧ Essence: %d   (Reroll costs %d)" % [essence, reroll_cost_essence]
+	UiSkin.style_label(info, UiSkin.FONT_LEAD, UiSkin.ACCENT_GOLD)
 	vbox.add_child(info)
 
 	var hbox := HBoxContainer.new()
@@ -2925,7 +2935,7 @@ func _show_recruit_draft() -> void:
 		for c in hbox.get_children():
 			c.queue_free()
 		_populate_recruit_cards(hbox, draft_ui, false)
-		info.text = "Essence: %d   (Reroll costs %d)" % [essence, reroll_cost_essence]
+		info.text = "✧ Essence: %d   (Reroll costs %d)" % [essence, reroll_cost_essence]
 	)
 
 	_populate_recruit_cards(hbox, draft_ui, _force_rift_next_draft)
@@ -2997,8 +3007,16 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 					options[options.size() - 1] = boosted
 					break
 
+	var card_i := 0
 	for c in options:
-		hbox.add_child(_create_character_card(c, ui))
+		var card := _create_character_card(c, ui)
+		hbox.add_child(card)
+		# Staggered entrance so each card lands with its own beat.
+		card.modulate.a = 0.0
+		var tw := card.create_tween()
+		tw.tween_interval(0.05 + 0.07 * float(card_i))
+		tw.tween_property(card, "modulate:a", 1.0, UiSkin.DUR_MED)
+		card_i += 1
 
 func _rarity_rank(rarity_id: String) -> int:
 	match rarity_id:
@@ -3078,7 +3096,9 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	card.focus_mode = Control.FOCUS_ALL
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
-	card.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, false))
+	# Epic+ cards glow at rest so big pulls feel special before you even read them.
+	var rare_glow := _rarity_rank(cd.rarity_id) >= 2
+	card.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, rare_glow))
 	UiSkin.add_hover_glow(card, rarity_col)
 	UiSkin.add_hover_scale(card, 1.02, 0.10)
 
@@ -3101,30 +3121,44 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 
 	var rarity_lbl := Label.new()
 	rarity_lbl.text = UnitFactory.rarity_name(cd.rarity_id).to_upper()
-	rarity_lbl.add_theme_font_size_override("font_size", 14)
-	rarity_lbl.add_theme_color_override("font_color", rarity_col)
+	UiSkin.style_label(rarity_lbl, UiSkin.FONT_BODY, rarity_col)
 	header.add_child(rarity_lbl)
+
+	# NEW vs UPGRADE badge: the player should instantly know what picking does.
+	var cm_badge := get_node_or_null("/root/CollectionManager")
+	if cm_badge != null and is_instance_valid(cm_badge) and cm_badge.has_method("find_dupe_by_appearance"):
+		var badge := Label.new()
+		if int(cm_badge.find_dupe_by_appearance(cd)) < 0:
+			badge.text = "★ NEW"
+			UiSkin.style_label(badge, UiSkin.FONT_XS, UiSkin.ACCENT_GOLD)
+		else:
+			badge.text = "▲ UPGRADE"
+			UiSkin.style_label(badge, UiSkin.FONT_XS, UiSkin.ACCENT_GREEN)
+		header.add_child(badge)
 
 	header.add_spacer(true)
 
 	var arch := Label.new()
 	arch.text = cd.archetype_id.to_upper()
-	arch.add_theme_font_size_override("font_size", 14)
-	arch.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 0.95))
+	UiSkin.style_label(arch, UiSkin.FONT_BODY, UiSkin.TEXT)
 	header.add_child(arch)
 
-	var ident := Label.new()
+	# Identity as color-coded chips instead of one cramped text line.
+	var ident_row := HFlowContainer.new()
+	ident_row.alignment = FlowContainer.ALIGNMENT_CENTER
+	ident_row.add_theme_constant_override("h_separation", 6)
+	ident_row.add_theme_constant_override("v_separation", 4)
+	v.add_child(ident_row)
+
 	var race_name := String(cd.race_id).to_upper()
 	if race_name == "":
 		race_name = _draft_origin_name(cd.origin)
 	var origin_name := String(cd.origin_id).to_upper()
 	if origin_name == "":
 		origin_name = _draft_origin_name(cd.origin)
-	ident.text = "RACE %s   ORIGIN %s   CLASS %s" % [race_name, origin_name, _draft_class_name(cd.class_type)]
-	ident.add_theme_font_size_override("font_size", 12)
-	ident.add_theme_color_override("font_color", Color(0.76, 0.92, 1.0, 0.95))
-	ident.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(ident)
+	ident_row.add_child(UiComponents.chip(race_name.capitalize(), UiSkin.race_color(race_name), UiSkin.FONT_XS))
+	ident_row.add_child(UiComponents.chip(origin_name.capitalize(), UiSkin.ACCENT, UiSkin.FONT_XS))
+	ident_row.add_child(UiComponents.chip(_draft_class_name(cd.class_type).capitalize(), UiSkin.ACCENT_PURPLE, UiSkin.FONT_XS))
 
 	# Portrait (PixelLab south rotation)
 	var portrait_frame := PanelContainer.new()
@@ -3185,24 +3219,26 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 
 	var style_label := Label.new()
 	var draft_weapon_name := WeaponSystem.weapon_name(cd.weapon_id) if cd.weapon_id != "" else ("MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED")
-	style_label.text = "WEAPON: %s" % draft_weapon_name
-	style_label.add_theme_font_size_override("font_size", 12)
-	style_label.add_theme_color_override("font_color", Color(0.78, 0.88, 1.0, 0.90))
+	style_label.text = "⚔ %s" % draft_weapon_name
+	UiSkin.style_label(style_label, UiSkin.FONT_XS, Color(0.78, 0.88, 1.0, 0.90))
 	v.add_child(style_label)
 
-	# Stats grid for scanability
+	# Stats grid: color-coded for instant scanning.
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 4)
 	v.add_child(grid)
-	var s_hp := Label.new(); s_hp.text = "HP  %d" % cd.max_hp
-	var s_dmg := Label.new(); s_dmg.text = "DMG  %d" % cd.attack_damage
-	var s_cd := Label.new(); s_cd.text = "CD  %.2f" % cd.attack_cooldown
-	var s_rng := Label.new(); s_rng.text = "RNG  %d" % int(cd.attack_range)
-	for lbl in [s_hp, s_dmg, s_cd, s_rng]:
-		lbl.add_theme_font_size_override("font_size", 13)
-		lbl.add_theme_color_override("font_color", Color(0.86, 0.90, 0.96, 0.95))
+	var stat_defs: Array = [
+		["HP  %d" % cd.max_hp, Color(0.55, 0.92, 0.62)],
+		["DMG  %d" % cd.attack_damage, Color(1.0, 0.62, 0.52)],
+		["CD  %.2f" % cd.attack_cooldown, Color(0.55, 0.85, 0.95)],
+		["RNG  %d" % int(cd.attack_range), Color(0.88, 0.80, 0.55)],
+	]
+	for sd in stat_defs:
+		var lbl := Label.new()
+		lbl.text = String(sd[0])
+		UiSkin.style_label(lbl, UiSkin.FONT_SM, sd[1] as Color)
 		grid.add_child(lbl)
 
 	# Passives as compact chips (tooltip shows full description).
@@ -3280,43 +3316,72 @@ func _show_character_details(cd: CharacterData, ui: CanvasLayer) -> void:
 	layer.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	ui.add_child(layer)
 
+	var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
+
+	# Dim behind the sheet; clicking it closes (consistent with other modals).
+	var dim := ColorRect.new()
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(UiSkin.BACKDROP_DIM.r, UiSkin.BACKDROP_DIM.g, UiSkin.BACKDROP_DIM.b, 0.45)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed:
+			layer.queue_free()
+	)
+	layer.add_child(dim)
+
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.offset_left = -360
 	panel.offset_top = -240
 	panel.offset_right = 360
 	panel.offset_bottom = 240
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
-	panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UnitFactory.rarity_color(cd.rarity_id)))
+	panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(rarity_col))
+
+	# Standard pop entrance.
+	panel.pivot_offset = Vector2(360, 240)
+	panel.scale = Vector2(0.94, 0.94)
+	panel.modulate.a = 0.0
+	var tw := panel.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(panel, "modulate:a", 1.0, UiSkin.DUR_FAST)
+	tw.tween_property(panel, "scale", Vector2.ONE, UiSkin.DUR_MED) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pad.add_theme_constant_override("margin_left", 18)
-	pad.add_theme_constant_override("margin_right", 18)
-	pad.add_theme_constant_override("margin_top", 16)
-	pad.add_theme_constant_override("margin_bottom", 16)
+	pad.add_theme_constant_override("margin_left", UiSkin.SPACE_LG)
+	pad.add_theme_constant_override("margin_right", UiSkin.SPACE_LG)
+	pad.add_theme_constant_override("margin_top", UiSkin.SPACE_LG)
+	pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_LG)
 	panel.add_child(pad)
 
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", UiSkin.SPACE_MD)
 	pad.add_child(v)
 
 	var t := Label.new()
-	t.text = "Character Sheet"
+	t.text = cd.archetype_id.capitalize()
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.add_theme_font_size_override("font_size", 26)
+	UiSkin.style_label(t, 26, UiSkin.TEXT)
 	v.add_child(t)
+
+	var rarity_line := Label.new()
+	rarity_line.text = "%s  •  %s" % [UnitFactory.rarity_name(cd.rarity_id).to_upper(), String(cd.race_id).capitalize()]
+	rarity_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_label(rarity_line, UiSkin.FONT_BODY, rarity_col)
+	v.add_child(rarity_line)
 
 	var weapon_name := WeaponSystem.weapon_name(cd.weapon_id) if cd.weapon_id != "" else ("MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED")
 	var b := Label.new()
-	b.text = "%s • %s • %s\nHP %d  DMG %d  CD %.2f  RNG %d\nCrit %.0f%%  x%.2f" % [
-		UnitFactory.rarity_name(cd.rarity_id),
-		cd.archetype_id,
+	b.text = "⚔ %s\nHP %d  DMG %d  CD %.2f  RNG %d\nCrit %.0f%%  x%.2f" % [
 		weapon_name,
 		cd.max_hp, cd.attack_damage, cd.attack_cooldown, int(cd.attack_range),
 		cd.crit_chance * 100.0, cd.crit_mult
 	]
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiSkin.style_label(b, UiSkin.FONT_BODY, UiSkin.TEXT_SOFT)
 	v.add_child(b)
 
 	var p := Label.new()
@@ -3325,10 +3390,12 @@ func _show_character_details(cd: CharacterData, ui: CanvasLayer) -> void:
 		lines.append("• %s\n  %s" % [PassiveSystem.passive_name(pid), PassiveSystem.passive_description(pid)])
 	p.text = "Passives:\n%s" % "\n".join(lines)
 	p.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiSkin.style_label(p, UiSkin.FONT_SM, UiSkin.TEXT_SOFT)
 	v.add_child(p)
 
 	var close := Button.new()
 	close.text = "Close"
+	close.custom_minimum_size = Vector2(0, UiSkin.BUTTON_HEIGHT)
 	UiSkin.style_secondary_button(close)
 	close.pressed.connect(func(): layer.queue_free())
 	v.add_child(close)
@@ -3387,18 +3454,6 @@ func _setup_hud() -> void:
 	hud.name = "HUD"
 	hud.layer = 10
 	add_child(hud)
-
-	# HUD art overlay (optional mockup).
-	if USE_UI_MOCKUPS and ResourceLoader.exists(HUD_BG_PATH):
-		var hud_bg := TextureRect.new()
-		hud_bg.name = "HudArt"
-		hud_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		hud_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hud_bg.texture = load(HUD_BG_PATH) as Texture2D
-		hud_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		hud_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		hud_bg.modulate = Color(1, 1, 1, 0.55)
-		hud.add_child(hud_bg)
 
 	# Tiny autosave indicator (top-right)
 	var autosave_lbl := Label.new()
@@ -4288,6 +4343,19 @@ func _build_end_screen(ui: CanvasLayer, title_text: String, victory: bool) -> vo
 	neon.set_shader_parameter("glow_width", 0.025)
 	neon.set_shader_parameter("pulse_speed", 0.8 if victory else 1.5)
 	card.material = neon
+
+	# Entrance: dim fades, card lands with weight (the run just ended — sell it).
+	bg.modulate.a = 0.0
+	var bg_tw := bg.create_tween()
+	bg_tw.tween_property(bg, "modulate:a", 1.0, UiSkin.DUR_MED)
+	card.pivot_offset = Vector2(400, 300)
+	card.scale = Vector2(0.90, 0.90)
+	card.modulate.a = 0.0
+	var card_tw := card.create_tween()
+	card_tw.set_parallel(true)
+	card_tw.tween_property(card, "modulate:a", 1.0, UiSkin.DUR_MED)
+	card_tw.tween_property(card, "scale", Vector2.ONE, UiSkin.DUR_SLOW) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 	var pad := MarginContainer.new()
 	pad.add_theme_constant_override("margin_left", 32)
