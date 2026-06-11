@@ -3466,7 +3466,8 @@ func _select_character(cd: CharacterData, ui: CanvasLayer) -> void:
 					s.play_ui("ui.pick")
 				if toast_layer != null:
 					toast_layer.show_toast("Unlocked: %s • %s" % [rarity, cd.archetype_id], col)
-				_close_draft(ui)
+				# Offer immediate deployment (swap or free slot) for this run.
+				_show_swap_prompt(cd, ui)
 				return
 		
 		# If not new, try to merge as duplicate (upgrade existing character!)
@@ -3492,6 +3493,174 @@ func _select_character(cd: CharacterData, ui: CanvasLayer) -> void:
 		if toast_layer != null:
 			toast_layer.show_toast("Already maxed: %s" % cd.archetype_id, Color(0.7, 0.8, 0.9, 1.0))
 	_close_draft(ui)
+
+func _show_swap_prompt(cd: CharacterData, ui: CanvasLayer) -> void:
+	# After unlocking, let the player field the recruit right now:
+	# free slot -> deploy directly; full squad -> swap out a member for this run.
+	var player := get_tree().get_first_node_in_group("player")
+	if player == null or not is_instance_valid(player) or not player.has_method("replace_squad_unit"):
+		_close_draft(ui)
+		return
+
+	var squad: Array = []
+	if "squad_units" in player:
+		for u in (player.get("squad_units") as Array):
+			if is_instance_valid(u):
+				squad.append(u)
+
+	var cap := 6
+	var mp := get_node_or_null("/root/MetaProgression")
+	if mp and is_instance_valid(mp) and mp.has_method("get_squad_slots"):
+		cap = int(mp.get_squad_slots())
+	var has_free_slot := squad.size() < cap
+
+	if ui.has_node("SwapPrompt"):
+		ui.get_node("SwapPrompt").queue_free()
+	var layer := CanvasLayer.new()
+	layer.name = "SwapPrompt"
+	layer.layer = 112
+	layer.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	ui.add_child(layer)
+
+	var dim := ColorRect.new()
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(UiSkin.BACKDROP_DIM.r, UiSkin.BACKDROP_DIM.g, UiSkin.BACKDROP_DIM.b, 0.5)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(dim)
+
+	var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	var rows := squad.size() + (1 if has_free_slot else 0)
+	var half := Vector2(280.0, clampf(110.0 + 22.0 * float(rows), 150.0, 330.0))
+	panel.offset_left = -half.x
+	panel.offset_right = half.x
+	panel.offset_top = -half.y
+	panel.offset_bottom = half.y
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(rarity_col))
+	layer.add_child(panel)
+
+	panel.pivot_offset = half
+	panel.scale = Vector2(0.94, 0.94)
+	panel.modulate.a = 0.0
+	var tw := panel.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(panel, "modulate:a", 1.0, UiSkin.DUR_FAST)
+	tw.tween_property(panel, "scale", Vector2.ONE, UiSkin.DUR_MED) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", UiSkin.SPACE_LG)
+	pad.add_theme_constant_override("margin_right", UiSkin.SPACE_LG)
+	pad.add_theme_constant_override("margin_top", UiSkin.SPACE_LG)
+	pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_LG)
+	panel.add_child(pad)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	pad.add_child(v)
+
+	var title := Label.new()
+	title.text = "Deploy %s now?" % cd.archetype_id.capitalize()
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_label(title, UiSkin.FONT_H3, rarity_col)
+	v.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "It's saved to your Collection either way."
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_label(sub, UiSkin.FONT_XS, UiSkin.TEXT_DIM)
+	v.add_child(sub)
+
+	var tiers_before := _capture_set_tiers()
+
+	if has_free_slot:
+		var deploy := Button.new()
+		deploy.text = "Deploy Now (free slot)"
+		deploy.custom_minimum_size = Vector2(0, UiSkin.BUTTON_HEIGHT)
+		UiSkin.style_primary_button(deploy, rarity_col)
+		deploy.pressed.connect(func():
+			if player.has_method("add_squad_unit"):
+				player.add_squad_unit(cd)
+			if toast_layer != null:
+				toast_layer.show_toast("Deployed: %s" % cd.archetype_id, rarity_col)
+			_announce_new_set_tiers(tiers_before, cd)
+			layer.queue_free()
+			_close_draft(ui)
+		)
+		v.add_child(deploy)
+
+	if not squad.is_empty():
+		var swap_hint := Label.new()
+		swap_hint.text = "— or swap out a squad member —"
+		swap_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		UiSkin.style_label(swap_hint, UiSkin.FONT_XS, UiSkin.TEXT_DIM)
+		v.add_child(swap_hint)
+
+	for u in squad:
+		var ucd := (u as Node).get("character_data") as CharacterData
+		if ucd == null:
+			continue
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+		v.add_child(row)
+
+		var nm := Label.new()
+		var hp_pct := 100
+		if (u as Node).has_method("get_hp_ratio"):
+			hp_pct = int(round(float((u as Node).call("get_hp_ratio")) * 100.0))
+		nm.text = "%s  •  %s  •  %d%% HP" % [ucd.archetype_id.capitalize(), String(ucd.race_id).capitalize(), hp_pct]
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UiSkin.style_label(nm, UiSkin.FONT_SM, UiSkin.race_color(String(ucd.race_id)))
+		row.add_child(nm)
+
+		var swap_btn := Button.new()
+		swap_btn.text = "Swap"
+		swap_btn.custom_minimum_size = Vector2(86, 32)
+		UiSkin.style_secondary_button(swap_btn, UiSkin.ACCENT_GOLD)
+		var swap_target: Node2D = u
+		swap_btn.pressed.connect(func():
+			var out_name := ucd.archetype_id.capitalize()
+			if bool(player.call("replace_squad_unit", swap_target, cd)):
+				var s2 := get_node_or_null("/root/SfxSystem")
+				if s2 and is_instance_valid(s2) and s2.has_method("play_ui"):
+					s2.play_ui("ui.pick")
+				if toast_layer != null:
+					toast_layer.show_toast("Deployed: %s  (benched %s)" % [cd.archetype_id.capitalize(), out_name], rarity_col)
+				_announce_new_set_tiers(tiers_before, cd)
+			layer.queue_free()
+			_close_draft(ui)
+		)
+		row.add_child(swap_btn)
+
+	var keep := Button.new()
+	keep.text = "Save for Later"
+	keep.custom_minimum_size = Vector2(0, UiSkin.BUTTON_HEIGHT)
+	UiSkin.style_secondary_button(keep)
+	keep.pressed.connect(func():
+		layer.queue_free()
+		_close_draft(ui)
+	)
+	v.add_child(keep)
+
+func _capture_set_tiers() -> Dictionary:
+	var out: Dictionary = {}
+	for a in SynergySystem.get_active_synergies():
+		out[String(a.get("id", ""))] = int(a.get("tier", 0))
+	return out
+
+func _announce_new_set_tiers(before: Dictionary, _cd: CharacterData) -> void:
+	# Celebrate any set tier that activated/upgraded due to the squad change.
+	for a in SynergySystem.get_active_synergies():
+		var id := String(a.get("id", ""))
+		var tier := int(a.get("tier", 0))
+		if tier > int(before.get(id, 0)):
+			if toast_layer != null:
+				toast_layer.show_toast("SET ACTIVE: %s ★%d" % [String(a.get("name", "")), tier], UiSkin.ACCENT_GOLD)
+			var s := get_node_or_null("/root/SfxSystem")
+			if s and is_instance_valid(s) and s.has_method("play_ui"):
+				s.play_ui("ui.levelup")
 
 func _close_draft(ui: Node) -> void:
 	if ui:

@@ -146,6 +146,19 @@ func add_squad_unit(character_data: CharacterData) -> void:
 	_spawn_squad_unit(character_data, offset)
 	_refresh_synergies()
 
+func replace_squad_unit(old_unit: Node2D, new_cd: CharacterData) -> bool:
+	# Mid-run reinforcement: swap a live squad member for a drafted recruit.
+	var idx := squad_units.find(old_unit)
+	if idx < 0 or new_cd == null:
+		return false
+	var offset := formation_offsets[idx] if idx < formation_offsets.size() else Vector2.ZERO
+	squad_units.remove_at(idx)
+	if is_instance_valid(old_unit):
+		old_unit.queue_free()
+	_spawn_squad_unit(new_cd, offset)
+	_refresh_synergies()
+	return true
+
 func _refresh_synergies() -> void:
 	var cds: Array = []
 	for u in squad_units:
