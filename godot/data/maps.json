@@ -108,7 +108,7 @@
         "atmo_density": 1.0,
         "atmo_scale": 0.008,
         "atmo_speed": 0.15,
-        "bg_image_path": "res://assets/maps/ChatGPT Image May 28, 2026, 09_01_37 PM-creative-upscaler.png",
+        "bg_image_path": "res://assets/maps/forest_map.webp",
         "bg_image_alpha": 0.92
       },
       "enemy_hp_mult": 0.95,
@@ -389,7 +389,7 @@
         "atmo_density": 0.6,
         "atmo_scale": 0.008,
         "atmo_speed": 0.12,
-        "bg_image_path": "res://assets/maps/ChatGPT Image May 28, 2026, 09_01_37 PM-creative-upscaler.png",
+        "bg_image_path": "res://assets/maps/forest_map.webp",
         "bg_image_alpha": 1.0,
         "bg_image_ground_alpha": 0.0
       },
@@ -460,7 +460,7 @@
         "atmo_density": 0.65,
         "atmo_scale": 0.007,
         "atmo_speed": 0.14,
-        "bg_image_path": "res://assets/maps/robot map.png",
+        "bg_image_path": "res://assets/maps/robot_map.webp",
         "bg_image_alpha": 1.0,
         "bg_image_ground_alpha": 0.0
       },
@@ -545,7 +545,7 @@
         "atmo_density": 0.70,
         "atmo_scale": 0.007,
         "atmo_speed": 0.14,
-        "bg_image_path": "res://assets/maps/angelic.png",
+        "bg_image_path": "res://assets/maps/angelic.webp",
         "bg_image_alpha": 1.0,
         "bg_image_ground_alpha": 0.0
       },

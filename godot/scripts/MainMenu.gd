@@ -1114,10 +1114,67 @@ func _start_run_with_selected_map() -> void:
 		return
 	var rc := get_node_or_null("/root/RunConfig")
 	var mid := ""
+	var m: Dictionary = {}
 	if rc != null and is_instance_valid(rc):
 		mid = String(rc.get("selected_map_id"))
+		if rc.has_method("get_selected_map"):
+			m = rc.get_selected_map() as Dictionary
 	print("DEPLOY_TRACE click map=%s t_ms=%d" % [mid, int(Time.get_ticks_msec())])
+	_show_deploy_overlay(m)
+	# Let the overlay paint before the scene build blocks the main thread.
+	await get_tree().process_frame
+	await get_tree().process_frame
 	get_tree().change_scene_to_packed(MAIN_SCENE)
+
+func _show_deploy_overlay(m: Dictionary) -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 200
+	add_child(layer)
+
+	var bg := ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.015, 0.025, 0.045, 1.0)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(bg)
+
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_CENTER)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", UiSkin.SPACE_MD)
+	v.offset_left = -360
+	v.offset_right = 360
+	v.offset_top = -120
+	v.offset_bottom = 120
+	layer.add_child(v)
+
+	var deploying := Label.new()
+	deploying.text = "— DEPLOYING —"
+	deploying.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_label(deploying, UiSkin.FONT_SM, UiSkin.ACCENT)
+	v.add_child(deploying)
+
+	var map_name := Label.new()
+	map_name.text = String(m.get("display_name", "UNKNOWN ZONE")).to_upper()
+	map_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_label(map_name, UiSkin.FONT_H1, UiSkin.TEXT)
+	v.add_child(map_name)
+
+	var races := _races_bbcode(m)
+	if races != "":
+		var races_rt := RichTextLabel.new()
+		races_rt.bbcode_enabled = true
+		races_rt.fit_content = true
+		races_rt.scroll_active = false
+		races_rt.text = "[center]%s[/center]" % races
+		races_rt.add_theme_font_size_override("normal_font_size", UiSkin.FONT_LEAD)
+		races_rt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(races_rt)
+
+	var hint := Label.new()
+	hint.text = "Stabilizing combat zone..."
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_label(hint, UiSkin.FONT_XS, UiSkin.TEXT_DIM)
+	v.add_child(hint)
 
 func _is_map_unlocked(map_id: String) -> bool:
 	var rc := get_node_or_null("/root/RunConfig")

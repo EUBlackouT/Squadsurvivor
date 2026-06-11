@@ -54,12 +54,34 @@ func _run() -> void:
 	print("DRAFT_SMOKE unlock=%d details=%d chips=%d -> %s" % [
 		unlock_buttons, detail_buttons, chips, "OK" if ok else "FAIL"])
 
+	# Banish buttons: one per card.
+	var banish_buttons := 0
+	var stack2: Array = [draft]
+	while not stack2.is_empty():
+		var n2: Node = stack2.pop_back()
+		for c2 in n2.get_children():
+			stack2.append(c2)
+		if n2 is Button and (n2 as Button).text.begins_with("↻"):
+			banish_buttons += 1
+	var banish_ok := banish_buttons == 3
+	print("DRAFT_SMOKE banish_buttons=%d -> %s" % [banish_buttons, "OK" if banish_ok else "FAIL"])
+	ok = ok and banish_ok
+
 	# Swap prompt: fabricate a recruit and verify deploy/swap flow end-to-end.
 	var swap_ok := await _check_swap_prompt(main, draft)
 	print("DRAFT_SMOKE swap_prompt -> %s" % ("OK" if swap_ok else "FAIL"))
 
+	# Squad strip: HUD shows one chip per live member (updates while unpaused).
 	paused = false
-	quit(0 if (ok and swap_ok) else 1)
+	for _i in range(25):
+		await process_frame
+	var strip := main.get_node_or_null("HUD/SquadStrip")
+	var squad_n := get_nodes_in_group("squad_units").size()
+	var strip_n := strip.get_child_count() if strip != null else -1
+	var strip_ok := strip != null and strip_n == squad_n and squad_n > 0
+	print("DRAFT_SMOKE squad_strip chips=%d squad=%d -> %s" % [strip_n, squad_n, "OK" if strip_ok else "FAIL"])
+
+	quit(0 if (ok and swap_ok and strip_ok) else 1)
 
 func _check_swap_prompt(main: Node, draft: Node) -> bool:
 	var rng := RandomNumberGenerator.new()

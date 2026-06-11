@@ -68,6 +68,7 @@ var live_squad_units: Array[Node2D] = []
 # Recruit/trophy flow
 var essence: int = 0
 var reroll_cost_essence: int = 3
+var banish_cost_essence: int = 1
 var _recent_trophy_pool: Array[CharacterData] = []
 var _force_rift_next_draft: bool = false
 
@@ -3336,6 +3337,17 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	var btn_row := HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 8)
 	v.add_child(btn_row)
+
+	# Banish: replace just this card for 1 essence (cheaper, surgical reroll).
+	var banish := Button.new()
+	banish.text = "↻ %d✧" % banish_cost_essence
+	banish.tooltip_text = "Banish: replace only this card (%d Essence)" % banish_cost_essence
+	banish.custom_minimum_size = Vector2(64, 40)
+	banish.add_theme_font_size_override("font_size", 14)
+	UiSkin.style_secondary_button(banish, UiSkin.ACCENT_GOLD)
+	btn_row.add_child(banish)
+	banish.pressed.connect(func(): _banish_draft_card(card, ui))
+
 	btn_row.add_spacer(true)
 
 	var details := Button.new()
@@ -3355,6 +3367,33 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	unlock.pressed.connect(func(): _select_character(cd, ui))
 
 	return card
+
+func _banish_draft_card(card: Control, ui: CanvasLayer) -> void:
+	var s := get_node_or_null("/root/SfxSystem")
+	if essence < banish_cost_essence:
+		if s and s.has_method("play_ui"):
+			s.play_ui("ui.error")
+		return
+	var replacement := _roll_recruit_for_current_map(_elapsed_minutes() + 2.0, 24)
+	if replacement == null:
+		return
+	essence -= banish_cost_essence
+	if s and s.has_method("play_ui"):
+		s.play_ui("ui.reroll")
+
+	var parent := card.get_parent()
+	var idx := card.get_index()
+	var new_card := _create_character_card(replacement, ui)
+	parent.add_child(new_card)
+	parent.move_child(new_card, idx)
+	card.queue_free()
+	new_card.modulate.a = 0.0
+	var tw := new_card.create_tween()
+	tw.tween_property(new_card, "modulate:a", 1.0, UiSkin.DUR_MED)
+
+	var info := ui.find_child("InfoLabel", true, false) as Label
+	if info != null:
+		info.text = "✧ Essence: %d   (Reroll costs %d)" % [essence, reroll_cost_essence]
 
 func _show_character_details(cd: CharacterData, ui: CanvasLayer) -> void:
 	if ui.has_node("CharacterDetails"):
@@ -3754,10 +3793,96 @@ func _setup_hud() -> void:
 	perf_chip.visible = false
 	container.add_child(perf_chip)
 	
+	# Squad health strip (bottom-left): one race-colored chip per member.
+	var strip := HBoxContainer.new()
+	strip.name = "SquadStrip"
+	strip.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	strip.grow_horizontal = Control.GROW_DIRECTION_END
+	strip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	strip.offset_left = 12
+	strip.offset_bottom = -12
+	strip.add_theme_constant_override("separation", UiSkin.SPACE_XS)
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(strip)
+
 	# Passive overlay panel (shown when holding TAB)
 	_create_passive_overlay(hud)
 
 var _passive_overlay: PanelContainer = null
+var _squad_strip_sig: String = ""
+
+func _update_squad_strip() -> void:
+	var strip := get_node_or_null("HUD/SquadStrip") as HBoxContainer
+	if strip == null:
+		return
+
+	var sig := ""
+	for u in live_squad_units:
+		if is_instance_valid(u):
+			sig += str(u.get_instance_id()) + ","
+	if sig != _squad_strip_sig:
+		_squad_strip_sig = sig
+		for c in strip.get_children():
+			c.queue_free()
+		for u in live_squad_units:
+			if not is_instance_valid(u):
+				continue
+			var cd := (u as Node).get("character_data") as CharacterData
+			if cd == null:
+				continue
+			var rcol := UiSkin.race_color(String(cd.race_id))
+			var chip := PanelContainer.new()
+			chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			chip.add_theme_stylebox_override("panel", UiSkin.chip_style(rcol))
+			chip.set_meta("unit_id", u.get_instance_id())
+			strip.add_child(chip)
+
+			var vb := VBoxContainer.new()
+			vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			vb.add_theme_constant_override("separation", 3)
+			chip.add_child(vb)
+
+			var nm := Label.new()
+			nm.text = cd.archetype_id.capitalize()
+			nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			UiSkin.style_label(nm, UiSkin.FONT_XS, rcol)
+			vb.add_child(nm)
+
+			var bar := ProgressBar.new()
+			bar.name = "HpBar"
+			bar.show_percentage = false
+			bar.custom_minimum_size = Vector2(86, 6)
+			bar.max_value = 1.0
+			bar.value = 1.0
+			bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var bg_sb := StyleBoxFlat.new()
+			bg_sb.bg_color = Color(0.05, 0.08, 0.12, 0.85)
+			bg_sb.set_corner_radius_all(3)
+			bar.add_theme_stylebox_override("background", bg_sb)
+			var fill_sb := StyleBoxFlat.new()
+			fill_sb.bg_color = rcol
+			fill_sb.set_corner_radius_all(3)
+			bar.add_theme_stylebox_override("fill", fill_sb)
+			vb.add_child(bar)
+
+	# Refresh HP values on existing chips.
+	var by_id: Dictionary = {}
+	for u2 in live_squad_units:
+		if is_instance_valid(u2):
+			by_id[u2.get_instance_id()] = u2
+	for chip2 in strip.get_children():
+		var uid: int = int((chip2 as Node).get_meta("unit_id", 0))
+		if not by_id.has(uid):
+			continue
+		var unit: Node = by_id[uid]
+		var bar2 := (chip2 as Node).find_child("HpBar", true, false) as ProgressBar
+		if bar2 == null or not unit.has_method("get_hp_ratio"):
+			continue
+		var r := float(unit.call("get_hp_ratio"))
+		bar2.value = r
+		# Low-HP flash so endangered members read at a glance.
+		(chip2 as CanvasItem).modulate = Color(1, 1, 1, 1) if r > 0.35 else Color(1.0, 0.55, 0.55, 1.0)
+	strip.visible = not live_squad_units.is_empty()
 
 func _create_passive_overlay(hud: CanvasLayer) -> void:
 	_passive_overlay = PanelContainer.new()
@@ -4057,12 +4182,28 @@ func _synergy_tier_color(tier: int) -> Color:
 		4: return Color(1.0, 0.55, 0.85, 1.0)   # Diamond/pink
 		_: return Color(0.8, 0.8, 0.8, 1.0)
 
-func _update_hud_labels() -> void:
-	var hud := get_node_or_null("HUD/HUDPanel/HUDVBox") as VBoxContainer
+var _hud_label_cache: Dictionary = {}
+
+func _hud_label(label_name: String) -> Label:
+	# Labels live inside chip panels; resolve recursively and cache.
+	var cached: Variant = _hud_label_cache.get(label_name)
+	if cached is Label and is_instance_valid(cached):
+		return cached as Label
+	var hud := get_node_or_null("HUD")
 	if hud == null:
+		return null
+	var l := hud.find_child(label_name, true, false) as Label
+	if l != null:
+		_hud_label_cache[label_name] = l
+	return l
+
+func _update_hud_labels() -> void:
+	if get_node_or_null("HUD") == null:
 		return
 
-	var t := get_node_or_null("HUD/HUDPanel/HUDVBox/TopRow/RunTimerLabel") as Label
+	_update_squad_strip()
+
+	var t := _hud_label("RunTimerLabel")
 	if t:
 		var secs := int(round(((Time.get_ticks_msec() / 1000.0) - run_start_time)))
 		var mm := int(secs / 60)
@@ -4071,7 +4212,17 @@ func _update_hud_labels() -> void:
 		if t.get_parent() is CanvasItem:
 			(t.get_parent() as CanvasItem).visible = true
 
-	var b := get_node_or_null("HUD/HUDPanel/HUDVBox/BossLabel") as Label
+	var f := _hud_label("FormationLabel")
+	if f:
+		var fp := get_tree().get_first_node_in_group("player")
+		if fp != null and is_instance_valid(fp):
+			var fm_names: Array[String] = ["TIGHT", "SPREAD", "WEDGE", "RING"]
+			var tm_names: Array[String] = ["NEAREST", "LOWEST HP", "ELITES FIRST"]
+			var fm := clampi(int(fp.get("_formation_mode")), 0, fm_names.size() - 1)
+			var tm := clampi(int(fp.get("_target_mode")), 0, tm_names.size() - 1)
+			f.text = "Formation: %s   Tactics: %s   (1-4 / T)" % [fm_names[fm], tm_names[tm]]
+
+	var b := _hud_label("BossLabel")
 	if b:
 		if _boss_node and is_instance_valid(_boss_node) and _boss_node.has_method("get_hp_ratio"):
 			var r := float(_boss_node.get_hp_ratio())
@@ -4083,7 +4234,7 @@ func _update_hud_labels() -> void:
 			if b.get_parent() is CanvasItem:
 				(b.get_parent() as CanvasItem).visible = false
 
-	var o := get_node_or_null("HUD/HUDPanel/HUDVBox/ObjectiveLabel") as Label
+	var o := _hud_label("ObjectiveLabel")
 	if o:
 		var now_s := int(round(((Time.get_ticks_msec() / 1000.0) - run_start_time)))
 		var now_m := float(now_s) / 60.0
@@ -4112,14 +4263,14 @@ func _update_hud_labels() -> void:
 			txt += "  Next surge in %d:%02d." % [int(dt_s / 60), int(dt_s % 60)]
 		o.text = txt
 
-	var s := get_node_or_null("HUD/HUDPanel/HUDVBox/SynergyLabel") as Label
+	var s := _hud_label("SynergyLabel")
 	if s:
 		s.text = SynergySystem.summary_text()
 		if s.get_parent() is CanvasItem:
 			# Always show when sets are active; the player should feel their build.
 			(s.get_parent() as CanvasItem).visible = debug_hud_enabled or not SynergySystem.get_active_synergies().is_empty()
 
-	var cmd := get_node_or_null("HUD/HUDPanel/HUDVBox/CommandLabel") as Label
+	var cmd := _hud_label("CommandLabel")
 	if cmd:
 		var focus_txt := "Focus: —"
 		var ft := get_focus_target()
@@ -4144,7 +4295,7 @@ func _update_hud_labels() -> void:
 		cmd.visible = debug_hud_enabled
 
 	# Debug: count collision shapes / particles to confirm source of circles.
-	var dbg := get_node_or_null("HUD/HUDPanel/HUDVBox/DebugLabel") as Label
+	var dbg := _hud_label("DebugLabel")
 	if dbg:
 		if not debug_hud_enabled:
 			dbg.text = ""
@@ -4174,7 +4325,7 @@ func _update_hud_labels() -> void:
 			if dbg.get_parent() is CanvasItem:
 				(dbg.get_parent() as CanvasItem).visible = true
 
-	var perf := get_node_or_null("HUD/HUDPanel/HUDVBox/PerfLabel") as Label
+	var perf := _hud_label("PerfLabel")
 	if perf:
 		if not debug_perf_overlay_enabled:
 			perf.text = ""
