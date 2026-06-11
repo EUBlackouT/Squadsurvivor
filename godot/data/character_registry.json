@@ -209,7 +209,7 @@
       "class_type": "GUARDIAN",
       "rarity_id": "rare",
       "archetype_id": "bruiser",
-      "folder": "robot_elite",
+      "folder": "machines/robot_elite",
       "weapon_id": "beam",
       "passive_ids": [
         "overload"
