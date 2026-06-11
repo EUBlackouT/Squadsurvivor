@@ -256,6 +256,7 @@ func _ready() -> void:
 	_spawn_player()
 	_spawn_map_shrines()
 	call_deferred("_spawn_initial_enemies_deferred")
+	call_deferred("_announce_active_synergies")
 	_perf_boot_mark("spawn player/shrines/initial enemies")
 	if enable_rifts:
 		_spawn_rifts()
@@ -876,6 +877,19 @@ func _spawn_player() -> void:
 		var cam := p.get_node("Camera2D") as Camera2D
 		if cam:
 			_player_cam_ref = cam
+
+func _announce_active_synergies() -> void:
+	# Run-start callout so the player feels their squad build immediately.
+	await get_tree().create_timer(1.4).timeout
+	if _game_over or _victory or toast_layer == null:
+		return
+	var active := SynergySystem.get_active_synergies()
+	if active.is_empty():
+		return
+	var parts: Array[String] = []
+	for a in active:
+		parts.append("%s ★%d" % [String(a.get("name", "")), int(a.get("tier", 0))])
+	toast_layer.show_toast("Active Sets: %s" % "  •  ".join(parts), UiSkin.ACCENT_PURPLE)
 
 func _spawn_initial_enemies() -> void:
 	var mult := float(_map_mod.get("initial_enemies_mult", 1.0))
@@ -3160,6 +3174,41 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	ident_row.add_child(UiComponents.chip(origin_name.capitalize(), UiSkin.ACCENT, UiSkin.FONT_XS))
 	ident_row.add_child(UiComponents.chip(_draft_class_name(cd.class_type).capitalize(), UiSkin.ACCENT_PURPLE, UiSkin.FONT_XS))
 
+	# Set progress: show which squad sets this recruit advances (race sets first).
+	var syn_states := SynergySystem.synergy_states_for_cd(cd)
+	if not syn_states.is_empty():
+		syn_states.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var ar := String(a.get("count_tag", "")).begins_with("race:")
+			var br := String(b.get("count_tag", "")).begins_with("race:")
+			if ar != br:
+				return ar
+			return int(a.get("count", 0)) > int(b.get("count", 0))
+		)
+		var syn_lines: Array[String] = []
+		for st in syn_states:
+			if syn_lines.size() >= 2:
+				break
+			var syn_nm := String(st.get("name", ""))
+			var syn_c := int(st.get("count", 0))
+			var next_n := int(st.get("next_tier_count", 0))
+			var tier_n := int(st.get("tier_count", 0))
+			if next_n > 0 and syn_c + 1 >= next_n:
+				syn_lines.append("[color=#ffd973]⬆ %s set %d/%d — COMPLETES[/color]" % [syn_nm, syn_c + 1, next_n])
+			elif next_n > 0:
+				syn_lines.append("[color=#9eb0c4]%s set %d/%d[/color]" % [syn_nm, syn_c + 1, next_n])
+			elif tier_n > 0:
+				syn_lines.append("[color=#9eb0c4]%s set maxed[/color]" % syn_nm)
+		if not syn_lines.is_empty():
+			var syn_rt := RichTextLabel.new()
+			syn_rt.bbcode_enabled = true
+			syn_rt.fit_content = true
+			syn_rt.scroll_active = false
+			syn_rt.mouse_filter = Control.MOUSE_FILTER_PASS
+			syn_rt.add_theme_font_size_override("normal_font_size", UiSkin.FONT_XS)
+			syn_rt.text = "[center]%s[/center]" % "\n".join(syn_lines)
+			syn_rt.tooltip_text = "Squad sets grant bonuses at 2 and 4 members.\nCounts compare against your current squad; field this recruit from the Collection before your next deploy."
+			v.add_child(syn_rt)
+
 	# Portrait (PixelLab south rotation)
 	var portrait_frame := PanelContainer.new()
 	portrait_frame.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, false))
@@ -3898,7 +3947,8 @@ func _update_hud_labels() -> void:
 	if s:
 		s.text = SynergySystem.summary_text()
 		if s.get_parent() is CanvasItem:
-			(s.get_parent() as CanvasItem).visible = debug_hud_enabled
+			# Always show when sets are active; the player should feel their build.
+			(s.get_parent() as CanvasItem).visible = debug_hud_enabled or not SynergySystem.get_active_synergies().is_empty()
 
 	var cmd := get_node_or_null("HUD/HUDPanel/HUDVBox/CommandLabel") as Label
 	if cmd:
