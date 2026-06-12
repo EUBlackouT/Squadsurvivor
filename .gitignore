@@ -14,6 +14,14 @@ godot/**/*.import
 # Paid/third-party packs (do not commit)
 godot/PolyBlocks/
 godot/assets/vfx/effectblocks/
+godot/assets/third_party/kokoro/
+godot/cathedral/
+godot/gothic/
+godot/eldun_fwew/
+
+# Local bake previews
+scratch/
+scripts/__pycache__/
 
 # Logs / temp
 *.log
