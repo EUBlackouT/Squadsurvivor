@@ -43,9 +43,9 @@ func _run() -> void:
 			stack.append(c)
 		if n is Button:
 			var bt := (n as Button).text
-			if bt == "Unlock":
+			if bt == "RECRUIT":
 				unlock_buttons += 1
-			elif bt == "Details":
+			elif bt == "DETAILS":
 				detail_buttons += 1
 		elif n is PanelContainer and (n as PanelContainer).get_parent() is HFlowContainer:
 			chips += 1
@@ -61,7 +61,7 @@ func _run() -> void:
 		var n2: Node = stack2.pop_back()
 		for c2 in n2.get_children():
 			stack2.append(c2)
-		if n2 is Button and (n2 as Button).text.begins_with("↻"):
+		if n2 is Button and (n2 as Button).text.begins_with("↻ BANISH"):
 			banish_buttons += 1
 	var banish_ok := banish_buttons == 3
 	print("DRAFT_SMOKE banish_buttons=%d -> %s" % [banish_buttons, "OK" if banish_ok else "FAIL"])

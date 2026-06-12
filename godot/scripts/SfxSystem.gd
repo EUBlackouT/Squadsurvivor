@@ -25,24 +25,46 @@ var _event_cfg: Dictionary = {}
 var _last_global_ms: Dictionary = {} # event_id -> int
 var _last_emitter_ms: Dictionary = {} # emitterKey|event_id -> int
 
+var _streams_ready: bool = false
+var _streams_thread: Thread = null
+
 func _ready() -> void:
 	var t0_us := int(Time.get_ticks_usec())
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_build_streams()
-	var t_streams_us := int(Time.get_ticks_usec())
 	_build_event_cfg()
-	var t_cfg_us := int(Time.get_ticks_usec())
 	_build_pool()
-	var t_pool_us := int(Time.get_ticks_usec())
-	print("SFX_BOOT_TRACE streams_ms=%.2f cfg_ms=%.2f pool_ms=%.2f total_ms=%.2f streams=%d variants=%d voices=%d external=%s" % [
-		float(t_streams_us - t0_us) / 1000.0,
-		float(t_cfg_us - t_streams_us) / 1000.0,
-		float(t_pool_us - t_cfg_us) / 1000.0,
-		float(t_pool_us - t0_us) / 1000.0,
-		_streams.size(), _stream_variants.size(), _pool.size(), ("1" if use_external_library else "0")
+	var t_main_us := int(Time.get_ticks_usec())
+	# Stream synthesis is pure CPU work (~200ms): run it off-thread so the
+	# game window never blocks white at boot. SFX simply stay silent until ready.
+	_streams_thread = Thread.new()
+	_streams_thread.start(_thread_build_streams)
+	print("SFX_BOOT_TRACE main_ms=%.2f (streams building in background) voices=%d external=%s" % [
+		float(t_main_us - t0_us) / 1000.0, _pool.size(), ("1" if use_external_library else "0")
 	])
 
+func _thread_build_streams() -> void:
+	var t0_us := int(Time.get_ticks_usec())
+	_build_streams()
+	var ms := float(int(Time.get_ticks_usec()) - t0_us) / 1000.0
+	call_deferred("_on_streams_built", ms)
+
+func _on_streams_built(ms: float) -> void:
+	if _streams_thread != null:
+		_streams_thread.wait_to_finish()
+		_streams_thread = null
+	_streams_ready = true
+	print("SFX_BOOT_TRACE streams_ms=%.2f streams=%d variants=%d (threaded)" % [
+		ms, _streams.size(), _stream_variants.size()
+	])
+
+func _exit_tree() -> void:
+	if _streams_thread != null:
+		_streams_thread.wait_to_finish()
+		_streams_thread = null
+
 func play_2d(id: String, world_pos: Vector2, gain_db: float = 0.0, pitch: float = 1.0, pitch_jitter: float = -1.0) -> void:
+	if not _streams_ready:
+		return
 	if not _streams.has(id):
 		return
 	if _pool.is_empty():

@@ -53,8 +53,6 @@ const TILE_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TileMapWorld.gd")
 const TMX_MAP_WORLD_SCRIPT: Script = preload("res://scripts/TmxMapWorld.gd")
 const METADATA_MAP_WORLD_SCRIPT: Script = preload("res://scripts/MetadataMapWorld.gd")
 const VFX_ARC_SCENE: PackedScene = preload("res://scenes/VfxArcLightning.tscn")
-const DRAFT_BG_TEXTURE: Texture2D = preload("res://assets/ui/revamp/draft_bg.png")
-
 var damage_numbers: Node = null
 var toast_layer: ToastLayer
 
@@ -720,6 +718,15 @@ func _load_map_bg_texture(path: String) -> Texture2D:
 	# Fast path: use Godot imported resource for res:// assets.
 	# This avoids expensive raw PNG decode during boot.
 	if path.begins_with("res://") and ResourceLoader.exists(path):
+		# The menu kicks off a threaded load at Deploy click; collect it here
+		# so the decode ran in parallel with scene instantiation.
+		var st := ResourceLoader.load_threaded_get_status(path)
+		if st == ResourceLoader.THREAD_LOAD_IN_PROGRESS or st == ResourceLoader.THREAD_LOAD_LOADED:
+			var th_tex: Resource = ResourceLoader.load_threaded_get(path)
+			if th_tex is Texture2D:
+				var tt := th_tex as Texture2D
+				_map_bg_texture_cache[path] = tt
+				return tt
 		var res_tex: Resource = ResourceLoader.load(path)
 		if res_tex is Texture2D:
 			var t2 := res_tex as Texture2D
@@ -2261,9 +2268,12 @@ func _warm_enemy_visuals_startup() -> void:
 	var target := mini(_enemy_visual_pool.size(), _enemy_startup_warm_count())
 	if target <= 0:
 		target = mini(_enemy_visual_pool.size(), 1)
+	# Block only for a small starter set so the window never goes "not responding";
+	# the rest streams in one visual per frame below.
+	var sync_target := mini(target, 6)
 	var warmed := 0
 	for p in _enemy_visual_pool:
-		if _enemy_visual_ready.size() >= target:
+		if _enemy_visual_ready.size() >= sync_target:
 			break
 		var path := String(p)
 		if bool(_enemy_visual_warmed.get(path, false)):
@@ -2275,6 +2285,32 @@ func _warm_enemy_visuals_startup() -> void:
 	if perf_trace_enabled and warmed > 0:
 		print("SPAWN_VISUAL_STARTUP_WARM warmed=%d ready=%d/%d target=%d map=%s" % [
 			warmed, _enemy_visual_ready.size(), _enemy_visual_pool.size(), target, String(_map_mod.get("id", "unknown"))
+		])
+	if _enemy_visual_ready.size() < target:
+		_warm_enemy_visuals_streamed(target)
+
+func _warm_enemy_visuals_streamed(target: int) -> void:
+	# One visual per frame keeps the main thread responsive while the pool fills.
+	var warmed := 0
+	while _enemy_visual_ready.size() < target:
+		await get_tree().process_frame
+		if not is_inside_tree():
+			return
+		var next_path := ""
+		for p in _enemy_visual_pool:
+			var path := String(p)
+			if not bool(_enemy_visual_warmed.get(path, false)):
+				next_path = path
+				break
+		if next_path == "":
+			break
+		PixellabUtil.walk_frames_from_south_path(next_path)
+		_enemy_visual_warmed[next_path] = true
+		_enemy_visual_ready.append(next_path)
+		warmed += 1
+	if perf_trace_enabled and warmed > 0:
+		print("SPAWN_VISUAL_STREAM_WARM warmed=%d ready=%d/%d map=%s" % [
+			warmed, _enemy_visual_ready.size(), _enemy_visual_pool.size(), String(_map_mod.get("id", "unknown"))
 		])
 
 func _warm_enemy_visuals_incremental() -> void:
@@ -2827,27 +2863,16 @@ func _roll_draft_drop(is_elite: bool, was_boss: bool) -> void:
 func _show_recruit_draft() -> void:
 	if has_node("RecruitDraftUI"):
 		return
+	# Full-screen takeover: the draft owns the whole frame, no centered modal.
 	var draft_ui := CanvasLayer.new()
 	draft_ui.name = "RecruitDraftUI"
 	draft_ui.layer = 100
 	draft_ui.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	add_child(draft_ui)
 
-	# Background art for the draft screen.
-	if DRAFT_BG_TEXTURE != null:
-		var draft_bg := TextureRect.new()
-		draft_bg.name = "DraftBgArt"
-		draft_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		draft_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		draft_bg.texture = DRAFT_BG_TEXTURE
-		draft_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		draft_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		draft_bg.modulate = Color(1, 1, 1, 0.95)
-		draft_ui.add_child(draft_bg)
-
 	var backdrop := ColorRect.new()
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = Color(0, 0, 0, 0.78)
+	backdrop.color = Color(0.012, 0.020, 0.038, 0.97)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	draft_ui.add_child(backdrop)
 
@@ -2855,87 +2880,69 @@ func _show_recruit_draft() -> void:
 	backdrop_shader_mat.shader = preload("res://shaders/ui_arcane_scifi_backdrop.gdshader")
 	backdrop.material = backdrop_shader_mat
 
-	# Standard entrance: backdrop fade (panel pop happens after layout below).
 	backdrop.modulate.a = 0.0
 	var bd_tw := backdrop.create_tween()
 	bd_tw.tween_property(backdrop, "modulate:a", 1.0, UiSkin.DUR_FAST)
 
-	var modal := PanelContainer.new()
-	modal.set_anchors_preset(Control.PRESET_CENTER)
-	# Larger + calmer spacing so cards breathe and text stays readable.
-	modal.offset_left = -560
-	modal.offset_top = -330
-	modal.offset_right = 560
-	modal.offset_bottom = 330
-	modal.mouse_filter = Control.MOUSE_FILTER_STOP
-	draft_ui.add_child(modal)
-	modal.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
-
-	var neon_shader_mat := ShaderMaterial.new()
-	neon_shader_mat.shader = preload("res://shaders/ui_neon_frame.gdshader")
-	neon_shader_mat.set_shader_parameter("base_color", Color(0.10, 0.11, 0.13, 0.98))
-	neon_shader_mat.set_shader_parameter("glow_color", Color(0.4, 0.8, 1.0, 0.6))
-	neon_shader_mat.set_shader_parameter("glow_width", 0.02)
-	neon_shader_mat.set_shader_parameter("pulse_speed", 1.2)
-	modal.material = neon_shader_mat
-
-	# Standard panel pop (matches UiModal motion tokens).
-	modal.pivot_offset = Vector2(560, 330)
-	modal.scale = Vector2(0.94, 0.94)
-	modal.modulate.a = 0.0
-	var modal_tw := modal.create_tween()
-	modal_tw.set_parallel(true)
-	modal_tw.tween_property(modal, "modulate:a", 1.0, UiSkin.DUR_FAST)
-	modal_tw.tween_property(modal, "scale", Vector2.ONE, UiSkin.DUR_MED) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-
-	var pad := MarginContainer.new()
-	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pad.add_theme_constant_override("margin_left", 26)
-	pad.add_theme_constant_override("margin_right", 26)
-	pad.add_theme_constant_override("margin_top", 20)
-	pad.add_theme_constant_override("margin_bottom", 22)
-	modal.add_child(pad)
+	var screen := MarginContainer.new()
+	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.add_theme_constant_override("margin_left", 64)
+	screen.add_theme_constant_override("margin_right", 64)
+	screen.add_theme_constant_override("margin_top", 28)
+	screen.add_theme_constant_override("margin_bottom", 24)
+	draft_ui.add_child(screen)
 
 	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 12)
-	pad.add_child(vbox)
+	vbox.add_theme_constant_override("separation", UiSkin.SPACE_MD)
+	screen.add_child(vbox)
+
+	# Header: title left, essence right.
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", UiSkin.SPACE_MD)
+	vbox.add_child(head)
+
+	var head_v := VBoxContainer.new()
+	head_v.add_theme_constant_override("separation", 0)
+	head.add_child(head_v)
 
 	var title := Label.new()
-	title.text = "RECRUIT DRAFT"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	UiSkin.style_page_title(title, UiSkin.ACCENT)
-	title.add_theme_font_size_override("font_size", 30)
-	vbox.add_child(title)
+	title.text = "REINFORCEMENTS INBOUND"
+	UiSkin.style_label(title, 34, UiSkin.TEXT)
+	head_v.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "Choose one recruit. Review race, origin, class, weapon, and passives before committing."
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	UiSkin.style_label(subtitle, UiSkin.FONT_BODY, UiSkin.TEXT_SOFT)
-	vbox.add_child(subtitle)
+	subtitle.text = "RECRUIT ONE  ·  PRESS 1 / 2 / 3 TO COMMIT"
+	UiSkin.style_label(subtitle, UiSkin.FONT_XS, UiSkin.ACCENT)
+	head_v.add_child(subtitle)
 
+	head.add_spacer(true)
+
+	var info_panel := PanelContainer.new()
+	info_panel.add_theme_stylebox_override("panel", UiSkin.chip_style(UiSkin.ACCENT_GOLD))
+	head.add_child(info_panel)
 	var info := Label.new()
 	info.name = "InfoLabel"
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	info.text = "✧ Essence: %d   (Reroll costs %d)" % [essence, reroll_cost_essence]
+	info.text = "✧ %d ESSENCE" % essence
 	UiSkin.style_label(info, UiSkin.FONT_LEAD, UiSkin.ACCENT_GOLD)
-	vbox.add_child(info)
+	info_panel.add_child(info)
 
+	# Candidate row fills the screen.
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 18)
+	hbox.add_theme_constant_override("separation", UiSkin.SPACE_LG)
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(hbox)
 
+	# Footer: reroll left, skip right.
 	var btns := HBoxContainer.new()
-	btns.add_theme_constant_override("separation", 10)
+	btns.add_theme_constant_override("separation", UiSkin.SPACE_SM)
 	vbox.add_child(btns)
 
 	var reroll_btn := Button.new()
-	reroll_btn.text = "Reroll (%d)" % reroll_cost_essence
-	reroll_btn.add_theme_font_size_override("font_size", 18)
-	reroll_btn.custom_minimum_size = Vector2(180, 46)
+	reroll_btn.text = "↻ REROLL ALL  (%d✧)" % reroll_cost_essence
+	reroll_btn.add_theme_font_size_override("font_size", 16)
+	reroll_btn.custom_minimum_size = Vector2(240, 48)
 	btns.add_child(reroll_btn)
 	UiSkin.style_secondary_button(reroll_btn, UiSkin.ACCENT_GOLD)
 	UiSkin.add_hover_scale(reroll_btn, 1.02)
@@ -2950,7 +2957,7 @@ func _show_recruit_draft() -> void:
 		for c in hbox.get_children():
 			c.queue_free()
 		_populate_recruit_cards(hbox, draft_ui, false)
-		info.text = "✧ Essence: %d   (Reroll costs %d)" % [essence, reroll_cost_essence]
+		info.text = "✧ %d ESSENCE" % essence
 	)
 
 	_populate_recruit_cards(hbox, draft_ui, _force_rift_next_draft)
@@ -2959,9 +2966,9 @@ func _show_recruit_draft() -> void:
 	btns.add_spacer(true)
 
 	var close_btn := Button.new()
-	close_btn.text = "Close (Select Later)"
-	close_btn.add_theme_font_size_override("font_size", 18)
-	close_btn.custom_minimum_size = Vector2(220, 46)
+	close_btn.text = "SKIP — DECIDE LATER"
+	close_btn.add_theme_font_size_override("font_size", 16)
+	close_btn.custom_minimum_size = Vector2(240, 48)
 	UiSkin.style_secondary_button(close_btn, UiSkin.ACCENT_RED)
 	UiSkin.add_hover_scale(close_btn, 1.02)
 	close_btn.pressed.connect(func():
@@ -3026,11 +3033,24 @@ func _populate_recruit_cards(hbox: HBoxContainer, ui: CanvasLayer, is_rift: bool
 	for c in options:
 		var card := _create_character_card(c, ui)
 		hbox.add_child(card)
-		# Staggered entrance so each card lands with its own beat.
+		# Number-key shortcuts: 1/2/3 commits instantly.
+		var rb := card.get_meta("recruit_btn", null) as Button
+		if rb != null and card_i < 3:
+			var sc := Shortcut.new()
+			var ev := InputEventKey.new()
+			ev.keycode = (KEY_1 + card_i) as Key
+			sc.events = [ev]
+			rb.shortcut = sc
+		# Staggered pop entrance so each candidate lands with its own beat.
+		# (Scale, not position: the HBox owns child positions.)
 		card.modulate.a = 0.0
+		card.scale = Vector2(0.94, 0.94)
 		var tw := card.create_tween()
-		tw.tween_interval(0.05 + 0.07 * float(card_i))
+		tw.tween_interval(0.06 + 0.08 * float(card_i))
+		tw.set_parallel(true)
 		tw.tween_property(card, "modulate:a", 1.0, UiSkin.DUR_MED)
+		tw.tween_property(card, "scale", Vector2.ONE, UiSkin.DUR_MED) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		card_i += 1
 
 func _rarity_rank(rarity_id: String) -> int:
@@ -3106,8 +3126,11 @@ func _draft_origin_name(origin: int) -> String:
 			return "UNKNOWN"
 
 func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
+	# Tall, portrait-dominant candidate panel; fills its share of the screen.
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(330, 310)
+	card.custom_minimum_size = Vector2(300, 420)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	card.focus_mode = Control.FOCUS_ALL
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var rarity_col := UnitFactory.rarity_color(cd.rarity_id)
@@ -3115,24 +3138,37 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	var rare_glow := _rarity_rank(cd.rarity_id) >= 2
 	card.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, rare_glow))
 	UiSkin.add_hover_glow(card, rarity_col)
-	UiSkin.add_hover_scale(card, 1.02, 0.10)
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
 	pad.add_theme_constant_override("margin_left", 16)
 	pad.add_theme_constant_override("margin_right", 16)
-	pad.add_theme_constant_override("margin_top", 14)
+	pad.add_theme_constant_override("margin_top", 12)
 	pad.add_theme_constant_override("margin_bottom", 14)
 	card.add_child(pad)
 
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 8)
 	pad.add_child(v)
 
-	# Header: rarity + role
+	# Rarity banner: full-width colored strip so the pull quality reads at a glance.
+	var banner := PanelContainer.new()
+	var banner_sb := StyleBoxFlat.new()
+	banner_sb.bg_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.16)
+	banner_sb.border_width_bottom = 2
+	banner_sb.border_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.65)
+	banner_sb.corner_radius_top_left = UiSkin.RADIUS_SM
+	banner_sb.corner_radius_top_right = UiSkin.RADIUS_SM
+	banner_sb.content_margin_left = 10
+	banner_sb.content_margin_right = 10
+	banner_sb.content_margin_top = 5
+	banner_sb.content_margin_bottom = 5
+	banner.add_theme_stylebox_override("panel", banner_sb)
+	v.add_child(banner)
+
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 10)
-	v.add_child(header)
+	banner.add_child(header)
 
 	var rarity_lbl := Label.new()
 	rarity_lbl.text = UnitFactory.rarity_name(cd.rarity_id).to_upper()
@@ -3210,10 +3246,19 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 			syn_rt.tooltip_text = "Squad sets grant bonuses at 2 and 4 members.\nCounts compare against your current squad; field this recruit from the Collection before your next deploy."
 			v.add_child(syn_rt)
 
-	# Portrait (PixelLab south rotation)
+	# Portrait: dominant, animated, on a rarity-tinted stage.
 	var portrait_frame := PanelContainer.new()
-	portrait_frame.add_theme_stylebox_override("panel", UiSkin.card_style(rarity_col, false))
-	portrait_frame.custom_minimum_size = Vector2(0, 104)
+	var stage_sb := StyleBoxFlat.new()
+	stage_sb.bg_color = Color(0.03, 0.045, 0.08, 0.92)
+	stage_sb.border_width_bottom = 2
+	stage_sb.border_color = Color(rarity_col.r, rarity_col.g, rarity_col.b, 0.35)
+	stage_sb.corner_radius_top_left = UiSkin.RADIUS_SM
+	stage_sb.corner_radius_top_right = UiSkin.RADIUS_SM
+	stage_sb.corner_radius_bottom_left = UiSkin.RADIUS_SM
+	stage_sb.corner_radius_bottom_right = UiSkin.RADIUS_SM
+	portrait_frame.add_theme_stylebox_override("panel", stage_sb)
+	portrait_frame.custom_minimum_size = Vector2(0, 170)
+	portrait_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(portrait_frame)
 
 	var portrait_pad := MarginContainer.new()
@@ -3227,7 +3272,7 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	var frames := PixellabUtil.walk_frames_from_south_path(cd.sprite_path)
 	if frames != null and frames.has_animation("walk_south") and frames.get_frame_count("walk_south") > 0:
 		var svc := SubViewportContainer.new()
-		svc.custom_minimum_size = Vector2(80, 80)
+		svc.custom_minimum_size = Vector2(120, 140)
 		svc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		svc.stretch = true
@@ -3236,7 +3281,7 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		portrait_pad.add_child(svc)
 
 		var vp := SubViewport.new()
-		vp.size = Vector2i(110, 110)
+		vp.size = Vector2i(190, 170)
 		vp.transparent_bg = true
 		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		vp.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
@@ -3247,15 +3292,15 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		spr.animation = "walk_south"
 		spr.play()
 		spr.centered = true
-		spr.position = Vector2(vp.size.x * 0.5, vp.size.y * 0.5 + 10.0)
-		var scale := PixellabUtil.scale_for_target_height(frames, 60.0, 0.40, 0.85)
+		spr.position = Vector2(vp.size.x * 0.5, vp.size.y * 0.5 + 14.0)
+		var scale := PixellabUtil.scale_for_target_height(frames, 118.0, 0.40, 1.40)
 		spr.scale = Vector2.ONE * scale
 		spr.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 		vp.add_child(spr)
 	else:
 		# Fallback to static south portrait if frames missing.
 		var portrait := TextureRect.new()
-		portrait.custom_minimum_size = Vector2(80, 80)
+		portrait.custom_minimum_size = Vector2(120, 140)
 		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		portrait.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3270,26 +3315,60 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 	var style_label := Label.new()
 	var draft_weapon_name := WeaponSystem.weapon_name(cd.weapon_id) if cd.weapon_id != "" else ("MELEE" if cd.attack_style == CharacterData.AttackStyle.MELEE else "RANGED")
 	style_label.text = "⚔ %s" % draft_weapon_name
-	UiSkin.style_label(style_label, UiSkin.FONT_XS, Color(0.78, 0.88, 1.0, 0.90))
+	style_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_label(style_label, UiSkin.FONT_SM, Color(0.78, 0.88, 1.0, 0.90))
 	v.add_child(style_label)
 
-	# Stats grid: color-coded for instant scanning.
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 4)
-	v.add_child(grid)
+	# Stats as mini bars: value + relative strength at a glance.
 	var stat_defs: Array = [
-		["HP  %d" % cd.max_hp, Color(0.55, 0.92, 0.62)],
-		["DMG  %d" % cd.attack_damage, Color(1.0, 0.62, 0.52)],
-		["CD  %.2f" % cd.attack_cooldown, Color(0.55, 0.85, 0.95)],
-		["RNG  %d" % int(cd.attack_range), Color(0.88, 0.80, 0.55)],
+		["HP", "%d" % cd.max_hp, clampf(float(cd.max_hp) / 400.0, 0.04, 1.0), Color(0.55, 0.92, 0.62)],
+		["DMG", "%d" % cd.attack_damage, clampf(float(cd.attack_damage) / 40.0, 0.04, 1.0), Color(1.0, 0.62, 0.52)],
+		["SPD", "%.2fs" % cd.attack_cooldown, clampf(1.0 - (cd.attack_cooldown - 0.4) / 1.6, 0.04, 1.0), Color(0.55, 0.85, 0.95)],
+		["RNG", "%d" % int(cd.attack_range), clampf(float(cd.attack_range) / 620.0, 0.04, 1.0), Color(0.88, 0.80, 0.55)],
 	]
 	for sd in stat_defs:
-		var lbl := Label.new()
-		lbl.text = String(sd[0])
-		UiSkin.style_label(lbl, UiSkin.FONT_SM, sd[1] as Color)
-		grid.add_child(lbl)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		v.add_child(row)
+		var nm_lbl := Label.new()
+		nm_lbl.text = String(sd[0])
+		nm_lbl.custom_minimum_size.x = 42
+		UiSkin.style_label(nm_lbl, UiSkin.FONT_XS, UiSkin.TEXT_DIM)
+		row.add_child(nm_lbl)
+		var bar_bg := PanelContainer.new()
+		var bg_sb := StyleBoxFlat.new()
+		bg_sb.bg_color = Color(1, 1, 1, 0.06)
+		bg_sb.corner_radius_top_left = 3
+		bg_sb.corner_radius_top_right = 3
+		bg_sb.corner_radius_bottom_left = 3
+		bg_sb.corner_radius_bottom_right = 3
+		bar_bg.add_theme_stylebox_override("panel", bg_sb)
+		bar_bg.custom_minimum_size = Vector2(0, 8)
+		bar_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar_bg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(bar_bg)
+		var fill := ColorRect.new()
+		var sc := sd[3] as Color
+		fill.color = Color(sc.r, sc.g, sc.b, 0.85)
+		fill.custom_minimum_size = Vector2(0, 8)
+		fill.size_flags_horizontal = Control.SIZE_FILL
+		fill.size_flags_stretch_ratio = float(sd[2])
+		var spacer_fill := Control.new()
+		spacer_fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		spacer_fill.size_flags_stretch_ratio = maxf(0.001, 1.0 - float(sd[2]))
+		var bar_h := HBoxContainer.new()
+		bar_h.add_theme_constant_override("separation", 0)
+		bar_h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar_bg.add_child(bar_h)
+		fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar_h.add_child(fill)
+		bar_h.add_child(spacer_fill)
+		var val_lbl := Label.new()
+		val_lbl.text = String(sd[1])
+		val_lbl.custom_minimum_size.x = 52
+		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		UiSkin.style_label(val_lbl, UiSkin.FONT_XS, sc)
+		row.add_child(val_lbl)
 
 	# Passives as compact chips (tooltip shows full description).
 	var pass_title := Label.new()
@@ -3334,37 +3413,41 @@ func _create_character_card(cd: CharacterData, ui: CanvasLayer) -> Control:
 		more.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0, 0.75))
 		chips.add_child(more)
 
+	v.add_spacer(true)
+
+	# Primary action dominates; utilities sit beneath it.
+	var unlock := Button.new()
+	unlock.text = "RECRUIT"
+	unlock.custom_minimum_size = Vector2(0, 52)
+	unlock.add_theme_font_size_override("font_size", 19)
+	UiSkin.style_primary_button(unlock, rarity_col)
+	v.add_child(unlock)
+	unlock.pressed.connect(func(): _select_character(cd, ui))
+	card.set_meta("recruit_btn", unlock)
+
 	var btn_row := HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 8)
 	v.add_child(btn_row)
 
 	# Banish: replace just this card for 1 essence (cheaper, surgical reroll).
 	var banish := Button.new()
-	banish.text = "↻ %d✧" % banish_cost_essence
+	banish.text = "↻ BANISH %d✧" % banish_cost_essence
 	banish.tooltip_text = "Banish: replace only this card (%d Essence)" % banish_cost_essence
-	banish.custom_minimum_size = Vector2(64, 40)
-	banish.add_theme_font_size_override("font_size", 14)
+	banish.custom_minimum_size = Vector2(0, 38)
+	banish.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	banish.add_theme_font_size_override("font_size", 13)
 	UiSkin.style_secondary_button(banish, UiSkin.ACCENT_GOLD)
 	btn_row.add_child(banish)
 	banish.pressed.connect(func(): _banish_draft_card(card, ui))
 
-	btn_row.add_spacer(true)
-
 	var details := Button.new()
-	details.text = "Details"
-	details.custom_minimum_size = Vector2(92, 40)
-	details.add_theme_font_size_override("font_size", 16)
+	details.text = "DETAILS"
+	details.custom_minimum_size = Vector2(0, 38)
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	details.add_theme_font_size_override("font_size", 13)
 	btn_row.add_child(details)
 	UiSkin.style_secondary_button(details)
 	details.pressed.connect(func(): _show_character_details(cd, ui))
-
-	var unlock := Button.new()
-	unlock.text = "Unlock"
-	unlock.custom_minimum_size = Vector2(110, 40)
-	unlock.add_theme_font_size_override("font_size", 16)
-	UiSkin.style_primary_button(unlock, rarity_col)
-	btn_row.add_child(unlock)
-	unlock.pressed.connect(func(): _select_character(cd, ui))
 
 	return card
 
@@ -3393,7 +3476,7 @@ func _banish_draft_card(card: Control, ui: CanvasLayer) -> void:
 
 	var info := ui.find_child("InfoLabel", true, false) as Label
 	if info != null:
-		info.text = "✧ Essence: %d   (Reroll costs %d)" % [essence, reroll_cost_essence]
+		info.text = "✧ %d ESSENCE" % essence
 
 func _show_character_details(cd: CharacterData, ui: CanvasLayer) -> void:
 	if ui.has_node("CharacterDetails"):
@@ -3728,71 +3811,81 @@ func _setup_hud() -> void:
 	autosave_lbl.add_theme_color_override("font_color", Color(0.78, 0.92, 1.0, 0.92))
 	hud.add_child(autosave_lbl)
 
-	var container := VBoxContainer.new()
-	var panel := PanelContainer.new()
-	panel.name = "HUDPanel"
-	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	panel.offset_left = 12
-	panel.offset_top = 12
-	panel.custom_minimum_size = Vector2(760, 0)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block game input
-	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UiSkin.ACCENT, true))
-	hud.add_child(panel)
+	# Minimal modern HUD: slim top-center status stack, nothing boxy in the corners.
+	var top_stack := VBoxContainer.new()
+	top_stack.name = "TopStack"
+	top_stack.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	top_stack.offset_left = -320
+	top_stack.offset_right = 320
+	top_stack.offset_top = 10
+	top_stack.alignment = BoxContainer.ALIGNMENT_BEGIN
+	top_stack.add_theme_constant_override("separation", 4)
+	top_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(top_stack)
 
-	var pad := MarginContainer.new()
-	pad.add_theme_constant_override("margin_left", 10)
-	pad.add_theme_constant_override("margin_right", 10)
-	pad.add_theme_constant_override("margin_top", 8)
-	pad.add_theme_constant_override("margin_bottom", 8)
-	panel.add_child(pad)
+	var pill_center := HBoxContainer.new()
+	pill_center.alignment = BoxContainer.ALIGNMENT_CENTER
+	pill_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_stack.add_child(pill_center)
 
-	container.name = "HUDVBox"
-	container.add_theme_constant_override("separation", 6)
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block game input
-	pad.add_child(container)
+	var timer_chip := _make_hud_chip("RunTimerLabel", "0:00   ✧ 0", UiSkin.ACCENT_GOLD, 14)
+	pill_center.add_child(timer_chip)
 
-	var top_row := HBoxContainer.new()
-	top_row.name = "TopRow"
-	top_row.add_theme_constant_override("separation", 8)
-	container.add_child(top_row)
+	var objective_lbl := Label.new()
+	objective_lbl.name = "ObjectiveLabel"
+	objective_lbl.text = ""
+	objective_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	objective_lbl.add_theme_font_size_override("font_size", 12)
+	objective_lbl.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+	objective_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	objective_lbl.add_theme_constant_override("outline_size", 3)
+	objective_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_stack.add_child(objective_lbl)
 
-	var timer_chip := _make_hud_chip("RunTimerLabel", "Time: 0:00   Essence: 0", UiSkin.ACCENT_GOLD, 12)
-	top_row.add_child(timer_chip)
-	var objective_chip := _make_hud_chip("ObjectiveLabel", "Objective: Stabilize the church perimeter.", UiSkin.ACCENT_PURPLE, 12)
-	container.add_child(objective_chip)
-
-	var formation_chip := _make_hud_chip("FormationLabel", "Formation: TIGHT   Tactics: NEAREST", UiSkin.ACCENT, 12)
-	formation_chip.visible = false
-	top_row.add_child(formation_chip)
-
-	var cmd := Label.new()
-	cmd.name = "CommandLabel"
-	cmd.text = "LMB Focus Enemy • RMB Rally Squad • Q Overclock • F Callout • TAB Passives"
-	cmd.autowrap_mode = TextServer.AUTOWRAP_OFF
-	cmd.clip_text = true
-	cmd.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	cmd.add_theme_font_size_override("font_size", 13)
-	cmd.add_theme_color_override("font_color", Color(0.70, 0.85, 0.95, 0.85))
-	cmd.visible = false
-	container.add_child(cmd)
-
-	var syn_chip := _make_hud_chip("SynergyLabel", "Synergies: —", UiSkin.ACCENT_PURPLE, 12)
-	syn_chip.visible = false
-	container.add_child(syn_chip)
-
-	var boss_chip := _make_hud_chip("BossLabel", "", UiSkin.ACCENT_RED, 12)
+	var boss_center := HBoxContainer.new()
+	boss_center.alignment = BoxContainer.ALIGNMENT_CENTER
+	boss_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_stack.add_child(boss_center)
+	var boss_chip := _make_hud_chip("BossLabel", "", UiSkin.ACCENT_RED, 13)
 	boss_chip.visible = false
-	container.add_child(boss_chip)
+	boss_center.add_child(boss_chip)
 
-	# Debug label to identify what is drawing the "orbs"
-	var dbg_chip := _make_hud_chip("DebugLabel", "", UiSkin.TEXT_DIM, 11)
-	dbg_chip.visible = false
-	container.add_child(dbg_chip)
+	# Active sets: quiet line above the squad strip (bottom-left).
+	var syn_lbl := Label.new()
+	syn_lbl.name = "SynergyLabel"
+	syn_lbl.text = ""
+	syn_lbl.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	syn_lbl.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	syn_lbl.offset_left = 12
+	syn_lbl.offset_bottom = -66
+	syn_lbl.add_theme_font_size_override("font_size", 12)
+	syn_lbl.add_theme_color_override("font_color", UiSkin.ACCENT_PURPLE)
+	syn_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	syn_lbl.add_theme_constant_override("outline_size", 3)
+	syn_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(syn_lbl)
 
-	var perf_chip := _make_hud_chip("PerfLabel", "", UiSkin.TEXT_DIM, 11)
-	perf_chip.visible = false
-	container.add_child(perf_chip)
-	
+	# Debug-only readouts (bottom-right, hidden unless debug HUD is on).
+	var dbg_stack := VBoxContainer.new()
+	dbg_stack.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	dbg_stack.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	dbg_stack.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	dbg_stack.offset_right = -12
+	dbg_stack.offset_bottom = -12
+	dbg_stack.add_theme_constant_override("separation", 2)
+	dbg_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(dbg_stack)
+	for dbg_name in ["CommandLabel", "DebugLabel", "PerfLabel"]:
+		var dl := Label.new()
+		dl.name = dbg_name
+		dl.text = ""
+		dl.visible = false
+		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		dl.add_theme_font_size_override("font_size", 11)
+		dl.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dbg_stack.add_child(dl)
+
 	# Squad health strip (bottom-left): one race-colored chip per member.
 	var strip := HBoxContainer.new()
 	strip.name = "SquadStrip"
@@ -4208,25 +4301,16 @@ func _update_hud_labels() -> void:
 		var secs := int(round(((Time.get_ticks_msec() / 1000.0) - run_start_time)))
 		var mm := int(secs / 60)
 		var ss := int(secs % 60)
-		t.text = "Time: %d:%02d   Essence: %d" % [mm, ss, essence]
+		t.text = "%d:%02d    ✧ %d" % [mm, ss, essence]
 		if t.get_parent() is CanvasItem:
 			(t.get_parent() as CanvasItem).visible = true
-
-	var f := _hud_label("FormationLabel")
-	if f:
-		var fp := get_tree().get_first_node_in_group("player")
-		if fp != null and is_instance_valid(fp):
-			var fm_names: Array[String] = ["TIGHT", "SPREAD", "WEDGE", "RING"]
-			var tm_names: Array[String] = ["NEAREST", "LOWEST HP", "ELITES FIRST"]
-			var fm := clampi(int(fp.get("_formation_mode")), 0, fm_names.size() - 1)
-			var tm := clampi(int(fp.get("_target_mode")), 0, tm_names.size() - 1)
-			f.text = "Formation: %s   Tactics: %s   (1-4 / T)" % [fm_names[fm], tm_names[tm]]
 
 	var b := _hud_label("BossLabel")
 	if b:
 		if _boss_node and is_instance_valid(_boss_node) and _boss_node.has_method("get_hp_ratio"):
 			var r := float(_boss_node.get_hp_ratio())
-			b.text = "Boss: %d%%" % int(round(r * 100.0))
+			var ticks := int(round(clampf(r, 0.0, 1.0) * 20.0))
+			b.text = "☠ %s%s %d%%" % ["▰".repeat(ticks), "▱".repeat(20 - ticks), int(round(r * 100.0))]
 			if b.get_parent() is CanvasItem:
 				(b.get_parent() as CanvasItem).visible = true
 		else:
@@ -4266,9 +4350,8 @@ func _update_hud_labels() -> void:
 	var s := _hud_label("SynergyLabel")
 	if s:
 		s.text = SynergySystem.summary_text()
-		if s.get_parent() is CanvasItem:
-			# Always show when sets are active; the player should feel their build.
-			(s.get_parent() as CanvasItem).visible = debug_hud_enabled or not SynergySystem.get_active_synergies().is_empty()
+		# Always show when sets are active; the player should feel their build.
+		s.visible = debug_hud_enabled or not SynergySystem.get_active_synergies().is_empty()
 
 	var cmd := _hud_label("CommandLabel")
 	if cmd:
@@ -4299,8 +4382,7 @@ func _update_hud_labels() -> void:
 	if dbg:
 		if not debug_hud_enabled:
 			dbg.text = ""
-			if dbg.get_parent() is CanvasItem:
-				(dbg.get_parent() as CanvasItem).visible = false
+			dbg.visible = false
 		else:
 			_dbg_cd -= get_process_delta_time()
 			if _dbg_cd <= 0.0:
@@ -4322,34 +4404,27 @@ func _update_hud_labels() -> void:
 				if details.size() > 0:
 					_dbg_text += "\nCircleSrc: " + " || ".join(details)
 			dbg.text = _dbg_text
-			if dbg.get_parent() is CanvasItem:
-				(dbg.get_parent() as CanvasItem).visible = true
+			dbg.visible = true
 
 	var perf := _hud_label("PerfLabel")
 	if perf:
 		if not debug_perf_overlay_enabled:
 			perf.text = ""
-			if perf.get_parent() is CanvasItem:
-				(perf.get_parent() as CanvasItem).visible = false
+			perf.visible = false
 		else:
 			perf.text = _perf_text
-			if perf.get_parent() is CanvasItem:
-				(perf.get_parent() as CanvasItem).visible = true
+			perf.visible = true
 
 func _make_hud_chip(label_name: String, text: String, accent: Color, font_size: int = 12) -> PanelContainer:
 	var chip := PanelContainer.new()
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	match label_name:
 		"RunTimerLabel":
-			chip.custom_minimum_size.x = 260
-		"FormationLabel":
-			chip.custom_minimum_size.x = 300
-		"SynergyLabel":
-			chip.custom_minimum_size.x = 280
-		"ObjectiveLabel":
-			chip.custom_minimum_size.x = 520
+			chip.custom_minimum_size.x = 170
+		"BossLabel":
+			chip.custom_minimum_size.x = 320
 		_:
-			chip.custom_minimum_size.x = 180
+			chip.custom_minimum_size.x = 120
 	var sb := UiSkin.chip_style(accent if accent != null else UiSkin.ACCENT)
 	sb.content_margin_left = 8
 	sb.content_margin_right = 8

@@ -335,9 +335,10 @@ static func add_hover_scale(control: Control, scale_up: float = 1.03, duration: 
 		return
 	control.pivot_offset = control.size * 0.5
 	control.mouse_entered.connect(func():
-		var tw: Tween = control.get_meta("_hover_tw", null) as Tween
-		if tw != null and tw.is_valid():
-			tw.kill()
+		if control.has_meta("_hover_tw"):
+			var tw: Tween = control.get_meta("_hover_tw") as Tween
+			if tw != null and tw.is_valid():
+				tw.kill()
 		var t := control.create_tween()
 		control.set_meta("_hover_tw", t)
 		t.set_trans(Tween.TRANS_BACK)
@@ -345,9 +346,10 @@ static func add_hover_scale(control: Control, scale_up: float = 1.03, duration: 
 		t.tween_property(control, "scale", Vector2(scale_up, scale_up), duration)
 	)
 	control.mouse_exited.connect(func():
-		var tw: Tween = control.get_meta("_hover_tw", null) as Tween
-		if tw != null and tw.is_valid():
-			tw.kill()
+		if control.has_meta("_hover_tw"):
+			var tw: Tween = control.get_meta("_hover_tw") as Tween
+			if tw != null and tw.is_valid():
+				tw.kill()
 		var t := control.create_tween()
 		control.set_meta("_hover_tw", t)
 		t.set_trans(Tween.TRANS_SINE)

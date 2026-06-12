@@ -1,11 +1,8 @@
 extends Control
 
-# Main Menu - dark tactical sci-fi theme.
-# Behavior (scene changes, signals, logic) stays the same.
+# Main Menu — "command deck": the zone select IS the menu.
+# Full-bleed map art hero, zone carousel, mission detail panel, slim nav rail.
 
-var _menu_root: Control
-var _card: PanelContainer
-var _play_btn: Button
 var _resume_btn: Button
 var _armory_btn: Button
 var _protocol_btn: Button
@@ -13,34 +10,25 @@ var _info_btn: Button
 var _settings_btn: Button
 var _quit_btn: Button
 
-var _map_overlay: Control
-var _map_list_box: VBoxContainer = null
-var _map_cards: Dictionary = {} # map_id -> PanelContainer
-var _map_preview_vp: SubViewport
-var _map_tagline: Label
-var _map_details: RichTextLabel
-var _map_back_btn: Button
-var _map_start_btn: Button
-var _map_panel: PanelContainer
+# Command deck
+var _hero_a: TextureRect = null
+var _hero_b: TextureRect = null
+var _hero_front_is_a: bool = true
+var _zone_row: HBoxContainer = null
+var _zone_tiles: Dictionary = {} # map_id -> PanelContainer
+var _zone_ids: Array[String] = []
+var _zone_panel: PanelContainer = null
+var _zone_name_lbl: Label = null
+var _zone_tag_lbl: Label = null
+var _zone_info: RichTextLabel = null
+var _deploy_btn: Button = null
+var _sigils_lbl: Label = null
+var _zone_art_cache: Dictionary = {}
 
 # Map overlay extra refs
-var _map_preview_lock_lbl: Label = null
-var _map_list_frame: PanelContainer = null
-var _map_details_frame: PanelContainer = null
-
-var _map_ids: Array[String] = []
-var _crowd: Node2D = null
-var _preview_root: Node = null
 var _selected_map_locked: bool = false
-var _map_preview_last_id: String = ""
 var _map_preview_tex_cache: Dictionary = {}
-var _bg_far: TextureRect = null
-var _bg_light: ColorRect = null
-var _bg_reactor_ring: Node2D = null
 var _menu_anim_t: float = 0.0
-
-var _crowd_prev_visible: bool = true
-var _crowd_prev_process_mode: int = Node.PROCESS_MODE_INHERIT
 
 var _info_overlay: Control = null
 var _info_search: LineEdit = null
@@ -57,7 +45,6 @@ var _info_entries: Array[Dictionary] = []
 # ─────────────────────────────────────────────────────────────────────────────
 # ASSETS (put the generated PNGs here)
 # ─────────────────────────────────────────────────────────────────────────────
-const BG_PATH: String = "res://assets/ui/revamp/menu_factory_bg.png"
 const ASSET_PANEL: String = "res://assets/ui/revamp/codex_panel.png"
 const CODEX_PANEL_PATH: String = "res://assets/ui/revamp/codex_panel.png"
 const MAIN_SCENE: PackedScene = preload("res://scenes/Main.tscn")
@@ -78,35 +65,32 @@ const ACCENT_BERRY: Color = UiSkin.ACCENT_PURPLE
 # Readability surfaces for map overlay
 const SURFACE_BG := Color(0.04, 0.06, 0.10, 0.92)
 const SURFACE_BORDER := Color(0.50, 0.74, 1.0, 0.28)
-const LOCKED_FG := Color(0.72, 0.80, 0.90, 0.45)
-const NORMAL_FG: Color = UiSkin.TEXT
 
 # ─────────────────────────────────────────────────────────────────────────────
 
 func _ready() -> void:
-	# If UiSkin exists in your project, keep using it.
-	# If you want pure pixel readability, swap FONT_PATH to your pixel font.
 	UiSkin.apply_global_font(FONT_PATH, 14)
-
-	_menu_root = get_node_or_null("MenuRoot")
-	if _menu_root == null:
-		_menu_root = self
-
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	set_process(true)
 
-	_apply_menu_art()
+	# Hide any legacy scene decor; the command deck owns the whole screen.
+	for legacy_name in ["MenuBackground", "MenuSunwash", "Backdrop", "BackdropShader", "FrameShader", "MenuRoot"]:
+		var legacy := get_node_or_null(legacy_name) as CanvasItem
+		if legacy != null:
+			legacy.visible = false
 
 	var mm := get_node_or_null("/root/MusicManager")
 	if mm and is_instance_valid(mm) and mm.has_method("play"):
 		mm.play("menu", 1.0)
 
-	_build_menu()
-	_spawn_menu_crowd()
-	_build_map_overlay()
-	call_deferred("_prewarm_protocol_runtime")
-	call_deferred("_prewarm_info_overlay")
-	_connect_signals()
+	_build_command_deck()
+	# Spread heavier work across idle frames so the menu paints instantly.
+	await get_tree().process_frame
+	_populate_zone_carousel()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_prewarm_protocol_runtime()
+	await get_tree().process_frame
+	_prewarm_info_overlay()
 
 func _prewarm_protocol_runtime() -> void:
 	if not _protocol_upgrades_runtime.is_empty():
@@ -120,194 +104,19 @@ func _prewarm_info_overlay() -> void:
 		_info_overlay.visible = false
 
 func _process(delta: float) -> void:
+	# Slow Ken Burns drift on the hero art keeps the deck alive.
 	_menu_anim_t += delta
-	if _bg_far != null and is_instance_valid(_bg_far):
-		_bg_far.position = Vector2(
-			sin(_menu_anim_t * 0.16) * 20.0,
-			cos(_menu_anim_t * 0.11) * 9.0
+	var front := _hero_a if _hero_front_is_a else _hero_b
+	if front != null and is_instance_valid(front):
+		front.position = Vector2(
+			sin(_menu_anim_t * 0.07) * 18.0 - 18.0,
+			cos(_menu_anim_t * 0.05) * 12.0 - 12.0
 		)
-	if _bg_light != null and is_instance_valid(_bg_light):
-		_bg_light.modulate.a = 0.26 + sin(_menu_anim_t * 0.32) * 0.07
-	if _bg_reactor_ring != null and is_instance_valid(_bg_reactor_ring):
-		var vp_size := get_viewport_rect().size
-		_bg_reactor_ring.position = Vector2(vp_size.x * 0.70, vp_size.y * 0.52) + Vector2(
-			sin(_menu_anim_t * 0.28) * 8.0,
-			cos(_menu_anim_t * 0.24) * 5.0
-		)
-	if _card != null and is_instance_valid(_card):
-		_card.rotation = sin(_menu_anim_t * 0.55) * 0.002
-
-func _apply_menu_art() -> void:
-	var bg := get_node_or_null("MenuBackground") as TextureRect
-	if bg == null:
-		bg = TextureRect.new()
-		bg.name = "MenuBackground"
-		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bg.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		bg.z_index = -220
-		add_child(bg)
-		move_child(bg, 0)
-	_bg_far = bg
-
-	var t := _load_tex(BG_PATH)
-	_bg_far.texture = t
-
-	var light := get_node_or_null("MenuSunwash") as ColorRect
-	if light == null:
-		light = ColorRect.new()
-		light.name = "MenuSunwash"
-		light.set_anchors_preset(Control.PRESET_FULL_RECT)
-		light.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		light.color = Color(1.0, 0.92, 0.78, 0.26)
-		light.z_index = -205
-		add_child(light)
-		move_child(light, 2)
-	_bg_light = light
-
-	if _bg_reactor_ring == null or not is_instance_valid(_bg_reactor_ring):
-		var ring := preload("res://scripts/MainMenuReactorRing.gd").new()
-		ring.name = "MenuReactorRing"
-		add_child(ring)
-		move_child(ring, 3)
-		_bg_reactor_ring = ring
-
-	# Hide purple overlays when we have a BG (otherwise they draw on top)
-	var bds := get_node_or_null("BackdropShader") as CanvasItem
-	if bds:
-		bds.visible = (t == null)
-	var bd := get_node_or_null("Backdrop") as CanvasItem
-	if bd:
-		bd.visible = (t == null)
-	var fs := get_node_or_null("FrameShader") as CanvasItem
-	if fs:
-		fs.visible = (t == null)
-
-func _spawn_menu_crowd() -> void:
-	# Your existing background FX/spawn
-	if _crowd != null and is_instance_valid(_crowd):
-		return
-	var bd := get_node_or_null("Backdrop") as CanvasItem
-	if bd:
-		bd.z_index = -100
-	var bds := get_node_or_null("BackdropShader") as CanvasItem
-	if bds:
-		bds.z_index = -90
-	var c := preload("res://scripts/MainMenuAmbientLife.gd").new()
-	c.name = "MenuCrowd"
-	add_child(c)
-	if c is CanvasItem:
-		(c as CanvasItem).z_index = -50
-	_crowd = c
-	if has_node("MenuRoot"):
-		move_child(_crowd, get_node("MenuRoot").get_index())
-
-# ─────────────────────────────────────────────────────────────────────────────
-# BUILD MENU (wooden sign style)
-# ─────────────────────────────────────────────────────────────────────────────
 
 func _load_tex(path: String) -> Texture2D:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
 	return load(path) as Texture2D
-
-func _build_menu() -> void:
-	# Main tactical panel card.
-	_card = PanelContainer.new()
-	_card.name = "MenuCard"
-	_card.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	_card.offset_left = 64
-	_card.offset_top = -360
-	_card.offset_right = 560
-	_card.offset_bottom = 360
-	_card.add_theme_stylebox_override("panel", _make_panel_style())
-	_menu_root.add_child(_card)
-
-	var pad := MarginContainer.new()
-	pad.add_theme_constant_override("margin_left", 36)
-	pad.add_theme_constant_override("margin_right", 36)
-	pad.add_theme_constant_override("margin_top", 34)
-	pad.add_theme_constant_override("margin_bottom", 28)
-	_card.add_child(pad)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	pad.add_child(vbox)
-
-	# Title (big, cozy)
-	var title := Label.new()
-	title.name = "Title"
-	title.text = game_title
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 44)
-	title.add_theme_color_override("font_color", TITLE_COLOR)
-	title.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.06, 1))
-	title.add_theme_constant_override("outline_size", 6)
-	title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
-	title.add_theme_constant_override("shadow_offset_y", 4)
-	title.pivot_offset = Vector2(200, 30)
-	title.rotation = deg_to_rad(-1.0)
-	_apply_font(title)
-	vbox.add_child(title)
-
-	# Subtitle
-	var sub := Label.new()
-	sub.text = game_tagline
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.add_theme_font_size_override("font_size", 15)
-	sub.add_theme_color_override("font_color", SUBTITLE_COLOR)
-	_apply_font(sub)
-	vbox.add_child(sub)
-
-	# Spacer
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 10)
-	vbox.add_child(spacer)
-
-	# Buttons (wood)
-	_resume_btn = _make_menu_button("Resume", false)
-	_resume_btn.visible = false
-	vbox.add_child(_resume_btn)
-
-	_play_btn = _make_menu_button("▶ Deploy", true)
-	vbox.add_child(_play_btn)
-
-	_armory_btn = _make_menu_button("Collection / Squad", false)
-	vbox.add_child(_armory_btn)
-
-	_protocol_btn = _make_menu_button("Protocol Grid", false, ACCENT_BERRY)
-	vbox.add_child(_protocol_btn)
-
-	_info_btn = _make_menu_button("Codex", false)
-	vbox.add_child(_info_btn)
-
-	_settings_btn = _make_menu_button("Settings", false)
-	vbox.add_child(_settings_btn)
-
-	_quit_btn = _make_menu_button("Quit", false)
-	vbox.add_child(_quit_btn)
-
-	# Footer
-	vbox.add_spacer(true)
-	var footer := Label.new()
-	footer.name = "Footer"
-	footer.text = footer_text
-	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	footer.add_theme_font_size_override("font_size", 11)
-	footer.add_theme_color_override("font_color", Color(0.98, 0.94, 0.86, 0.70))
-	_apply_font(footer)
-	vbox.add_child(footer)
-
-	# Entrance animation (gentle pop)
-	_card.modulate.a = 0
-	_card.scale = Vector2(0.94, 0.94)
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_BACK)
-	tw.set_ease(Tween.EASE_OUT)
-	tw.tween_property(_card, "scale", Vector2(1, 1), 0.45)
-	tw.parallel().tween_property(_card, "modulate:a", 1.0, 0.32)
 
 func _make_panel_style() -> StyleBox:
 	var tex := _load_tex(ASSET_PANEL)
@@ -400,283 +209,292 @@ func _apply_font(c: Control) -> void:
 func _sb_inset(radius: int = 12, alpha: float = 0.86) -> StyleBoxFlat:
 	return UiSkin.inset_style(radius, alpha, SURFACE_BG, SURFACE_BORDER)
 
-func _make_vignette_material() -> ShaderMaterial:
-	var sh := Shader.new()
-	sh.code = """
-shader_type canvas_item;
-uniform float strength : hint_range(0.0, 1.0) = 0.70;
-uniform float inner : hint_range(0.0, 1.0) = 0.45;
-uniform vec4 tint : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+# ─────────────────────────────────────────────────────────────────────────────
+# COMMAND DECK — the zone select IS the menu
+# ─────────────────────────────────────────────────────────────────────────────
 
-void fragment(){
-	vec2 uv = SCREEN_UV;
-	vec2 p = uv * 2.0 - 1.0;
-	float r = length(p);
-	float v = smoothstep(inner, 1.25, r);
-	COLOR = vec4(tint.rgb, tint.a * v * strength);
-}
-"""
-	var m := ShaderMaterial.new()
-	m.shader = sh
-	m.set_shader_parameter("strength", 0.75)
-	m.set_shader_parameter("inner", 0.40)
-	m.set_shader_parameter("tint", Color(0, 0, 0, 1))
-	return m
+func _build_command_deck() -> void:
+	# Hero art layers (crossfaded on zone change).
+	_hero_a = _make_hero_layer()
+	_hero_b = _make_hero_layer()
+	add_child(_hero_a)
+	move_child(_hero_a, 0)
+	add_child(_hero_b)
+	move_child(_hero_b, 1)
+	_hero_b.modulate.a = 0.0
+	_hero_front_is_a = true
 
-func _build_map_overlay() -> void:
-	_map_overlay = Control.new()
-	_map_overlay.name = "MapOverlay"
-	_map_overlay.visible = false
-	_map_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_map_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_map_overlay)
+	# Readability scrims.
+	var bottom_scrim := _make_scrim(0.0, 0.94)
+	bottom_scrim.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom_scrim.offset_top = -430
+	add_child(bottom_scrim)
+	var top_scrim := _make_scrim(0.74, 0.0)
+	top_scrim.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top_scrim.offset_bottom = 170
+	add_child(top_scrim)
 
-	# Strong scrim + vignette so UI wins vs crowd/background
-	var dim := ColorRect.new()
-	dim.name = "Dim"
-	dim.color = UiSkin.BACKDROP_DIM
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	_map_overlay.add_child(dim)
-
-	var vign := ColorRect.new()
-	vign.name = "Vignette"
-	vign.color = Color(1, 1, 1, 1)
-	vign.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vign.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vign.material = _make_vignette_material()
-	_map_overlay.add_child(vign)
-
-	_map_panel = PanelContainer.new()
-	_map_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_map_panel.offset_left = -520
-	_map_panel.offset_top = -350
-	_map_panel.offset_right = 520
-	_map_panel.offset_bottom = 350
-	_map_panel.add_theme_stylebox_override("panel", _make_panel_style())
-	_map_overlay.add_child(_map_panel)
-
-	var pad := MarginContainer.new()
-	pad.add_theme_constant_override("margin_left", 26)
-	pad.add_theme_constant_override("margin_right", 26)
-	pad.add_theme_constant_override("margin_top", 22)
-	pad.add_theme_constant_override("margin_bottom", 22)
-	_map_panel.add_child(pad)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 14)
-	pad.add_child(vbox)
+	# Title block (top-left).
+	var title_box := VBoxContainer.new()
+	title_box.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	title_box.offset_left = 32
+	title_box.offset_top = 22
+	title_box.add_theme_constant_override("separation", 2)
+	add_child(title_box)
 
 	var title := Label.new()
-	title.text = "Choose your zone"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", TITLE_COLOR)
-	title.add_theme_color_override("font_outline_color", Color(0.10, 0.07, 0.04, 1))
-	title.add_theme_constant_override("outline_size", 6)
+	title.text = game_title
+	title.add_theme_font_size_override("font_size", 42)
+	title.add_theme_color_override("font_color", UiSkin.TEXT)
+	title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	title.add_theme_constant_override("shadow_offset_y", 3)
 	_apply_font(title)
-	vbox.add_child(title)
+	title_box.add_child(title)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 18)
-	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(hbox)
+	var tagline := Label.new()
+	tagline.text = game_tagline.to_upper()
+	tagline.add_theme_font_size_override("font_size", 13)
+	tagline.add_theme_color_override("font_color", UiSkin.ACCENT)
+	_apply_font(tagline)
+	title_box.add_child(tagline)
 
-	# LEFT: Zones list wrapped in readable inset panel
-	var left := VBoxContainer.new()
-	left.custom_minimum_size.x = 330
-	left.add_theme_constant_override("separation", 8)
-	hbox.add_child(left)
+	# Sigils pill (top-right).
+	var sig_panel := PanelContainer.new()
+	sig_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	sig_panel.offset_left = -236
+	sig_panel.offset_right = -28
+	sig_panel.offset_top = 26
+	sig_panel.offset_bottom = 62
+	sig_panel.add_theme_stylebox_override("panel", UiSkin.chip_style(UiSkin.ACCENT_GOLD))
+	add_child(sig_panel)
+	_sigils_lbl = Label.new()
+	_sigils_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_sigils_lbl.add_theme_font_size_override("font_size", 15)
+	_sigils_lbl.add_theme_color_override("font_color", UiSkin.ACCENT_GOLD)
+	_apply_font(_sigils_lbl)
+	sig_panel.add_child(_sigils_lbl)
+	_refresh_sigils()
 
-	var list_lbl := Label.new()
-	list_lbl.text = "Zones"
-	list_lbl.add_theme_font_size_override("font_size", 14)
-	list_lbl.add_theme_color_override("font_color", SUBTITLE_COLOR)
-	list_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_apply_font(list_lbl)
-	left.add_child(list_lbl)
+	# Mission detail panel (right-center).
+	_zone_panel = PanelContainer.new()
+	_zone_panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	_zone_panel.offset_left = -478
+	_zone_panel.offset_right = -36
+	_zone_panel.offset_top = -300
+	_zone_panel.offset_bottom = 210
+	_zone_panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT))
+	add_child(_zone_panel)
 
-	_map_list_frame = PanelContainer.new()
-	_map_list_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.86))
-	_map_list_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left.add_child(_map_list_frame)
+	var zp_pad := MarginContainer.new()
+	zp_pad.add_theme_constant_override("margin_left", UiSkin.SPACE_LG)
+	zp_pad.add_theme_constant_override("margin_right", UiSkin.SPACE_LG)
+	zp_pad.add_theme_constant_override("margin_top", UiSkin.SPACE_LG)
+	zp_pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_LG)
+	_zone_panel.add_child(zp_pad)
 
-	var lf_pad := MarginContainer.new()
-	lf_pad.add_theme_constant_override("margin_left", 6)
-	lf_pad.add_theme_constant_override("margin_right", 6)
-	lf_pad.add_theme_constant_override("margin_top", 6)
-	lf_pad.add_theme_constant_override("margin_bottom", 6)
-	_map_list_frame.add_child(lf_pad)
+	var zp_v := VBoxContainer.new()
+	zp_v.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	zp_pad.add_child(zp_v)
 
-	var list_scroll := ScrollContainer.new()
-	list_scroll.custom_minimum_size.y = 320
-	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	lf_pad.add_child(list_scroll)
+	var mission_hdr := Label.new()
+	mission_hdr.text = "— NEXT DEPLOYMENT —"
+	mission_hdr.add_theme_font_size_override("font_size", 12)
+	mission_hdr.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+	_apply_font(mission_hdr)
+	zp_v.add_child(mission_hdr)
 
-	_map_list_box = VBoxContainer.new()
-	_map_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_map_list_box.add_theme_constant_override("separation", UiSkin.SPACE_SM)
-	list_scroll.add_child(_map_list_box)
+	_zone_name_lbl = Label.new()
+	_zone_name_lbl.add_theme_font_size_override("font_size", 30)
+	_zone_name_lbl.add_theme_color_override("font_color", UiSkin.TEXT)
+	_zone_name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_apply_font(_zone_name_lbl)
+	zp_v.add_child(_zone_name_lbl)
 
-	# RIGHT: Preview + info cards (all on dark surfaces)
-	var right := VBoxContainer.new()
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right.add_theme_constant_override("separation", 10)
-	hbox.add_child(right)
+	_zone_tag_lbl = Label.new()
+	_zone_tag_lbl.add_theme_font_size_override("font_size", 13)
+	_zone_tag_lbl.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+	_zone_tag_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_apply_font(_zone_tag_lbl)
+	zp_v.add_child(_zone_tag_lbl)
 
-	var preview_frame := PanelContainer.new()
-	preview_frame.custom_minimum_size.y = 280
-	preview_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	preview_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.90))
-	right.add_child(preview_frame)
-
-	var prev_pad := MarginContainer.new()
-	prev_pad.add_theme_constant_override("margin_left", 6)
-	prev_pad.add_theme_constant_override("margin_right", 6)
-	prev_pad.add_theme_constant_override("margin_top", 6)
-	prev_pad.add_theme_constant_override("margin_bottom", 6)
-	preview_frame.add_child(prev_pad)
-
-	var prev_container := SubViewportContainer.new()
-	prev_container.stretch = true
-	prev_pad.add_child(prev_container)
-
-	_map_preview_vp = SubViewport.new()
-	_map_preview_vp.size = Vector2i(720, 360)
-	_map_preview_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_map_preview_vp.transparent_bg = false
-	prev_container.add_child(_map_preview_vp)
-
-	# LOCK overlay on preview
-	_map_preview_lock_lbl = Label.new()
-	_map_preview_lock_lbl.name = "PreviewLocked"
-	_map_preview_lock_lbl.text = "LOCKED"
-	_map_preview_lock_lbl.visible = false
-	_map_preview_lock_lbl.set_anchors_preset(Control.PRESET_CENTER)
-	_map_preview_lock_lbl.add_theme_font_size_override("font_size", 34)
-	_map_preview_lock_lbl.add_theme_color_override("font_color", Color(1, 0.6, 0.5, 1))
-	_map_preview_lock_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	_map_preview_lock_lbl.add_theme_constant_override("outline_size", 6)
-	_apply_font(_map_preview_lock_lbl)
-	preview_frame.add_child(_map_preview_lock_lbl)
-
-	_map_details_frame = PanelContainer.new()
-	_map_details_frame.add_theme_stylebox_override("panel", _sb_inset(14, 0.84))
-	right.add_child(_map_details_frame)
-
-	var df_pad := MarginContainer.new()
-	df_pad.add_theme_constant_override("margin_left", 10)
-	df_pad.add_theme_constant_override("margin_right", 10)
-	df_pad.add_theme_constant_override("margin_top", 8)
-	df_pad.add_theme_constant_override("margin_bottom", 8)
-	_map_details_frame.add_child(df_pad)
-
-	var info_v := VBoxContainer.new()
-	info_v.add_theme_constant_override("separation", 6)
-	df_pad.add_child(info_v)
-
-	_map_tagline = Label.new()
-	_map_tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_map_tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_map_tagline.add_theme_font_size_override("font_size", 14)
-	_map_tagline.add_theme_color_override("font_color", SUBTITLE_COLOR)
-	_map_tagline.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.35))
-	_map_tagline.add_theme_constant_override("outline_size", 3)
-	_apply_font(_map_tagline)
-	info_v.add_child(_map_tagline)
-
-	_map_details = RichTextLabel.new()
-	_map_details.custom_minimum_size.y = 84
-	_map_details.bbcode_enabled = true
-	_map_details.fit_content = true
-	_map_details.scroll_active = false
-	_map_details.add_theme_font_size_override("normal_font_size", 13)
-	_map_details.add_theme_color_override("default_color", Color(0.92, 0.90, 0.86, 0.95))
-	_apply_font(_map_details)
-	info_v.add_child(_map_details)
-
-	# Buttons row
-	var btn_row := HBoxContainer.new()
-	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", 16)
-	vbox.add_child(btn_row)
-
-	_map_back_btn = _make_menu_button("← Back", false)
-	_map_back_btn.custom_minimum_size = Vector2(170, 50)
-	btn_row.add_child(_map_back_btn)
-
-	_map_start_btn = _make_menu_button("Start", true)
-	_map_start_btn.custom_minimum_size = Vector2(200, 50)
-	btn_row.add_child(_map_start_btn)
-
-	_setup_map_select_overlay()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SIGNALS & LOGIC (unchanged behavior)
-# ─────────────────────────────────────────────────────────────────────────────
-
-func _connect_signals() -> void:
-	if _play_btn:
-		_play_btn.pressed.connect(func():
-			_play_ui("ui.confirm")
-			_open_map_overlay()
-		)
+	_zone_info = RichTextLabel.new()
+	_zone_info.bbcode_enabled = true
+	_zone_info.fit_content = true
+	_zone_info.scroll_active = false
+	_zone_info.add_theme_font_size_override("normal_font_size", 14)
+	_zone_info.add_theme_color_override("default_color", UiSkin.TEXT_SOFT)
+	_zone_info.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_apply_font(_zone_info)
+	zp_v.add_child(_zone_info)
 
 	var sv := get_node_or_null("/root/SaveManager")
-	var has_resume := sv and is_instance_valid(sv) and sv.has_method("has_saved_run") and bool(sv.has_saved_run())
-	if _resume_btn:
-		_resume_btn.visible = has_resume
-		if has_resume:
-			_resume_btn.pressed.connect(func():
-				_play_ui("ui.resume_load")
-				if sv and sv.has_method("request_resume") and bool(sv.request_resume()):
-					get_tree().change_scene_to_packed(MAIN_SCENE)
-			)
-
-	if _armory_btn:
-		_armory_btn.pressed.connect(func():
-			_play_ui("ui.click")
-			get_tree().change_scene_to_packed(ARMORY_SCENE)
+	var has_resume: bool = sv != null and is_instance_valid(sv) \
+		and sv.has_method("has_saved_run") and bool(sv.has_saved_run())
+	_resume_btn = _make_menu_button("⟳ Resume Last Run", false, UiSkin.ACCENT_GOLD)
+	_resume_btn.custom_minimum_size = Vector2(0, 48)
+	_resume_btn.visible = has_resume
+	zp_v.add_child(_resume_btn)
+	if has_resume:
+		_resume_btn.pressed.connect(func():
+			_play_ui("ui.resume_load")
+			if sv and sv.has_method("request_resume") and bool(sv.request_resume()):
+				get_tree().change_scene_to_packed(MAIN_SCENE)
 		)
 
-	if _protocol_btn:
-		_protocol_btn.pressed.connect(func():
-			_play_ui("ui.click")
-			_open_protocol_grid()
-		)
+	_deploy_btn = _make_menu_button("▶ DEPLOY", true)
+	_deploy_btn.custom_minimum_size = Vector2(0, 62)
+	zp_v.add_child(_deploy_btn)
+	_deploy_btn.pressed.connect(func():
+		if _selected_map_locked:
+			_play_ui("ui.error")
+			return
+		_play_ui("ui.confirm")
+		_start_run_with_selected_map()
+	)
 
-	if _info_btn:
-		_info_btn.pressed.connect(func():
-			_play_ui("ui.click")
-			_open_info_overlay()
-		)
+	# Zone carousel (bottom-center, above the nav rail).
+	var car_center := CenterContainer.new()
+	car_center.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	car_center.offset_top = -268
+	car_center.offset_bottom = -100
+	car_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(car_center)
 
-	if _settings_btn:
-		_settings_btn.pressed.connect(func():
-			_play_ui("ui.click")
-			_open_settings()
-		)
+	_zone_row = HBoxContainer.new()
+	_zone_row.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	car_center.add_child(_zone_row)
 
-	if _quit_btn:
-		_quit_btn.pressed.connect(func():
-			_play_ui("ui.cancel")
-			get_tree().quit()
-		)
+	# Keyboard hint.
+	var hint := Label.new()
+	hint.text = "◀ ▶  switch zone      ENTER  deploy"
+	hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	hint.offset_top = -96
+	hint.offset_bottom = -78
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+	_apply_font(hint)
+	add_child(hint)
 
-	if _map_back_btn:
-		_map_back_btn.pressed.connect(func():
-			_play_ui("ui.cancel")
-			_close_map_overlay()
-		)
-	if _map_start_btn:
-		_map_start_btn.pressed.connect(func():
-			_play_ui("ui.confirm")
-			_start_run_with_selected_map()
-		)
+	# Nav rail (bottom-left).
+	var nav := HBoxContainer.new()
+	nav.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	nav.offset_left = 28
+	nav.offset_top = -70
+	nav.offset_bottom = -24
+	nav.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	add_child(nav)
 
-func _setup_map_select_overlay() -> void:
-	if _map_list_box == null:
+	_armory_btn = _nav_button("COLLECTION")
+	nav.add_child(_armory_btn)
+	_armory_btn.pressed.connect(func():
+		_play_ui("ui.click")
+		get_tree().change_scene_to_packed(ARMORY_SCENE)
+	)
+
+	_protocol_btn = _nav_button("PROTOCOL GRID", UiSkin.ACCENT_PURPLE)
+	nav.add_child(_protocol_btn)
+	_protocol_btn.pressed.connect(func():
+		_play_ui("ui.click")
+		_open_protocol_grid()
+	)
+
+	_info_btn = _nav_button("CODEX")
+	nav.add_child(_info_btn)
+	_info_btn.pressed.connect(func():
+		_play_ui("ui.click")
+		_open_info_overlay()
+	)
+
+	_settings_btn = _nav_button("SETTINGS")
+	nav.add_child(_settings_btn)
+	_settings_btn.pressed.connect(func():
+		_play_ui("ui.click")
+		_open_settings()
+	)
+
+	_quit_btn = _nav_button("QUIT", UiSkin.ACCENT_RED)
+	nav.add_child(_quit_btn)
+	_quit_btn.pressed.connect(func():
+		_play_ui("ui.cancel")
+		get_tree().quit()
+	)
+
+	# Footer (bottom-right).
+	var footer := Label.new()
+	footer.text = footer_text
+	footer.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	footer.offset_left = -360
+	footer.offset_top = -42
+	footer.offset_right = -24
+	footer.offset_bottom = -22
+	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	footer.add_theme_font_size_override("font_size", 11)
+	footer.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
+	_apply_font(footer)
+	add_child(footer)
+
+	# Boot fade-in: first frame is instant, art fades up from black.
+	var fade := ColorRect.new()
+	fade.color = Color(0, 0, 0, 1)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fade)
+	var ftw := fade.create_tween()
+	ftw.tween_property(fade, "color:a", 0.0, 0.55)
+	ftw.tween_callback(fade.queue_free)
+
+	# Panel entrance.
+	_zone_panel.modulate.a = 0.0
+	var ptw := _zone_panel.create_tween()
+	ptw.tween_interval(0.10)
+	ptw.tween_property(_zone_panel, "modulate:a", 1.0, UiSkin.DUR_MED)
+
+func _make_hero_layer() -> TextureRect:
+	var tr := TextureRect.new()
+	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tr.offset_left = -40
+	tr.offset_top = -28
+	tr.offset_right = 40
+	tr.offset_bottom = 28
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
+
+func _make_scrim(from_a: float, to_a: float) -> TextureRect:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 1.0])
+	g.colors = PackedColorArray([Color(0, 0, 0, from_a), Color(0, 0, 0, to_a)])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	var tr := TextureRect.new()
+	tr.texture = gt
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
+
+func _nav_button(text: String, accent: Color = UiSkin.ACCENT) -> Button:
+	var btn := _make_menu_button(text, false, accent)
+	btn.custom_minimum_size = Vector2(0, 44)
+	btn.add_theme_font_size_override("font_size", 14)
+	return btn
+
+func _refresh_sigils() -> void:
+	if _sigils_lbl == null or not is_instance_valid(_sigils_lbl):
+		return
+	var mp := get_node_or_null("/root/MetaProgression")
+	var sig := 0
+	if mp != null and is_instance_valid(mp) and "sigils" in mp:
+		sig = int(mp.get("sigils"))
+	_sigils_lbl.text = "✦ %d SIGILS" % sig
+
+func _populate_zone_carousel() -> void:
+	if _zone_row == null:
 		return
 	var rc := get_node_or_null("/root/RunConfig")
 	if rc == null or not is_instance_valid(rc):
@@ -684,141 +502,247 @@ func _setup_map_select_overlay() -> void:
 	if rc.has_method("ensure_loaded"):
 		rc.ensure_loaded()
 
-	for c in _map_list_box.get_children():
+	for c in _zone_row.get_children():
 		(c as Node).queue_free()
-	_map_cards.clear()
-	_map_ids.clear()
+	_zone_tiles.clear()
+	_zone_ids.clear()
 	if rc.has_method("get_map_ids_ordered"):
-		_map_ids = rc.get_map_ids_ordered()
+		_zone_ids = rc.get_map_ids_ordered()
 	elif rc.has_method("get_map_ids"):
-		_map_ids = rc.get_map_ids()
+		_zone_ids = rc.get_map_ids()
 
-	for i in range(_map_ids.size()):
-		var id := _map_ids[i]
+	var i := 0
+	for id in _zone_ids:
 		var m: Dictionary = rc.get_map(id) if rc.has_method("get_map") else {}
 		var locked := not _is_map_unlocked(id)
-		var card := _make_zone_card(id, m, locked, rc)
-		_map_list_box.add_child(card)
-		_map_cards[id] = card
+		var tile := _make_zone_tile(id, m, locked)
+		_zone_row.add_child(tile)
+		_zone_tiles[id] = tile
+		tile.modulate.a = 0.0
+		var tw := tile.create_tween()
+		tw.tween_interval(0.05 + 0.05 * float(i))
+		tw.tween_property(tile, "modulate:a", 1.0, UiSkin.DUR_MED)
+		i += 1
 
-	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
-	_refresh_zone_card_styles(cur)
-	_update_map_tagline(rc)
-	_update_map_preview(rc)
-	_update_map_lock_state(rc)
+	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else ""
+	if cur == "" or not _zone_ids.has(cur):
+		cur = _zone_ids[0] if not _zone_ids.is_empty() else ""
+	if cur != "":
+		_select_zone(cur, false)
 
-func _make_zone_card(id: String, m: Dictionary, locked: bool, rc: Node) -> PanelContainer:
-	var card := PanelContainer.new()
-	card.name = "ZoneCard_" + id
-	card.mouse_filter = Control.MOUSE_FILTER_STOP
-	card.mouse_default_cursor_shape = Control.CURSOR_ARROW if locked else Control.CURSOR_POINTING_HAND
-	card.set_meta("locked", locked)
-	card.tooltip_text = "Locked. Win the previous map to unlock." if locked else ""
+func _make_zone_tile(id: String, m: Dictionary, locked: bool) -> PanelContainer:
+	var tile := PanelContainer.new()
+	tile.name = "ZoneTile_" + id
+	tile.custom_minimum_size = Vector2(236, 150)
+	tile.mouse_filter = Control.MOUSE_FILTER_STOP
+	tile.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	tile.set_meta("locked", locked)
+	tile.add_theme_stylebox_override("panel", _zone_tile_style(false, locked))
+	tile.pivot_offset = Vector2(118, 75)
 
 	var pad := MarginContainer.new()
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pad.add_theme_constant_override("margin_left", UiSkin.SPACE_MD)
-	pad.add_theme_constant_override("margin_right", UiSkin.SPACE_MD)
-	pad.add_theme_constant_override("margin_top", UiSkin.SPACE_SM)
-	pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_SM)
-	card.add_child(pad)
+	pad.add_theme_constant_override("margin_left", 3)
+	pad.add_theme_constant_override("margin_right", 3)
+	pad.add_theme_constant_override("margin_top", 3)
+	pad.add_theme_constant_override("margin_bottom", 3)
+	tile.add_child(pad)
 
-	var v := VBoxContainer.new()
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 3)
-	pad.add_child(v)
+	var clipper := Control.new()
+	clipper.clip_contents = true
+	clipper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_child(clipper)
 
-	# Row 1: zone name + tier stars
-	var row1 := HBoxContainer.new()
-	row1.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row1.add_theme_constant_override("separation", UiSkin.SPACE_SM)
-	v.add_child(row1)
+	var art := TextureRect.new()
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.texture = _zone_art(id, m)
+	if locked:
+		art.modulate = Color(0.45, 0.48, 0.55, 1.0)
+	clipper.add_child(art)
 
-	var name_lbl := Label.new()
-	name_lbl.text = ("🔒 " if locked else "") + String(m.get("name", id))
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiSkin.style_label(name_lbl, UiSkin.FONT_LEAD, LOCKED_FG if locked else UiSkin.TEXT)
-	row1.add_child(name_lbl)
+	var scrim := _make_scrim(0.0, 0.92)
+	scrim.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	scrim.offset_top = -76
+	clipper.add_child(scrim)
 
-	var mult := float(m.get("meta_sigils_mult", 1.0))
-	var stars_lbl := Label.new()
-	stars_lbl.text = "★" if mult < 1.2 else ("★★" if mult < 1.5 else "★★★")
-	stars_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiSkin.style_label(stars_lbl, UiSkin.FONT_BODY, UiSkin.ACCENT_GOLD if not locked else LOCKED_FG)
-	row1.add_child(stars_lbl)
+	var info := VBoxContainer.new()
+	info.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	info.offset_left = 10
+	info.offset_right = -10
+	info.offset_top = -52
+	info.offset_bottom = -8
+	info.add_theme_constant_override("separation", 1)
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clipper.add_child(info)
 
-	# Row 2: danger pips + reward multiplier
+	var nm := Label.new()
+	nm.text = String(m.get("display_name", id)).to_upper()
+	nm.add_theme_font_size_override("font_size", 14)
+	nm.add_theme_color_override("font_color", UiSkin.TEXT)
+	nm.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	nm.add_theme_constant_override("outline_size", 4)
+	nm.clip_text = true
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_apply_font(nm)
+	info.add_child(nm)
+
 	var score := _danger_score(m)
-	var row2 := RichTextLabel.new()
-	row2.bbcode_enabled = true
-	row2.fit_content = true
-	row2.scroll_active = false
-	row2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row2.add_theme_font_size_override("normal_font_size", UiSkin.FONT_XS)
-	row2.text = "[color=%s]%s[/color]  [color=#ffd070]★x%.2f[/color]" % [_tier_color(score), _bar(score), mult]
-	v.add_child(row2)
-
-	# Row 3: who lives here (race pool)
-	var races_line := _races_bbcode(m)
-	if races_line != "":
-		var row3 := RichTextLabel.new()
-		row3.bbcode_enabled = true
-		row3.fit_content = true
-		row3.scroll_active = false
-		row3.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row3.add_theme_font_size_override("normal_font_size", UiSkin.FONT_XS)
-		row3.text = races_line
-		v.add_child(row3)
+	var stars_n := clampi(int(ceil(score / 2.0)), 1, 5)
+	var stars := Label.new()
+	stars.text = "★".repeat(stars_n) + "☆".repeat(5 - stars_n)
+	stars.add_theme_font_size_override("font_size", 12)
+	stars.add_theme_color_override("font_color", Color.html(_tier_color(score)))
+	stars.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	stars.add_theme_constant_override("outline_size", 3)
+	_apply_font(stars)
+	info.add_child(stars)
 
 	if locked:
-		card.modulate = Color(1, 1, 1, 0.62)
+		var lock := Label.new()
+		lock.text = "🔒"
+		lock.set_anchors_preset(Control.PRESET_CENTER)
+		lock.offset_top = -34
+		lock.add_theme_font_size_override("font_size", 30)
+		lock.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+		clipper.add_child(lock)
 
-	card.gui_input.connect(func(ev: InputEvent):
+	tile.gui_input.connect(func(ev: InputEvent):
 		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
 				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-			_on_zone_card_clicked(id, rc)
+			_on_zone_tile_clicked(id)
 	)
-	card.mouse_entered.connect(func():
-		if not bool(card.get_meta("locked", false)) and not bool(card.get_meta("selected", false)):
-			card.add_theme_stylebox_override("panel", UiSkin.card_style_hover(UiSkin.ACCENT))
+	tile.mouse_entered.connect(func():
+		if not bool(tile.get_meta("selected", false)):
+			var tw := tile.create_tween()
+			tw.tween_property(tile, "scale", Vector2(1.03, 1.03), 0.10)
 	)
-	card.mouse_exited.connect(func():
-		if not bool(card.get_meta("selected", false)):
-			card.add_theme_stylebox_override("panel", _zone_card_style(false, bool(card.get_meta("locked", false))))
+	tile.mouse_exited.connect(func():
+		if not bool(tile.get_meta("selected", false)):
+			var tw := tile.create_tween()
+			tw.tween_property(tile, "scale", Vector2.ONE, 0.10)
 	)
-	return card
+	return tile
 
-func _on_zone_card_clicked(id: String, rc: Node) -> void:
-	var card: PanelContainer = _map_cards.get(id, null)
-	if card == null or bool(card.get_meta("locked", false)):
-		_play_ui("ui.error")
-		return
-	_play_ui("ui.click")
-	if rc.has_method("set_selected_map_id"):
-		rc.set_selected_map_id(id)
-	_refresh_zone_card_styles(id)
-	_update_map_tagline(rc)
-	_update_map_preview(rc)
-	_update_map_lock_state(rc)
-
-func _zone_card_style(selected: bool, locked: bool) -> StyleBox:
+func _zone_tile_style(selected: bool, locked: bool) -> StyleBox:
+	if selected:
+		return UiSkin.card_style_hover(UiSkin.ACCENT_GOLD)
 	if locked:
 		var sb := UiSkin.inset_style(UiSkin.RADIUS_MD, 0.70)
 		sb.border_color = Color(0.4, 0.45, 0.55, 0.20)
 		return sb
-	if selected:
-		return UiSkin.card_style_hover(UiSkin.ACCENT_GOLD)
 	return UiSkin.card_style(UiSkin.ACCENT, false)
 
-func _refresh_zone_card_styles(selected_id: String) -> void:
-	for id in _map_cards.keys():
-		var card: PanelContainer = _map_cards[id]
-		if card == null or not is_instance_valid(card):
+func _on_zone_tile_clicked(id: String) -> void:
+	_play_ui("ui.click")
+	_select_zone(id, true)
+
+func _cycle_zone(dir: int) -> void:
+	if _zone_ids.is_empty():
+		return
+	var rc := get_node_or_null("/root/RunConfig")
+	var cur := String(rc.selected_map_id) if (rc != null and "selected_map_id" in rc) else ""
+	var idx := _zone_ids.find(cur)
+	idx = (idx + dir + _zone_ids.size()) % _zone_ids.size() if idx >= 0 else 0
+	_play_ui("ui.click")
+	_select_zone(_zone_ids[idx], true)
+
+func _select_zone(id: String, animate: bool) -> void:
+	var rc := get_node_or_null("/root/RunConfig")
+	if rc == null or not is_instance_valid(rc):
+		return
+	if rc.has_method("set_selected_map_id"):
+		rc.set_selected_map_id(id)
+	_selected_map_locked = not _is_map_unlocked(id)
+
+	for tid in _zone_tiles.keys():
+		var tile: PanelContainer = _zone_tiles[tid]
+		if tile == null or not is_instance_valid(tile):
 			continue
-		var selected: bool = String(id) == selected_id
-		card.set_meta("selected", selected)
-		card.add_theme_stylebox_override("panel", _zone_card_style(selected, bool(card.get_meta("locked", false))))
+		var sel: bool = String(tid) == id
+		tile.set_meta("selected", sel)
+		tile.add_theme_stylebox_override("panel", _zone_tile_style(sel, bool(tile.get_meta("locked", false))))
+		var tw := tile.create_tween()
+		tw.tween_property(tile, "scale", Vector2(1.06, 1.06) if sel else Vector2.ONE, 0.12)
+
+	var m: Dictionary = rc.get_map(id) if rc.has_method("get_map") else {}
+	_update_zone_panel(m)
+	_swap_hero(_zone_art(id, m), animate)
+	_refresh_sigils()
+
+func _zone_art(map_id: String, m: Dictionary) -> Texture2D:
+	if _zone_art_cache.has(map_id):
+		return _zone_art_cache[map_id] as Texture2D
+	var tex: Texture2D = null
+	var thumb := "res://assets/maps/thumbs/%s.webp" % map_id
+	if ResourceLoader.exists(thumb):
+		tex = load(thumb) as Texture2D
+	if tex == null:
+		var vis: Dictionary = {}
+		var vv: Variant = m.get("visuals", {})
+		if typeof(vv) == TYPE_DICTIONARY:
+			vis = vv as Dictionary
+		tex = _map_preview_texture(m, vis, map_id)
+	_zone_art_cache[map_id] = tex
+	return tex
+
+func _swap_hero(tex: Texture2D, animate: bool) -> void:
+	if tex == null or _hero_a == null or _hero_b == null:
+		return
+	var front := _hero_a if _hero_front_is_a else _hero_b
+	var back := _hero_b if _hero_front_is_a else _hero_a
+	if front.texture == tex:
+		return
+	if not animate:
+		front.texture = tex
+		front.modulate.a = 1.0
+		back.modulate.a = 0.0
+		return
+	back.texture = tex
+	back.modulate.a = 0.0
+	var tw := back.create_tween()
+	tw.tween_property(back, "modulate:a", 1.0, 0.40)
+	tw.tween_callback(func():
+		front.modulate.a = 0.0
+		_hero_front_is_a = not _hero_front_is_a
+	)
+
+func _update_zone_panel(m: Dictionary) -> void:
+	if _zone_name_lbl == null:
+		return
+	_zone_name_lbl.text = String(m.get("display_name", "UNKNOWN ZONE")).to_upper()
+	_zone_tag_lbl.text = String(m.get("tagline", ""))
+	_zone_tag_lbl.visible = _zone_tag_lbl.text != ""
+
+	var score := _danger_score(m)
+	var col := _tier_color(score)
+	var sig := float(m.get("meta_sigils_mult", 1.0))
+	var ess := float(m.get("essence_mult", 1.0))
+	var boss := bool(m.get("boss_enabled", true))
+	var boss_m := float(m.get("boss_spawn_minutes", 18.0))
+	var lines: Array[String] = []
+	lines.append("[color=#7a8a9a]DANGER[/color]   [color=%s]%s  %.1f[/color]" % [col, _bar(score), score])
+	lines.append("[color=#7a8a9a]REWARDS[/color]  [color=#ffd070]✦ Sigils x%.2f[/color]   [color=#70d0ff]✧ Essence x%.2f[/color]" % [sig, ess])
+	if boss:
+		lines.append("[color=#7a8a9a]BOSS[/color]     [color=#ff7070]Arrives at %.0f min[/color]" % boss_m)
+	else:
+		lines.append("[color=#7a8a9a]BOSS[/color]     [color=#70ff70]None detected[/color]")
+	var races := _races_bbcode(m)
+	if races != "":
+		lines.append("")
+		lines.append("[color=#7a8a9a]HOSTILE RACES[/color]")
+		lines.append(races)
+	if _selected_map_locked:
+		lines.append("")
+		lines.append("[color=#ff8a70]🔒 LOCKED — win the previous zone to unlock.[/color]")
+	_zone_info.text = "\n".join(lines)
+
+	if _deploy_btn != null:
+		_deploy_btn.disabled = _selected_map_locked
+		_deploy_btn.text = "🔒 LOCKED" if _selected_map_locked else "▶ DEPLOY"
 
 func _races_bbcode(m: Dictionary) -> String:
 	var pool_v: Variant = m.get("race_pool_enemy", m.get("race_pool", []))
@@ -832,33 +756,6 @@ func _races_bbcode(m: Dictionary) -> String:
 		var rid := String(r).to_upper()
 		parts.append("[color=%s]%s[/color]" % [UiSkin.race_hex(rid), rid.capitalize()])
 	return "[color=#7a8a9a]☉[/color] " + " [color=#55636f]•[/color] ".join(parts)
-
-func _update_map_tagline(rc: Node) -> void:
-	if _map_tagline == null:
-		return
-	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
-	var m: Dictionary = rc.get_map(cur) if rc.has_method("get_map") else {}
-	var t := String(m.get("tagline", ""))
-	var mult := float(m.get("meta_sigils_mult", 1.0))
-	_map_tagline.text = "%s\nSigils: x%.2f" % [t, mult] if t != "" else ""
-	_update_map_details(m)
-	_update_map_lock_state(rc)
-
-func _update_map_lock_state(rc: Node) -> void:
-	if rc == null:
-		return
-	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
-	_selected_map_locked = not _is_map_unlocked(cur)
-
-	if _map_start_btn:
-		_map_start_btn.disabled = _selected_map_locked
-		_map_start_btn.text = "🔒 Locked" if _selected_map_locked else "▶ Deploy"
-
-	if _map_preview_lock_lbl:
-		_map_preview_lock_lbl.visible = _selected_map_locked
-
-	if _map_details_frame:
-		_map_details_frame.modulate = Color(1, 1, 1, 0.85) if _selected_map_locked else Color(1, 1, 1, 1)
 
 func _danger_score(m: Dictionary) -> float:
 	var hp: float = float(m.get("enemy_hp_mult", 1.0))
@@ -885,79 +782,6 @@ func _bar(score: float) -> String:
 	for i in range(10):
 		s += "■" if i < n else "·"
 	return s
-
-func _update_map_details(m: Dictionary) -> void:
-	if _map_details == null:
-		return
-	var score := _danger_score(m)
-	var col := _tier_color(score)
-	var sig := float(m.get("meta_sigils_mult", 1.0))
-	var ess := float(m.get("essence_mult", 1.0))
-	var boss := bool(m.get("boss_enabled", true))
-	var boss_m := float(m.get("boss_spawn_minutes", 18.0))
-	var diff_bar := "[color=%s]%s[/color]" % [col, _bar(score)]
-	var diff_line := "[color=#a8a0a0]Danger:[/color] %s [color=%s]%.1f[/color]" % [diff_bar, col, score]
-	var reward_line := "[color=#a8a0a0]Rewards:[/color] [color=#ffd070]★ x%.2f[/color]  [color=#70d0ff]◆ x%.2f[/color]" % [sig, ess]
-	var boss_text := "[color=#ff7070]Yes @ %.0fm[/color]" % boss_m if boss else "[color=#70ff70]No[/color]"
-	var lines := "%s\n%s\n[color=#a8a0a0]Boss:[/color] %s" % [diff_line, reward_line, boss_text]
-	var races := _races_bbcode(m)
-	if races != "":
-		lines += "\n[color=#a8a0a0]Hostiles:[/color] %s" % races
-	_map_details.text = lines
-
-func _hash32(s: String) -> int:
-	var h: int = 2166136261
-	for i in range(s.length()):
-		h = int((h ^ s.unicode_at(i)) * 16777619) & 0x7fffffff
-	return h
-
-func _update_map_preview(rc: Node) -> void:
-	if _map_preview_vp == null:
-		return
-	var cur := String(rc.selected_map_id) if "selected_map_id" in rc else "graveyard"
-	if cur == _map_preview_last_id and _preview_root != null and is_instance_valid(_preview_root):
-		return
-	_map_preview_last_id = cur
-	var m: Dictionary = rc.get_map(cur) if rc.has_method("get_map") else {}
-	var vis: Dictionary = {}
-	var vv: Variant = m.get("visuals", {})
-	if typeof(vv) == TYPE_DICTIONARY:
-		vis = vv as Dictionary
-
-	if _preview_root != null and is_instance_valid(_preview_root):
-		_preview_root.queue_free()
-		_preview_root = null
-	for c in _map_preview_vp.get_children():
-		(c as Node).queue_free()
-
-	_map_preview_vp.size = Vector2i(720, 360)
-	_map_preview_vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-
-	var root := Node2D.new()
-	root.name = "PreviewRoot"
-	root.process_mode = Node.PROCESS_MODE_ALWAYS
-	_map_preview_vp.add_child(root)
-	_preview_root = root
-
-	var cam := Camera2D.new()
-	cam.position = Vector2.ZERO
-	cam.zoom = Vector2(0.34, 0.34)
-	cam.process_mode = Node.PROCESS_MODE_ALWAYS
-	cam.enabled = true
-	root.add_child(cam)
-	cam.make_current()
-
-	var tex := _map_preview_texture(m, vis, cur)
-	if tex != null:
-		var sp := Sprite2D.new()
-		sp.texture = tex
-		sp.centered = true
-		sp.position = Vector2.ZERO
-		sp.scale = Vector2(
-			2400.0 / maxf(1.0, float(tex.get_width())),
-			1800.0 / maxf(1.0, float(tex.get_height()))
-		)
-		root.add_child(sp)
 
 func _map_preview_texture(map_data: Dictionary, vis: Dictionary, map_id: String) -> Texture2D:
 	if _map_preview_tex_cache.has(map_id):
@@ -1063,50 +887,33 @@ func _animate_overlay_open(overlay: Control, panel: Control = null) -> void:
 		tp.tween_property(panel, "scale", Vector2.ONE, UiSkin.DUR_MED) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
-func _open_map_overlay() -> void:
-	if _map_overlay == null:
-		_start_run_with_selected_map()
-		return
-
-	if _crowd != null and is_instance_valid(_crowd):
-		_crowd_prev_visible = _crowd.visible
-		_crowd_prev_process_mode = _crowd.process_mode
-		_crowd.visible = false
-		_crowd.process_mode = Node.PROCESS_MODE_DISABLED
-
-	_map_overlay.visible = true
-	_animate_overlay_open(_map_overlay, _map_panel)
-	_map_overlay.grab_focus()
-	if _map_start_btn:
-		_map_start_btn.grab_focus()
-
-func _close_map_overlay() -> void:
-	if _map_overlay == null:
-		return
-	_map_overlay.visible = false
-
-	if _crowd != null and is_instance_valid(_crowd):
-		_crowd.visible = _crowd_prev_visible
-		_crowd.process_mode = _crowd_prev_process_mode
-
-	if _play_btn:
-		_play_btn.grab_focus()
-
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			if _map_overlay and _map_overlay.visible:
-				_close_map_overlay()
-				get_viewport().set_input_as_handled()
-				return
-			if _info_overlay and _info_overlay.visible:
-				_close_info_overlay()
-				get_viewport().set_input_as_handled()
-				return
-			if _protocol_overlay and _protocol_overlay.visible:
-				_close_protocol_overlay()
-				get_viewport().set_input_as_handled()
-				return
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	var key := (event as InputEventKey).keycode
+	if key == KEY_ESCAPE:
+		if _info_overlay and _info_overlay.visible:
+			_close_info_overlay()
+			get_viewport().set_input_as_handled()
+		elif _protocol_overlay and _protocol_overlay.visible:
+			_close_protocol_overlay()
+			get_viewport().set_input_as_handled()
+		return
+	# Zone navigation only on the deck itself.
+	if (_info_overlay and _info_overlay.visible) or (_protocol_overlay and _protocol_overlay.visible):
+		return
+	match key:
+		KEY_LEFT, KEY_A:
+			_cycle_zone(-1)
+			get_viewport().set_input_as_handled()
+		KEY_RIGHT, KEY_D:
+			_cycle_zone(1)
+			get_viewport().set_input_as_handled()
+		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+			if not _selected_map_locked:
+				_play_ui("ui.confirm")
+				_start_run_with_selected_map()
+			get_viewport().set_input_as_handled()
 
 func _start_run_with_selected_map() -> void:
 	if _selected_map_locked:
@@ -1120,6 +927,13 @@ func _start_run_with_selected_map() -> void:
 		if rc.has_method("get_selected_map"):
 			m = rc.get_selected_map() as Dictionary
 	print("DEPLOY_TRACE click map=%s t_ms=%d" % [mid, int(Time.get_ticks_msec())])
+	# Start decoding the full map background on a worker thread now, so the
+	# scene boot finds it ready (or nearly ready) instead of blocking.
+	var vis_v: Variant = m.get("visuals", {})
+	if typeof(vis_v) == TYPE_DICTIONARY:
+		var bg_path := String((vis_v as Dictionary).get("bg_image_path", ""))
+		if bg_path.begins_with("res://") and ResourceLoader.exists(bg_path):
+			ResourceLoader.load_threaded_request(bg_path, "", true)
 	_show_deploy_overlay(m)
 	# Let the overlay paint before the scene build blocks the main thread.
 	await get_tree().process_frame
@@ -1196,11 +1010,6 @@ func _play_ui(id: String) -> void:
 
 func _open_info_overlay() -> void:
 	if _info_overlay != null and is_instance_valid(_info_overlay):
-		if _crowd != null and is_instance_valid(_crowd):
-			_crowd_prev_visible = _crowd.visible
-			_crowd_prev_process_mode = _crowd.process_mode
-			_crowd.visible = false
-			_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 		_info_overlay.visible = true
 		_animate_overlay_open(_info_overlay)
 		_reload_info_entries()
@@ -1212,21 +1021,13 @@ func _open_info_overlay() -> void:
 	_reload_info_entries()
 	if _info_search:
 		_info_search.grab_focus()
-	if _crowd != null and is_instance_valid(_crowd):
-		_crowd_prev_visible = _crowd.visible
-		_crowd_prev_process_mode = _crowd.process_mode
-		_crowd.visible = false
-		_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 
 func _close_info_overlay() -> void:
 	if _info_overlay == null:
 		return
 	_info_overlay.visible = false
-	if _crowd != null and is_instance_valid(_crowd):
-		_crowd.visible = _crowd_prev_visible
-		_crowd.process_mode = _crowd_prev_process_mode
-	if _play_btn:
-		_play_btn.grab_focus()
+	if _deploy_btn:
+		_deploy_btn.grab_focus()
 
 func _create_info_overlay() -> void:
 	_info_overlay = Control.new()
@@ -1682,11 +1483,6 @@ var _protocol_search: LineEdit = null
 var _protocol_search_query: String = ""
 
 func _open_protocol_grid() -> void:
-	if _crowd != null and is_instance_valid(_crowd):
-		_crowd_prev_visible = _crowd.visible
-		_crowd_prev_process_mode = _crowd.process_mode
-		_crowd.visible = false
-		_crowd.process_mode = Node.PROCESS_MODE_DISABLED
 	if _protocol_overlay != null and is_instance_valid(_protocol_overlay):
 		_protocol_overlay.visible = true
 		_animate_overlay_open(_protocol_overlay)
@@ -2360,11 +2156,9 @@ func _close_protocol_overlay() -> void:
 	_protocol_search_query = ""
 	if _protocol_search != null and is_instance_valid(_protocol_search):
 		_protocol_search.clear()
-	if _crowd != null and is_instance_valid(_crowd):
-		_crowd.visible = _crowd_prev_visible
-		_crowd.process_mode = _crowd_prev_process_mode
-	if _play_btn:
-		_play_btn.grab_focus()
+	if _deploy_btn:
+		_deploy_btn.grab_focus()
+	_refresh_sigils()
 
 func _layout_protocol_tree(root: Control) -> void:
 	if root == null or not is_instance_valid(root):
