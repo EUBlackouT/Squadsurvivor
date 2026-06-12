@@ -5,7 +5,7 @@ extends SceneTree
 
 const MAP_IDS: Array[String] = [
 	"church", "library", "foundry", "cathedral",
-	"cathedral_nave", "infernal_reliquary",
+	"cathedral_nave", "infernal_reliquary", "grand_basilica",
 ]
 
 func _init() -> void:
@@ -50,7 +50,28 @@ func _boot_map(map_id: String) -> bool:
 		spawn_walkable = bool(world.call("_is_point_walkable", (player as Node2D).global_position))
 
 	var enemies := get_nodes_in_group("enemies").size()
-	var ok := blocker_count > 0 and player_ok and spawn_walkable and enemies > 0
-	print("AUTHORED_BOOT_SMOKE %s blockers=%d player=%s spawn_walkable=%s enemies=%d -> %s" % [
-		map_id, blocker_count, str(player_ok), str(spawn_walkable), enemies, "OK" if ok else "FAIL"])
+
+	# Physics probe: the player body must overlap when placed inside a blocker
+	# (proving walls physically collide) and must be free at its spawn point.
+	var collides_in_wall := false
+	var free_at_spawn := false
+	if player_ok and player is PhysicsBody2D:
+		var body := player as PhysicsBody2D
+		var blockers_arr: Array = world.get("_hard_blockers")
+		if blockers_arr is Array and not (blockers_arr as Array).is_empty():
+			var poly: PackedVector2Array = (blockers_arr as Array)[0]
+			var centroid := Vector2.ZERO
+			for p in poly:
+				centroid += p
+			centroid /= float(poly.size())
+			free_at_spawn = not body.test_move(body.global_transform, Vector2.ZERO)
+			var xf := body.global_transform
+			xf.origin = centroid
+			collides_in_wall = body.test_move(xf, Vector2.ZERO)
+
+	var ok := blocker_count > 0 and player_ok and spawn_walkable and enemies > 0 \
+		and collides_in_wall and free_at_spawn
+	print("AUTHORED_BOOT_SMOKE %s blockers=%d player=%s spawn_walkable=%s enemies=%d wall_collides=%s spawn_free=%s -> %s" % [
+		map_id, blocker_count, str(player_ok), str(spawn_walkable), enemies,
+		str(collides_in_wall), str(free_at_spawn), "OK" if ok else "FAIL"])
 	return ok
