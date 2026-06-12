@@ -6,6 +6,7 @@ extends SceneTree
 const MAP_IDS: Array[String] = [
 	"church", "library", "foundry", "cathedral",
 	"cathedral_nave", "infernal_reliquary", "grand_basilica",
+	"emerald_sanctum", "aurelian_court",
 ]
 
 func _init() -> void:

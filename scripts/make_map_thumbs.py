@@ -32,6 +32,16 @@ for m in iter_maps(data):
     map_id = str(m.get("id", ""))
     vis = m.get("visuals", {})
     bg = str(vis.get("bg_image_path", "")) or str(m.get("metadata_image_path", ""))
+    if not bg:
+        # Authored metadata maps: thumbnail from the baked source image.
+        meta_path = str(m.get("metadata_path", ""))
+        if meta_path:
+            mp = meta_path.replace("res://", ROOT + os.sep).replace("/", os.sep)
+            if os.path.exists(mp):
+                meta = json.load(open(mp, encoding="utf-8"))
+                src_img = str(meta.get("source_image", ""))
+                if src_img:
+                    bg = os.path.join(os.path.dirname(mp), src_img)
     if not map_id or not bg:
         continue
     src = bg.replace("res://", ROOT + os.sep).replace("/", os.sep)

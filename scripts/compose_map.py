@@ -152,7 +152,11 @@ class Composer:
     def bake(self, out_dir, out_name, scale=3):
         from bake_rmmv_map import bake as bake_fn
         map_json = self.finalize()
-        tmp = os.path.join(out_dir, "_compose_tmp")
+        # Per-pack tmp dir: packs reuse tileset image filenames, so a shared
+        # dir would serve stale art from whichever pack baked first. Kept
+        # under scratch/ so temp files never land inside game asset folders.
+        pack_tag = os.path.basename(os.path.dirname(self.pack.rstrip("\\/"))) or "pack"
+        tmp = os.path.join("scratch", "_compose_tmp_" + pack_tag)
         os.makedirs(os.path.join(tmp, "data"), exist_ok=True)
         json.dump(map_json, open(os.path.join(tmp, "data", "Map001.json"), "w"))
         # Borrow tileset config + images from the source pack.
@@ -220,14 +224,15 @@ def harvest_stamps(pack_dir, map_num, min_cells=2, max_cells=400):
                             layers[z][yy - y1][xx - x1] = t
             stamps.append({
                 "src": "map%03d_(%d,%d)" % (map_num, x1, y1),
+                "tileset_id": b.map["tilesetId"],
                 "w": w, "h": h, "layers": layers,
             })
     return stamps
 
 
-def render_stamp(pack_dir, st, scale=1):
+def render_stamp(pack_dir, st, scale=1, tileset_id=1):
     """Render a stamp to a PIL image for contact sheets / reuse preview."""
-    c = Composer(pack_dir, 1, st["w"], st["h"])
+    c = Composer(pack_dir, tileset_id, st["w"], st["h"])
     c.stamp(st, 0, 0)
     map_json = c.finalize()
 
@@ -244,9 +249,9 @@ def render_stamp(pack_dir, st, scale=1):
     return _B(pack_dir, map_json).render()
 
 
-def make_contact_sheets(pack_dir, out_dir):
+def make_contact_sheets(pack_dir, out_dir, tileset_id=1, prefix=""):
     os.makedirs(out_dir, exist_ok=True)
-    ts = json.load(open(os.path.join(pack_dir, "data", "Tilesets.json"), encoding="utf-8"))[1]
+    ts = json.load(open(os.path.join(pack_dir, "data", "Tilesets.json"), encoding="utf-8"))[tileset_id]
     names = ts["tilesetNames"]
     flags = ts["flags"]
 
@@ -270,7 +275,7 @@ def make_contact_sheets(pack_dir, out_dir):
             blocked = (f & 0x0F) == 0x0F
             tile = annotate(tile, "k%d%s" % (k, " X" if blocked else ""))
             sheet.paste(tile, ((k % 8) * 96, (k // 8) * 96))
-        sheet.save(os.path.join(out_dir, "a2_kinds.png"))
+        sheet.save(os.path.join(out_dir, prefix + "a2_kinds.png"))
 
     # A4 wall kinds: wall-top rows (floor-type) + wall-face rows.
     a4_path = os.path.join(pack_dir, "img", "tilesets", names[3] + ".png")
@@ -291,7 +296,7 @@ def make_contact_sheets(pack_dir, out_dir):
             kind_tag = "k%d%s%s" % (k, "w" if ty % 2 == 1 else "f", " X" if blocked else "")
             tile = annotate(tile, kind_tag)
             sheet.paste(tile, (tx * 96, (k // 8) * 96))
-        sheet.save(os.path.join(out_dir, "a4_kinds.png"))
+        sheet.save(os.path.join(out_dir, prefix + "a4_kinds.png"))
 
     # A5 tiles.
     a5_path = os.path.join(pack_dir, "img", "tilesets", names[4] + ".png")
@@ -306,7 +311,7 @@ def make_contact_sheets(pack_dir, out_dir):
             blocked = (f & 0x0F) == 0x0F
             d.text((tx * 48 + 2, ty * 48 + 2), "%d%s" % (i, "X" if blocked else ""),
                    fill=(255, 255, 80, 255))
-        sheet.save(os.path.join(out_dir, "a5_tiles.png"))
+        sheet.save(os.path.join(out_dir, prefix + "a5_tiles.png"))
 
 
 if __name__ == "__main__":
