@@ -71,7 +71,10 @@
         "DEMON",
         "ELEMENTAL"
       ],
-      "tmx_path": "res://assets/maps/church/Church.tmx"
+      "map_size": [4320, 2304],
+      "metadata_path": "res://assets/maps/authored/church_metadata.json",
+      "player_presence_mult": 1.55,
+      "enemy_presence_mult": 1.75
     },
     {
       "id": "graveyard",
@@ -149,6 +152,10 @@
       "tier": 2,
       "name": "Arcane Library (II)",
       "tagline": "Harder baseline. Better rewards. Drafts start to spike.",
+      "map_size": [2448, 2880],
+      "metadata_path": "res://assets/maps/authored/library_metadata.json",
+      "player_presence_mult": 1.55,
+      "enemy_presence_mult": 1.78,
       "visuals": {
         "theme_id": "arcane_ruins",
         "bg_style": "arcane_library",
@@ -220,6 +227,10 @@
       "tier": 3,
       "name": "Iron Foundry (III)",
       "tagline": "Pressure cooker. You come here to high-roll.",
+      "map_size": [8640, 2880],
+      "metadata_path": "res://assets/maps/authored/foundry_metadata.json",
+      "player_presence_mult": 1.55,
+      "enemy_presence_mult": 1.82,
       "visuals": {
         "theme_id": "foundry",
         "bg_style": "iron_foundry",
@@ -291,6 +302,10 @@
       "tier": 4,
       "name": "Cathedral (IV)",
       "tagline": "Structured lanes and choke points. High danger, high payoff.",
+      "map_size": [8640, 2880],
+      "metadata_path": "res://assets/maps/authored/cathedral_metadata.json",
+      "player_presence_mult": 1.55,
+      "enemy_presence_mult": 1.85,
       "visuals": {
         "theme_id": "cathedral",
         "bg_style": "cathedral",

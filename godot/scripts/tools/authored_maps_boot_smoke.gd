@@ -3,7 +3,10 @@ extends SceneTree
 # Boots the real Main scene on each authored metadata map and verifies the
 # world builds, the player spawns on walkable ground, and enemies appear.
 
-const MAP_IDS: Array[String] = ["cathedral_nave", "infernal_reliquary"]
+const MAP_IDS: Array[String] = [
+	"church", "library", "foundry", "cathedral",
+	"cathedral_nave", "infernal_reliquary",
+]
 
 func _init() -> void:
 	call_deferred("_run")

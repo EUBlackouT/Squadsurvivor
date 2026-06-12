@@ -14,9 +14,18 @@ var _quit_btn: Button
 var _hero_a: TextureRect = null
 var _hero_b: TextureRect = null
 var _hero_front_is_a: bool = true
+var _zone_strip: Control = null
 var _zone_row: HBoxContainer = null
 var _zone_tiles: Dictionary = {} # map_id -> PanelContainer
 var _zone_ids: Array[String] = []
+
+# Filmstrip scroll state (drag / wheel / snap-to-selected).
+var _zone_scroll: float = 0.0
+var _zone_scroll_target: float = 0.0
+var _zone_dragging: bool = false
+var _zone_drag_moved: float = 0.0
+var _zone_drag_vel: float = 0.0
+var _zone_hover_tile: PanelContainer = null
 var _zone_panel: PanelContainer = null
 var _zone_name_lbl: Label = null
 var _zone_tag_lbl: Label = null
@@ -111,6 +120,14 @@ func _process(delta: float) -> void:
 		front.position = Vector2(
 			sin(_menu_anim_t * 0.07) * 18.0 - 18.0,
 			cos(_menu_anim_t * 0.05) * 12.0 - 12.0
+		)
+	# Smooth filmstrip scroll toward its target (unless actively dragging).
+	if _zone_row != null and is_instance_valid(_zone_row) and _zone_strip != null:
+		if not _zone_dragging:
+			_zone_scroll = lerpf(_zone_scroll, _zone_scroll_target, 1.0 - exp(-12.0 * delta))
+		_zone_row.position = Vector2(
+			-_zone_scroll,
+			(_zone_strip.size.y - _zone_row.size.y) * 0.5
 		)
 
 func _load_tex(path: String) -> Texture2D:
@@ -275,25 +292,25 @@ func _build_command_deck() -> void:
 	sig_panel.add_child(_sigils_lbl)
 	_refresh_sigils()
 
-	# Mission detail panel (right-center).
+	# Mission detail panel (right column; never overlaps the filmstrip below).
 	_zone_panel = PanelContainer.new()
-	_zone_panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	_zone_panel.offset_left = -478
-	_zone_panel.offset_right = -36
-	_zone_panel.offset_top = -300
-	_zone_panel.offset_bottom = 210
+	_zone_panel.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	_zone_panel.offset_left = -464
+	_zone_panel.offset_right = -28
+	_zone_panel.offset_top = 92
+	_zone_panel.offset_bottom = -262
 	_zone_panel.add_theme_stylebox_override("panel", UiSkin.glowing_panel_style(UiSkin.ACCENT))
 	add_child(_zone_panel)
 
 	var zp_pad := MarginContainer.new()
-	zp_pad.add_theme_constant_override("margin_left", UiSkin.SPACE_LG)
-	zp_pad.add_theme_constant_override("margin_right", UiSkin.SPACE_LG)
-	zp_pad.add_theme_constant_override("margin_top", UiSkin.SPACE_LG)
-	zp_pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_LG)
+	zp_pad.add_theme_constant_override("margin_left", UiSkin.SPACE_MD)
+	zp_pad.add_theme_constant_override("margin_right", UiSkin.SPACE_MD)
+	zp_pad.add_theme_constant_override("margin_top", UiSkin.SPACE_MD)
+	zp_pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_MD)
 	_zone_panel.add_child(zp_pad)
 
 	var zp_v := VBoxContainer.new()
-	zp_v.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	zp_v.add_theme_constant_override("separation", UiSkin.SPACE_XS)
 	zp_pad.add_child(zp_v)
 
 	var mission_hdr := Label.new()
@@ -304,7 +321,7 @@ func _build_command_deck() -> void:
 	zp_v.add_child(mission_hdr)
 
 	_zone_name_lbl = Label.new()
-	_zone_name_lbl.add_theme_font_size_override("font_size", 30)
+	_zone_name_lbl.add_theme_font_size_override("font_size", 24)
 	_zone_name_lbl.add_theme_color_override("font_color", UiSkin.TEXT)
 	_zone_name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_apply_font(_zone_name_lbl)
@@ -321,7 +338,7 @@ func _build_command_deck() -> void:
 	_zone_info.bbcode_enabled = true
 	_zone_info.fit_content = true
 	_zone_info.scroll_active = false
-	_zone_info.add_theme_font_size_override("normal_font_size", 14)
+	_zone_info.add_theme_font_size_override("normal_font_size", 13)
 	_zone_info.add_theme_color_override("default_color", UiSkin.TEXT_SOFT)
 	_zone_info.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_apply_font(_zone_info)
@@ -331,7 +348,7 @@ func _build_command_deck() -> void:
 	var has_resume: bool = sv != null and is_instance_valid(sv) \
 		and sv.has_method("has_saved_run") and bool(sv.has_saved_run())
 	_resume_btn = _make_menu_button("⟳ Resume Last Run", false, UiSkin.ACCENT_GOLD)
-	_resume_btn.custom_minimum_size = Vector2(0, 48)
+	_resume_btn.custom_minimum_size = Vector2(0, 40)
 	_resume_btn.visible = has_resume
 	zp_v.add_child(_resume_btn)
 	if has_resume:
@@ -342,7 +359,7 @@ func _build_command_deck() -> void:
 		)
 
 	_deploy_btn = _make_menu_button("▶ DEPLOY", true)
-	_deploy_btn.custom_minimum_size = Vector2(0, 62)
+	_deploy_btn.custom_minimum_size = Vector2(0, 54)
 	zp_v.add_child(_deploy_btn)
 	_deploy_btn.pressed.connect(func():
 		if _selected_map_locked:
@@ -352,24 +369,81 @@ func _build_command_deck() -> void:
 		_start_run_with_selected_map()
 	)
 
-	# Zone carousel (bottom-center, above the nav rail).
-	var car_center := CenterContainer.new()
-	car_center.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	car_center.offset_top = -268
-	car_center.offset_bottom = -100
-	car_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(car_center)
+	# Zone filmstrip (bottom band, above the nav rail). Drag, wheel, or use
+	# the chevrons / arrow keys; the selected tile auto-centers.
+	_zone_strip = Control.new()
+	_zone_strip.name = "ZoneStrip"
+	_zone_strip.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_zone_strip.offset_left = 76
+	_zone_strip.offset_right = -76
+	_zone_strip.offset_top = -254
+	_zone_strip.offset_bottom = -94
+	_zone_strip.clip_contents = true
+	_zone_strip.mouse_filter = Control.MOUSE_FILTER_STOP
+	_zone_strip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_zone_strip.gui_input.connect(_on_zone_strip_input)
+	_zone_strip.mouse_exited.connect(func(): _set_zone_hover(null))
+	add_child(_zone_strip)
 
 	_zone_row = HBoxContainer.new()
 	_zone_row.add_theme_constant_override("separation", UiSkin.SPACE_SM)
-	car_center.add_child(_zone_row)
+	_zone_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_zone_strip.add_child(_zone_row)
+
+	# Edge fades hint that the strip continues past the viewport.
+	for left_side in [true, false]:
+		var fade_g := Gradient.new()
+		fade_g.offsets = PackedFloat32Array([0.0, 1.0])
+		var solid := Color(0, 0, 0, 0.85)
+		var clear := Color(0, 0, 0, 0.0)
+		fade_g.colors = PackedColorArray([solid, clear] if left_side else [clear, solid])
+		var fade_gt := GradientTexture2D.new()
+		fade_gt.gradient = fade_g
+		fade_gt.fill_from = Vector2(0, 0)
+		fade_gt.fill_to = Vector2(1, 0)
+		var fade_tr := TextureRect.new()
+		fade_tr.texture = fade_gt
+		fade_tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fade_tr.stretch_mode = TextureRect.STRETCH_SCALE
+		fade_tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if left_side:
+			fade_tr.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+			fade_tr.offset_right = 44
+		else:
+			fade_tr.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+			fade_tr.offset_left = -44
+		_zone_strip.add_child(fade_tr)
+
+	# Chevron paddles flanking the strip.
+	for left_side in [true, false]:
+		var chev := Button.new()
+		chev.text = "‹" if left_side else "›"
+		chev.focus_mode = Control.FOCUS_NONE
+		chev.custom_minimum_size = Vector2(40, 96)
+		chev.add_theme_font_size_override("font_size", 34)
+		chev.add_theme_color_override("font_color", UiSkin.TEXT_SOFT)
+		chev.add_theme_stylebox_override("normal", UiSkin.chip_style(UiSkin.ACCENT))
+		chev.add_theme_stylebox_override("hover", UiSkin.chip_style(UiSkin.ACCENT_GOLD))
+		chev.add_theme_stylebox_override("pressed", UiSkin.chip_style(UiSkin.ACCENT_GOLD))
+		chev.set_anchors_preset(Control.PRESET_BOTTOM_LEFT if left_side else Control.PRESET_BOTTOM_RIGHT)
+		if left_side:
+			chev.offset_left = 28
+			chev.offset_right = 68
+		else:
+			chev.offset_left = -68
+			chev.offset_right = -28
+		chev.offset_top = -224
+		chev.offset_bottom = -128
+		var dir := -1 if left_side else 1
+		chev.pressed.connect(func(): _cycle_zone(dir))
+		add_child(chev)
 
 	# Keyboard hint.
 	var hint := Label.new()
-	hint.text = "◀ ▶  switch zone      ENTER  deploy"
+	hint.text = "◀ ▶  switch zone      drag / wheel  browse      ENTER  deploy"
 	hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	hint.offset_top = -96
-	hint.offset_bottom = -78
+	hint.offset_top = -88
+	hint.offset_bottom = -72
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.add_theme_color_override("font_color", UiSkin.TEXT_DIM)
@@ -529,14 +603,18 @@ func _populate_zone_carousel() -> void:
 		cur = _zone_ids[0] if not _zone_ids.is_empty() else ""
 	if cur != "":
 		_select_zone(cur, false)
+		# Layout needs a frame before tile positions are valid for centering.
+		await get_tree().process_frame
+		_center_selected_tile(false)
 
 func _make_zone_tile(id: String, m: Dictionary, locked: bool) -> PanelContainer:
 	var tile := PanelContainer.new()
 	tile.name = "ZoneTile_" + id
 	tile.custom_minimum_size = Vector2(236, 150)
-	tile.mouse_filter = Control.MOUSE_FILTER_STOP
-	tile.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# Input is handled by the filmstrip itself (drag vs click disambiguation).
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tile.set_meta("locked", locked)
+	tile.set_meta("map_id", id)
 	tile.add_theme_stylebox_override("panel", _zone_tile_style(false, locked))
 	tile.pivot_offset = Vector2(118, 75)
 
@@ -580,7 +658,7 @@ func _make_zone_tile(id: String, m: Dictionary, locked: bool) -> PanelContainer:
 	clipper.add_child(info)
 
 	var nm := Label.new()
-	nm.text = String(m.get("display_name", id)).to_upper()
+	nm.text = String(m.get("name", m.get("display_name", id))).to_upper()
 	nm.add_theme_font_size_override("font_size", 14)
 	nm.add_theme_color_override("font_color", UiSkin.TEXT)
 	nm.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
@@ -610,22 +688,83 @@ func _make_zone_tile(id: String, m: Dictionary, locked: bool) -> PanelContainer:
 		lock.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
 		clipper.add_child(lock)
 
-	tile.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
-				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-			_on_zone_tile_clicked(id)
-	)
-	tile.mouse_entered.connect(func():
-		if not bool(tile.get_meta("selected", false)):
-			var tw := tile.create_tween()
-			tw.tween_property(tile, "scale", Vector2(1.03, 1.03), 0.10)
-	)
-	tile.mouse_exited.connect(func():
-		if not bool(tile.get_meta("selected", false)):
-			var tw := tile.create_tween()
-			tw.tween_property(tile, "scale", Vector2.ONE, 0.10)
-	)
 	return tile
+
+# ── Filmstrip input: left-drag pans, wheel scrolls, short click selects ──────
+
+func _on_zone_strip_input(ev: InputEvent) -> void:
+	if ev is InputEventMouseButton:
+		var mb := ev as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				_zone_dragging = true
+				_zone_drag_moved = 0.0
+				_zone_drag_vel = 0.0
+			else:
+				_zone_dragging = false
+				if _zone_drag_moved < 8.0:
+					var tile := _tile_at_strip_pos(mb.position)
+					if tile != null:
+						_on_zone_tile_clicked(String(tile.get_meta("map_id", "")))
+				else:
+					# Fling: carry the drag velocity into the smooth target.
+					_zone_scroll_target = clampf(
+						_zone_scroll + _zone_drag_vel * 0.18, 0.0, _zone_scroll_max())
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zone_scroll_target = clampf(_zone_scroll_target - 252.0, 0.0, _zone_scroll_max())
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zone_scroll_target = clampf(_zone_scroll_target + 252.0, 0.0, _zone_scroll_max())
+	elif ev is InputEventMouseMotion:
+		var mm := ev as InputEventMouseMotion
+		if _zone_dragging:
+			_zone_drag_moved += absf(mm.relative.x)
+			_zone_scroll = clampf(_zone_scroll - mm.relative.x, -40.0, _zone_scroll_max() + 40.0)
+			_zone_scroll_target = clampf(_zone_scroll, 0.0, _zone_scroll_max())
+			_zone_drag_vel = -mm.relative.x * 60.0
+			if _zone_drag_moved >= 8.0:
+				_set_zone_hover(null)
+		else:
+			_set_zone_hover(_tile_at_strip_pos(mm.position))
+
+func _tile_at_strip_pos(strip_pos: Vector2) -> PanelContainer:
+	if _zone_row == null:
+		return null
+	var local := strip_pos - _zone_row.position
+	for c in _zone_row.get_children():
+		var tile := c as PanelContainer
+		if tile == null:
+			continue
+		if Rect2(tile.position, tile.size).has_point(local):
+			return tile
+	return null
+
+func _set_zone_hover(tile: PanelContainer) -> void:
+	if _zone_hover_tile == tile:
+		return
+	if _zone_hover_tile != null and is_instance_valid(_zone_hover_tile) \
+			and not bool(_zone_hover_tile.get_meta("selected", false)):
+		var tw_out := _zone_hover_tile.create_tween()
+		tw_out.tween_property(_zone_hover_tile, "scale", Vector2.ONE, 0.10)
+	_zone_hover_tile = tile
+	if tile != null and not bool(tile.get_meta("selected", false)):
+		var tw_in := tile.create_tween()
+		tw_in.tween_property(tile, "scale", Vector2(1.03, 1.03), 0.10)
+
+func _zone_scroll_max() -> float:
+	if _zone_row == null or _zone_strip == null:
+		return 0.0
+	return maxf(0.0, _zone_row.size.x - _zone_strip.size.x)
+
+func _center_selected_tile(animate: bool) -> void:
+	var rc := get_node_or_null("/root/RunConfig")
+	var cur := String(rc.selected_map_id) if (rc != null and "selected_map_id" in rc) else ""
+	var tile: PanelContainer = _zone_tiles.get(cur) as PanelContainer
+	if tile == null or not is_instance_valid(tile) or _zone_strip == null:
+		return
+	var want := tile.position.x + tile.size.x * 0.5 - _zone_strip.size.x * 0.5
+	_zone_scroll_target = clampf(want, 0.0, _zone_scroll_max())
+	if not animate:
+		_zone_scroll = _zone_scroll_target
 
 func _zone_tile_style(selected: bool, locked: bool) -> StyleBox:
 	if selected:
@@ -672,6 +811,7 @@ func _select_zone(id: String, animate: bool) -> void:
 	_update_zone_panel(m)
 	_swap_hero(_zone_art(id, m), animate)
 	_refresh_sigils()
+	_center_selected_tile(animate)
 
 func _zone_art(map_id: String, m: Dictionary) -> Texture2D:
 	if _zone_art_cache.has(map_id):
@@ -713,7 +853,7 @@ func _swap_hero(tex: Texture2D, animate: bool) -> void:
 func _update_zone_panel(m: Dictionary) -> void:
 	if _zone_name_lbl == null:
 		return
-	_zone_name_lbl.text = String(m.get("display_name", "UNKNOWN ZONE")).to_upper()
+	_zone_name_lbl.text = String(m.get("name", m.get("display_name", "UNKNOWN ZONE"))).to_upper()
 	_zone_tag_lbl.text = String(m.get("tagline", ""))
 	_zone_tag_lbl.visible = _zone_tag_lbl.text != ""
 
@@ -847,30 +987,43 @@ func _load_preview_from_metadata(metadata_path: String) -> Texture2D:
 	return null
 
 func _build_map_preview_fallback(vis: Dictionary, map_id: String) -> Texture2D:
-	var w := 512
-	var h := 256
+	# Atmospheric backdrop for zones without baked art: vertical gradient in the
+	# map's palette, an accent horizon glow, dithering noise, and a vignette.
+	var w := 384
+	var h := 216
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	var base := Color(0.10, 0.12, 0.16, 1.0)
 	var alt := Color(0.13, 0.16, 0.22, 1.0)
+	var accent := Color(0.35, 0.45, 0.62, 1.0)
 	if vis.has("base_color"):
 		base = Color.html(String(vis.get("base_color")))
 	if vis.has("alt_color"):
 		alt = Color.html(String(vis.get("alt_color")))
-	var tile := 16
-	for y in range(0, h, tile):
-		for x in range(0, w, tile):
-			img.fill_rect(Rect2i(x, y, tile, tile), base if ((x / tile + y / tile) % 2 == 0) else alt)
-	var tag := map_id.to_lower()
-	var tint := Color(1, 1, 1, 0.0)
-	if tag.find("grave") >= 0:
-		tint = Color(0.35, 0.75, 0.55, 0.20)
-	elif tag.find("library") >= 0:
-		tint = Color(0.55, 0.48, 0.95, 0.20)
-	elif tag.find("foundry") >= 0:
-		tint = Color(0.95, 0.48, 0.30, 0.18)
-	elif tag.find("cathedral") >= 0 or tag.find("church") >= 0:
-		tint = Color(0.72, 0.82, 1.0, 0.18)
-	img.fill_rect(Rect2i(0, 0, w, h), tint)
+	if vis.has("accent_color"):
+		accent = Color.html(String(vis.get("accent_color")))
+	var rng_l := RandomNumberGenerator.new()
+	rng_l.seed = hash(map_id)
+	var horizon := 0.62
+	for y in range(h):
+		var ty := float(y) / float(h)
+		var row := alt.lerp(base, ty)
+		# Accent glow band around the horizon line.
+		var glow := exp(-pow((ty - horizon) * 5.0, 2.0)) * 0.35
+		row = row.lerp(accent, glow)
+		for x in range(w):
+			var tx := float(x) / float(w)
+			var c := row
+			# Faint vertical light shafts.
+			var shaft := (sin(tx * 21.0 + float(hash(map_id) % 7)) * 0.5 + 0.5)
+			c = c.lerp(accent, shaft * 0.06 * (1.0 - ty))
+			# Dither noise so the gradient never bands.
+			var n := (rng_l.randf() - 0.5) * 0.035
+			c = Color(c.r + n, c.g + n, c.b + n, 1.0)
+			# Vignette.
+			var dx := tx - 0.5
+			var dy := ty - 0.5
+			var vig := clampf(1.0 - (dx * dx + dy * dy) * 1.1, 0.55, 1.0)
+			img.set_pixel(x, y, Color(c.r * vig, c.g * vig, c.b * vig, 1.0))
 	return ImageTexture.create_from_image(img)
 
 func _animate_overlay_open(overlay: Control, panel: Control = null) -> void:

@@ -57,6 +57,40 @@ func _run() -> void:
 	if not hero_ok:
 		fails += 1
 
+	# Filmstrip exists and drag-to-pan works (synthetic mouse events).
+	var strip := menu.find_child("ZoneStrip", true, false) as Control
+	if strip == null:
+		print("MENU_DECK_SMOKE_FAIL no_zone_strip")
+		fails += 1
+	else:
+		var rc0 := root.get_node_or_null("/root/RunConfig")
+		var sel_before := String(rc0.get("selected_map_id")) if rc0 else ""
+		var scroll_before := float(menu.get("_zone_scroll"))
+		# Drag toward whichever side has scroll room left.
+		var drag_dx := 180.0 if scroll_before > 200.0 else -180.0
+		var press := InputEventMouseButton.new()
+		press.button_index = MOUSE_BUTTON_LEFT
+		press.pressed = true
+		press.position = strip.size * 0.5
+		menu.call("_on_zone_strip_input", press)
+		var motion := InputEventMouseMotion.new()
+		motion.position = strip.size * 0.5 + Vector2(drag_dx, 0)
+		motion.relative = Vector2(drag_dx, 0)
+		menu.call("_on_zone_strip_input", motion)
+		var release := InputEventMouseButton.new()
+		release.button_index = MOUSE_BUTTON_LEFT
+		release.pressed = false
+		release.position = motion.position
+		menu.call("_on_zone_strip_input", release)
+		await process_frame
+		var scroll_after := float(menu.get("_zone_scroll"))
+		var sel_after := String(rc0.get("selected_map_id")) if rc0 else ""
+		var drag_ok := absf(scroll_after - scroll_before) > 50.0 and sel_before == sel_after
+		print("MENU_DECK_SMOKE drag scroll %.1f -> %.1f selection_stable=%s -> %s" % [
+			scroll_before, scroll_after, str(sel_before == sel_after), "OK" if drag_ok else "FAIL"])
+		if not drag_ok:
+			fails += 1
+
 	# Zone cycling works (simulate right key).
 	if menu.has_method("_cycle_zone"):
 		var rc := root.get_node_or_null("/root/RunConfig")
