@@ -7,7 +7,6 @@ const SAVE_PATH := "user://meta.json"
 const DEBUG_BACKUP_PATH := "user://meta_debug_backup.json"
 const SAVE_VERSION := 1
 const MAP_TIER_FALLBACK_BY_ID := {
-	"graveyard": 1,
 	"church": 1,
 	"library": 2,
 	"foundry": 3,
@@ -30,7 +29,7 @@ const SLOT_COSTS: Array[int] = [500, 1500, 4000, 9000, 17000] # for slots 4..8
 var last_run: Dictionary = {}
 
 # Map progression gates (unlocked map ids).
-var map_unlocks: PackedStringArray = PackedStringArray(["graveyard"])
+var map_unlocks: PackedStringArray = PackedStringArray(["church"])
 
 # Meta skill tree (global Protocol Grid)
 var meta_nodes_owned: PackedStringArray = PackedStringArray(["core_0"])
@@ -383,14 +382,14 @@ func is_map_unlocked(map_id: String) -> bool:
 	if map_id == "":
 		return false
 	if map_unlocks.is_empty():
-		map_unlocks = PackedStringArray(["graveyard"])
+		map_unlocks = PackedStringArray(["church"])
 	return map_unlocks.has(map_id)
 
 func unlock_map(map_id: String) -> void:
 	if map_id == "":
 		return
 	if map_unlocks.is_empty():
-		map_unlocks = PackedStringArray(["graveyard"])
+		map_unlocks = PackedStringArray(["church"])
 	if not map_unlocks.has(map_id):
 		map_unlocks.append(map_id)
 		save()
@@ -401,7 +400,7 @@ func load_save() -> void:
 		squad_slots = 3
 		last_run = {}
 		meta_nodes_owned = PackedStringArray(["core_0"])
-		map_unlocks = PackedStringArray(["graveyard"])
+		map_unlocks = PackedStringArray(["church"])
 		_mods_dirty = true
 		save()
 		return
@@ -415,12 +414,12 @@ func load_save() -> void:
 	sigils = int(d.get("sigils", 0))
 	squad_slots = int(d.get("squad_slots", 3))
 	last_run = d.get("last_run", {}) as Dictionary
-	var mu: Array = d.get("map_unlocks", ["graveyard"])
+	var mu: Array = d.get("map_unlocks", ["church"])
 	var mu_out := PackedStringArray()
 	for e in mu:
 		mu_out.append(String(e))
-	if not mu_out.has("graveyard"):
-		mu_out.append("graveyard")
+	if not mu_out.has("church"):
+		mu_out.append("church")
 	map_unlocks = mu_out
 	var owned: Array = d.get("meta_nodes_owned", [])
 	var out := PackedStringArray()
@@ -455,7 +454,7 @@ func _sanitize_debug_profile() -> void:
 	sigils = 0
 	squad_slots = 3
 	last_run = {}
-	map_unlocks = PackedStringArray(["graveyard"])
+	map_unlocks = PackedStringArray(["church"])
 	meta_nodes_owned = PackedStringArray(["core_0"])
 	_mods_dirty = true
 	save()

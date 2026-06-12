@@ -1149,12 +1149,12 @@ func _is_map_unlocked(map_id: String) -> bool:
 		var md: Dictionary = rc.get_map(map_id) as Dictionary
 		if not md.is_empty() and bool(md.get("always_unlocked", false)):
 			return true
-	if map_id == "" or map_id == "graveyard" or map_id == "cathedral" or map_id == "church":
+	if map_id == "" or map_id == "church":
 		return true
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
-		return map_id == "graveyard" or map_id == "cathedral" or map_id == "church"
-	return bool(mp.is_map_unlocked(map_id)) if mp.has_method("is_map_unlocked") else (map_id == "graveyard" or map_id == "cathedral" or map_id == "church")
+		return map_id == "church"
+	return bool(mp.is_map_unlocked(map_id)) if mp.has_method("is_map_unlocked") else (map_id == "church")
 
 func _play_ui(id: String) -> void:
 	var s := get_node_or_null("/root/SfxSystem")

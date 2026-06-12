@@ -23,7 +23,7 @@ extends Control
 
 var _selected_unlock: Dictionary = {}
 var _toast: ToastLayer = null
-var _last_unlocked_map_id: String = "graveyard"
+var _last_unlocked_map_id: String = "church"
 
 # Tactical/dark skin (shared with revamped main menu)
 const BG_FANTASY_PATH := "res://assets/ui/revamp/menu_bg.png"
@@ -429,7 +429,7 @@ func _setup_map_select() -> void:
 		map_select.set_item_disabled(i, locked)
 
 	# Select current
-	var cur := _obj_get_str(rc, "selected_map_id", "graveyard")
+	var cur := _obj_get_str(rc, "selected_map_id", "church")
 	for i in range(map_select.item_count):
 		if String(map_select.get_item_metadata(i)) == cur:
 			map_select.select(i)
@@ -459,14 +459,14 @@ func _setup_map_select() -> void:
 	)
 
 func _is_map_unlocked(map_id: String) -> bool:
-	if map_id == "" or map_id == "graveyard" or map_id == "cathedral":
+	if map_id == "" or map_id == "church":
 		return true
 	var mp := get_node_or_null("/root/MetaProgression")
 	if mp == null or not is_instance_valid(mp):
-		return map_id == "graveyard" or map_id == "cathedral"
+		return map_id == "church"
 	if mp.has_method("is_map_unlocked"):
 		return bool(mp.is_map_unlocked(map_id))
-	return map_id == "graveyard" or map_id == "cathedral"
+	return map_id == "church"
 
 func _refresh() -> void:
 	_sync_synergy_system()

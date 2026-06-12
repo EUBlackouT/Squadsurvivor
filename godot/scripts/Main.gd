@@ -1422,15 +1422,28 @@ func _camera_locked_anchor_world() -> Vector2:
 		return player_pos
 	var squad_center := sum / float(count)
 	# Keep anchor stable (reduces micro-jerk) while still reflecting squad drift.
-	return player_pos.lerp(squad_center, 0.22)
+	var anchor := player_pos.lerp(squad_center, 0.22)
+	# Never let squad drift drag the player toward the screen edge: cap the
+	# anchor offset to a fraction of the visible half-extent at current zoom.
+	var half := _camera_visible_half()
+	anchor.x = clampf(anchor.x, player_pos.x - half.x * 0.30, player_pos.x + half.x * 0.30)
+	anchor.y = clampf(anchor.y, player_pos.y - half.y * 0.30, player_pos.y + half.y * 0.30)
+	return anchor
 
-func _clamp_camera_anchor(anchor_world: Vector2) -> Vector2:
-	var world_rect := _current_world_rect()
+func _camera_visible_half() -> Vector2:
 	var vp_size := get_viewport_rect().size
 	var zoom := Vector2.ONE
 	if _player_cam_ref != null and is_instance_valid(_player_cam_ref):
 		zoom = _player_cam_ref.zoom
-	var half := Vector2(vp_size.x * 0.5 * zoom.x, vp_size.y * 0.5 * zoom.y)
+	return Vector2(
+		vp_size.x * 0.5 / maxf(0.05, zoom.x),
+		vp_size.y * 0.5 / maxf(0.05, zoom.y)
+	)
+
+func _clamp_camera_anchor(anchor_world: Vector2) -> Vector2:
+	var world_rect := _current_world_rect()
+	# Visible world extent is viewport / zoom (Godot 4: higher zoom = closer).
+	var half := _camera_visible_half()
 	var min_x := world_rect.position.x + half.x
 	var max_x := world_rect.position.x + world_rect.size.x - half.x
 	var min_y := world_rect.position.y + half.y
