@@ -50,8 +50,12 @@ var formation_offsets: Array[Vector2] = [
 ]
 
 func _ready() -> void:
+	process_physics_priority = 100
 	if cam:
 		cam.make_current()
+		cam.position_smoothing_enabled = false
+		cam.rotation_smoothing_enabled = false
+		cam.limit_smoothed = false
 		var z := clampf(gameplay_camera_zoom.x, zoom_min, zoom_max)
 		cam.zoom = Vector2(z, z)
 	add_to_group("player")
@@ -86,6 +90,8 @@ func _set_camera_zoom(v: float) -> void:
 		return
 	var z := clampf(v, zoom_min, zoom_max)
 	cam.zoom = Vector2(z, z)
+	if _main and is_instance_valid(_main) and _main.has_method("refresh_camera_limits"):
+		_main.call("refresh_camera_limits")
 
 func _apply_player_visual_identity() -> void:
 	var spr := get_node_or_null("Sprite2D") as Sprite2D

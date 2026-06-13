@@ -365,4 +365,12 @@ static func scale_for_target_height(frames: SpriteFrames, target_height: float, 
 	var scale := target_height / sz.y
 	return clampf(scale, min_scale, max_scale)
 
+static func scale_texture_to_height(tex: Texture2D, target_height: float, min_scale: float = 0.5, max_scale: float = 1.2) -> float:
+	if tex == null:
+		return 1.0
+	var sz := tex.get_size()
+	if sz.y <= 0.001:
+		return 1.0
+	return clampf(target_height / sz.y, min_scale, max_scale)
+
 

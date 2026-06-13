@@ -1,52 +1,63 @@
 extends Control
 
-@onready var start_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/StartRun") as Button
-@onready var resume_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/ResumeRun") as Button
-@onready var settings_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/BottomRow/SettingsBtn") as Button
-@onready var back_btn: Button = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/BottomRow/BackBtn") as Button
-@onready var roster_box: VBoxContainer = get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/RosterScroll/RosterVBox") as VBoxContainer
-@onready var collection_box: VBoxContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/CollectionScroll/CollectionBox") as VBoxContainer
-@onready var map_select: OptionButton = get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/MapSelect") as OptionButton
+const _MenuMapPreview := preload("res://scripts/ui/MenuMapPreview.gd")
+const _PixelUi := preload("res://scripts/ui/PixelUi.gd")
 
-@onready var _search: LineEdit = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Search") as LineEdit
-@onready var _search_clear: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/SearchRow/Clear") as Button
-
-@onready var _inspector_card: PanelContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard") as PanelContainer
-@onready var _inspector_portrait: Control = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorPortrait") as Control
-@onready var _inspector_name: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorName") as Label
-@onready var _inspector_stats: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorStats") as Label
-@onready var _inspector_passives: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorPassives") as Label
-@onready var _inspector_synergies_title: Label = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorSynergiesTitle") as Label
-@onready var _inspector_synergy_chips: FlowContainer = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorBody/InspectorInfo/InspectorSynergyChips") as FlowContainer
-@onready var _inspector_details_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorDetails") as Button
-@onready var _inspector_primary_btn: Button = get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorButtons/InspectorPrimary") as Button
+# Populated by _build_pixel_collection_ui()
+var start_btn: Button
+var resume_btn: Button
+var settings_btn: Button
+var back_btn: Button
+var roster_box: VBoxContainer
+var collection_box: HBoxContainer
+var map_select: OptionButton
+var _search: LineEdit
+var _search_clear: Button
+var _inspector_card: PanelContainer
+var _inspector_portrait: Control
+var _inspector_name: Label
+var _inspector_stats: Label
+var _inspector_passives: Label
+var _inspector_synergies_title: Label
+var _inspector_synergy_chips: FlowContainer
+var _inspector_details_btn: Button
+var _inspector_primary_btn: Button
+var _inspector_status_lbl: Label
+var _squad_count_lbl: Label
+var _unlock_hint_lbl: Label
 
 var _selected_unlock: Dictionary = {}
 var _toast: ToastLayer = null
 var _last_unlocked_map_id: String = "church"
+var _map_preview = null
+var _map_preview_back = null
+var _bg_fill: TextureRect
+var _bg_atmosphere: ColorRect
+var _bg_atmosphere_mat: ShaderMaterial
+var _atmos_t: float = 0.0
 
-# Tactical/dark skin (shared with revamped main menu)
-const BG_FANTASY_PATH := "res://assets/ui/revamp/menu_bg.png"
+const _ATMOS_SHADER := preload("res://shaders/menu_collection_atmosphere.gdshader")
 
-# === Readability palette (dark UI content over fantasy background) ===
-const TEXT_LIGHT := Color(0.93, 0.97, 1.0, 1.0)
-const TEXT_SOFT := Color(0.78, 0.88, 1.0, 0.92)
-const TEXT_DIM := Color(0.58, 0.68, 0.78, 0.90)
-const TITLE_GOLD := Color(0.95, 0.78, 0.44, 1.0)
-const BORDER_SUBTLE := Color(0.20, 0.46, 0.72, 0.32)
-const SURFACE_INSET := Color(0.02, 0.04, 0.07, 0.76)
-const SURFACE_CARD := Color(0.04, 0.06, 0.10, 0.88)
-const SURFACE_CARD_OPAQUE := Color(0.04, 0.06, 0.10, 0.95)
-# Dark ink for inputs (light textbox)
-const INK_DARK := Color(0.11, 0.13, 0.18, 1.0)
-const PLACEHOLDER := Color(0.42, 0.56, 0.72, 0.85)
-# Accents (status / actions)
-const ACCENT_FULL := Color(0.35, 0.55, 0.35, 1.0)      # squad full ok
-const ACCENT_REMOVE := Color(0.9, 0.4, 0.35, 1.0)     # remove button
-const OUTLINE_DARK := Color(0, 0, 0, 0.35)            # label outline on dark bg
-# Labels on dark surfaces use light text
-const INK := TEXT_LIGHT
-const INK_SOFT := TEXT_SOFT
+const MAP_BACKDROP_TINTS: Dictionary = {
+	"default": Color(0.62, 0.48, 0.32, 0.55),
+	"church": Color(0.58, 0.46, 0.34, 0.50),
+	"library": Color(0.42, 0.38, 0.58, 0.52),
+	"foundry": Color(0.72, 0.38, 0.22, 0.58),
+	"cathedral": Color(0.62, 0.42, 0.28, 0.54),
+	"mansion_grounds": Color(0.38, 0.52, 0.30, 0.48),
+	"emerald_sanctum": Color(0.28, 0.62, 0.38, 0.52),
+	"infernal_reliquary": Color(0.92, 0.32, 0.16, 0.62),
+	"grand_basilica": Color(0.78, 0.36, 0.20, 0.56),
+	"aurelian_court": Color(0.82, 0.58, 0.24, 0.54),
+}
+
+const TEXT_LIGHT := UiSkin.TEXT
+const TEXT_SOFT := UiSkin.TEXT_SOFT
+const TEXT_DIM := UiSkin.TEXT_DIM
+const ACCENT_FULL := UiSkin.ACCENT_GREEN
+const ACCENT_REMOVE := UiSkin.ACCENT_RED
+const INK := UiSkin.TEXT
+const INK_SOFT := UiSkin.TEXT_SOFT
 
 # -------------------------
 # PATCH HELPERS (safe props + autoload access)
@@ -75,81 +86,32 @@ func _obj_get_int(o: Object, prop: String, default_val: int = 0) -> int:
 func _obj_get_str(o: Object, prop: String, default_val: String = "") -> String:
 	return String(_obj_get(o, prop, default_val))
 
-func _sb_panel() -> StyleBox:
-	# Cohesive with the shared design system (was a brown wood fallback).
-	return UiSkin.panel_style(UiSkin.ACCENT, false)
+func _sb_card(selected: bool, accent_color: Color) -> StyleBox:
+	return UiSkin.card_style_hover(accent_color) if selected else UiSkin.card_style(accent_color, false)
 
-## Flat fill for right-side cards (no texture - readable text)
-func _sb_card_flat() -> StyleBox:
-	var f := StyleBoxFlat.new()
-	f.bg_color = SURFACE_CARD_OPAQUE
-	f.border_width_left = 1
-	f.border_width_right = 1
-	f.border_width_top = 1
-	f.border_width_bottom = 1
-	f.border_color = BORDER_SUBTLE
-	f.corner_radius_top_left = 12
-	f.corner_radius_top_right = 12
-	f.corner_radius_bottom_left = 12
-	f.corner_radius_bottom_right = 12
-	return f
-
-## Roster row: dark translucent, readable
 func _sb_row_flat() -> StyleBox:
-	var f := StyleBoxFlat.new()
-	f.bg_color = Color(0.06, 0.08, 0.11, 0.88)
-	f.border_width_left = 0
-	f.border_width_right = 0
-	f.border_width_top = 0
-	f.border_width_bottom = 1
-	f.border_color = Color(0.30, 0.45, 0.60, 0.25)
-	f.corner_radius_top_left = 6
-	f.corner_radius_top_right = 6
-	f.corner_radius_bottom_left = 6
-	f.corner_radius_bottom_right = 6
-	return f
+	return UiSkin.pixel_inset(0.86)
 
-## Dark inset for scroll/content areas (readable, one consistent style)
 func _sb_inset() -> StyleBox:
-	var f := StyleBoxFlat.new()
-	f.bg_color = SURFACE_INSET
-	f.border_width_left = 1
-	f.border_width_right = 1
-	f.border_width_top = 1
-	f.border_width_bottom = 1
-	f.border_color = BORDER_SUBTLE
-	f.corner_radius_top_left = 14
-	f.corner_radius_top_right = 14
-	f.corner_radius_bottom_left = 14
-	f.corner_radius_bottom_right = 14
-	f.content_margin_left = 10
-	f.content_margin_right = 10
-	f.content_margin_top = 10
-	f.content_margin_bottom = 10
-	return f
+	return UiSkin.inset_style(UiSkin.RADIUS_MD, 0.90)
 
-func _sb_card(selected: bool, accent_color: Color = Color(0.45, 0.55, 0.35, 0.7)) -> StyleBox:
-	# Texture cards are noisy; use dark flat for readability
-	var f := StyleBoxFlat.new()
-	f.bg_color = SURFACE_CARD
-	f.border_width_left = 1
-	f.border_width_right = 1
-	f.border_width_top = 1
-	f.border_width_bottom = 1
-	f.border_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.45)
-	f.corner_radius_top_left = 12
-	f.corner_radius_top_right = 12
-	f.corner_radius_bottom_left = 12
-	f.corner_radius_bottom_right = 12
-	if selected:
-		f.border_width_left = 2
-		f.border_width_right = 2
-		f.border_width_top = 2
-		f.border_width_bottom = 2
-		f.border_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.9)
-		f.shadow_size = 10
-		f.shadow_color = Color(accent_color.r, accent_color.g, accent_color.b, 0.18)
-	return f
+func _style_btn(b: Button, primary: bool) -> void:
+	if b == null:
+		return
+	if primary:
+		UiSkin.style_pixel_primary_button(b, UiSkin.ACCENT_GOLD)
+	else:
+		UiSkin.style_pixel_secondary_button(b, UiSkin.ACCENT)
+	b.add_theme_font_size_override("font_size", 11 if primary else 10)
+
+func _style_line_edit(le: LineEdit) -> void:
+	_PixelUi.style_line_edit(le)
+
+func _style_option_button(ob: OptionButton) -> void:
+	_PixelUi.style_option_button(ob)
+
+func _style_lbl(lbl: Label, size: int, color: Color = UiSkin.TEXT) -> void:
+	UiSkin.style_label(lbl, size, color)
 
 func _strip_scroll_frames(sc: ScrollContainer) -> void:
 	if sc == null:
@@ -171,83 +133,326 @@ func _strip_scroll_frames(sc: ScrollContainer) -> void:
 		v.add_theme_stylebox_override("grabber_highlight", StyleBoxEmpty.new())
 		v.add_theme_stylebox_override("grabber_pressed", StyleBoxEmpty.new())
 
-## Clear input field: light background, dark text, readable placeholder
-func _sb_input() -> StyleBox:
-	var f := StyleBoxFlat.new()
-	f.bg_color = Color(0.96, 0.94, 0.90, 0.95)
-	f.border_width_left = 1
-	f.border_width_right = 1
-	f.border_width_top = 1
-	f.border_width_bottom = 1
-	f.border_color = Color(0.25, 0.22, 0.18, 0.35)
-	f.corner_radius_top_left = 8
-	f.corner_radius_top_right = 8
-	f.corner_radius_bottom_left = 8
-	f.corner_radius_bottom_right = 8
-	f.shadow_size = 4
-	f.shadow_color = Color(0, 0, 0, 0.08)
-	return f
-
-func _style_btn(b: Button, primary: bool) -> void:
-	if b == null:
-		return
-	# Shared design-system buttons (was brown wood fallback styleboxes).
-	if primary:
-		UiSkin.style_primary_button(b, UiSkin.ACCENT_GOLD)
-	else:
-		UiSkin.style_secondary_button(b, UiSkin.ACCENT)
-	b.add_theme_font_size_override("font_size", 16)
-	b.add_theme_color_override("font_disabled_color", TEXT_DIM)
-
-func _style_line_edit(le: LineEdit) -> void:
-	if le == null:
-		return
-	le.add_theme_stylebox_override("normal", _sb_input())
-	le.add_theme_stylebox_override("focus", _sb_input())
-	le.add_theme_color_override("font_color", INK_DARK)
-	le.add_theme_color_override("font_placeholder_color", PLACEHOLDER)
-
-func _style_option_button(ob: OptionButton) -> void:
-	if ob == null:
-		return
-	ob.add_theme_stylebox_override("normal", _sb_input())
-	ob.add_theme_stylebox_override("focus", _sb_input())
-	ob.add_theme_stylebox_override("hover", _sb_input())
-	ob.add_theme_font_size_override("font_size", 14)
-	ob.add_theme_color_override("font_color", INK_DARK)
-	ob.add_theme_color_override("font_hover_color", INK_DARK)
-
 func _apply_layout_fixes() -> void:
-	var root := get_node_or_null("Root") as HBoxContainer
-	if root:
-		root.add_theme_constant_override("separation", 24)
-	var left := get_node_or_null("Root/Left") as Control
-	var right := get_node_or_null("Root/Right") as Control
-	if left:
-		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		left.size_flags_stretch_ratio = 2.4
-	if right:
-		right.custom_minimum_size.x = 460  # Critical: give right side width
-		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		right.size_flags_stretch_ratio = 1.0
-	var right_vbox := get_node_or_null("Root/Right/RightPad/RightVBox") as VBoxContainer
-	if right_vbox:
-		right_vbox.add_theme_constant_override("separation", 10)
+	pass
 
 func _apply_left_balance() -> void:
-	var cs := get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/CollectionScroll") as Control
-	if cs:
-		cs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	if _inspector_card:
-		_inspector_card.custom_minimum_size.x = 320
-		_inspector_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	pass
+
+const STRIP_HEIGHT := 148
+const STRIP_GAP := 24
+
+func _build_collection_deck() -> void:
+	for legacy in ["Root", "Deck"]:
+		var n := get_node_or_null(legacy)
+		if n:
+			n.queue_free()
+
+	var deck := Control.new()
+	deck.name = "Deck"
+	deck.set_anchors_preset(Control.PRESET_FULL_RECT)
+	deck.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(deck)
+
+	# ── Title block (top-left, same language as main menu) ──
+	var title_box := VBoxContainer.new()
+	title_box.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	title_box.offset_left = 28
+	title_box.offset_top = 18
+	title_box.add_theme_constant_override("separation", 2)
+	deck.add_child(title_box)
+
+	var title := Label.new()
+	title.text = "COLLECTION"
+	UiSkin.style_label(title, 20, UiSkin.TEXT)
+	title_box.add_child(title)
+
+	var tagline := Label.new()
+	tagline.text = "BUILD · DRAFT · DEPLOY"
+	UiSkin.style_label(tagline, 10, UiSkin.ACCENT)
+	title_box.add_child(tagline)
+
+	var search_row := HBoxContainer.new()
+	search_row.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	search_row.offset_left = 28
+	search_row.offset_top = 92
+	search_row.offset_right = 420
+	search_row.add_theme_constant_override("separation", 8)
+	deck.add_child(search_row)
+
+	_search = LineEdit.new()
+	_search.placeholder_text = "Filter operatives..."
+	_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_search.custom_minimum_size.y = 36
+	search_row.add_child(_search)
+
+	_search_clear = Button.new()
+	_search_clear.text = "✕"
+	_search_clear.custom_minimum_size = Vector2(40, 36)
+	search_row.add_child(_search_clear)
+
+	# ── Hero stage (center-left) ──
+	_inspector_card = PanelContainer.new()
+	_inspector_card.name = "HeroStage"
+	_inspector_card.clip_contents = true
+	_inspector_card.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_inspector_card.offset_left = 28
+	_inspector_card.offset_top = 136
+	_inspector_card.offset_right = -404
+	_inspector_card.offset_bottom = -(STRIP_HEIGHT + STRIP_GAP)
+	_inspector_card.add_theme_stylebox_override("panel", UiSkin.pixel_panel(UiSkin.ACCENT, 0.52))
+	deck.add_child(_inspector_card)
+
+	var hero_v := VBoxContainer.new()
+	hero_v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hero_v.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	_inspector_card.add_child(hero_v)
+
+	var hero_pad := MarginContainer.new()
+	hero_pad.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hero_pad.add_theme_constant_override("margin_left", UiSkin.SPACE_MD)
+	hero_pad.add_theme_constant_override("margin_right", UiSkin.SPACE_MD)
+	hero_pad.add_theme_constant_override("margin_top", UiSkin.SPACE_SM)
+	hero_pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_XS)
+	hero_v.add_child(hero_pad)
+
+	var hero_body := VBoxContainer.new()
+	hero_body.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	hero_pad.add_child(hero_body)
+
+	var hero_top := HBoxContainer.new()
+	hero_top.add_theme_constant_override("separation", UiSkin.SPACE_MD)
+	hero_body.add_child(hero_top)
+
+	var portrait_box := CenterContainer.new()
+	portrait_box.custom_minimum_size = Vector2(168, 168)
+	portrait_box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	hero_top.add_child(portrait_box)
+
+	_inspector_portrait = Control.new()
+	_inspector_portrait.custom_minimum_size = Vector2(168, 168)
+	portrait_box.add_child(_inspector_portrait)
+
+	var info_v := VBoxContainer.new()
+	info_v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_v.add_theme_constant_override("separation", 4)
+	hero_top.add_child(info_v)
+
+	var hdr := Label.new()
+	hdr.text = "SELECTED"
+	UiSkin.style_label(hdr, 10, UiSkin.TEXT_DIM)
+	info_v.add_child(hdr)
+
+	_inspector_name = Label.new()
+	_inspector_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_inspector_name.text = "Pick from the strip below."
+	UiSkin.style_label(_inspector_name, 13, UiSkin.TEXT)
+	info_v.add_child(_inspector_name)
+
+	_inspector_stats = Label.new()
+	_inspector_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiSkin.style_label(_inspector_stats, 12, UiSkin.TEXT_SOFT)
+	info_v.add_child(_inspector_stats)
+
+	_inspector_passives = Label.new()
+	_inspector_passives.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiSkin.style_label(_inspector_passives, 11, UiSkin.TEXT_DIM)
+	info_v.add_child(_inspector_passives)
+
+	_inspector_synergies_title = Label.new()
+	_inspector_synergies_title.text = "Synergies"
+	UiSkin.style_label(_inspector_synergies_title, 10, UiSkin.ACCENT)
+	hero_body.add_child(_inspector_synergies_title)
+
+	var syn_scroll := ScrollContainer.new()
+	syn_scroll.custom_minimum_size = Vector2(0, 76)
+	syn_scroll.size_flags_vertical = Control.SIZE_SHRINK_END
+	syn_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	syn_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_strip_scroll_frames(syn_scroll)
+	hero_body.add_child(syn_scroll)
+
+	_inspector_synergy_chips = FlowContainer.new()
+	_inspector_synergy_chips.add_theme_constant_override("h_separation", 8)
+	_inspector_synergy_chips.add_theme_constant_override("v_separation", 6)
+	_inspector_synergy_chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	syn_scroll.add_child(_inspector_synergy_chips)
+
+	var btn_pad := MarginContainer.new()
+	btn_pad.add_theme_constant_override("margin_left", UiSkin.SPACE_MD)
+	btn_pad.add_theme_constant_override("margin_right", UiSkin.SPACE_MD)
+	btn_pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_SM)
+	hero_v.add_child(btn_pad)
+
+	var btn_inner := HBoxContainer.new()
+	btn_inner.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	btn_pad.add_child(btn_inner)
+
+	_inspector_details_btn = Button.new()
+	_inspector_details_btn.text = "Dossier"
+	_inspector_details_btn.custom_minimum_size = Vector2(100, 40)
+	btn_inner.add_child(_inspector_details_btn)
+
+	_inspector_status_lbl = Label.new()
+	_inspector_status_lbl.visible = false
+	_inspector_status_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_inspector_status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiSkin.style_label(_inspector_status_lbl, 13, UiSkin.TEXT_DIM)
+	btn_inner.add_child(_inspector_status_lbl)
+
+	_inspector_primary_btn = Button.new()
+	_inspector_primary_btn.text = "Add to Squad"
+	_inspector_primary_btn.custom_minimum_size = Vector2(0, 40)
+	_inspector_primary_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_inner.add_child(_inspector_primary_btn)
+
+	# ── Command rail (right) — squad + deploy, mirrors main-menu zone panel ──
+	var command := PanelContainer.new()
+	command.name = "CommandRail"
+	command.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	command.offset_left = -388
+	command.offset_right = -24
+	command.offset_top = 88
+	command.offset_bottom = -(STRIP_HEIGHT + STRIP_GAP)
+	command.add_theme_stylebox_override("panel", UiSkin.pixel_panel(UiSkin.ACCENT_GOLD, 0.52))
+	deck.add_child(command)
+
+	var cmd_pad := MarginContainer.new()
+	cmd_pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cmd_pad.add_theme_constant_override("margin_left", UiSkin.SPACE_MD)
+	cmd_pad.add_theme_constant_override("margin_right", UiSkin.SPACE_MD)
+	cmd_pad.add_theme_constant_override("margin_top", UiSkin.SPACE_MD)
+	cmd_pad.add_theme_constant_override("margin_bottom", UiSkin.SPACE_MD)
+	command.add_child(cmd_pad)
+
+	var cmd_v := VBoxContainer.new()
+	cmd_v.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	cmd_pad.add_child(cmd_v)
+
+	var squad_hdr := Label.new()
+	squad_hdr.text = "— ACTIVE SQUAD —"
+	UiSkin.style_label(squad_hdr, 11, UiSkin.TEXT_DIM)
+	cmd_v.add_child(squad_hdr)
+
+	var header_row := HBoxContainer.new()
+	cmd_v.add_child(header_row)
+
+	var squad_title := Label.new()
+	squad_title.text = "YOUR SQUAD"
+	UiSkin.style_label(squad_title, 18, UiSkin.TEXT)
+	header_row.add_child(squad_title)
+
+	header_row.add_spacer(true)
+
+	var squad_count := Label.new()
+	squad_count.name = "SquadCount"
+	squad_count.text = "0 / 3"
+	UiSkin.style_label(squad_count, 16, UiSkin.ACCENT_GOLD)
+	header_row.add_child(squad_count)
+	_squad_count_lbl = squad_count
+
+	var roster_scroll := ScrollContainer.new()
+	roster_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	roster_scroll.custom_minimum_size.y = 120
+	_strip_scroll_frames(roster_scroll)
+	roster_scroll.add_theme_stylebox_override("panel", UiSkin.pixel_inset(0.85))
+	cmd_v.add_child(roster_scroll)
+
+	roster_box = VBoxContainer.new()
+	roster_box.add_theme_constant_override("separation", 8)
+	roster_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	roster_scroll.add_child(roster_box)
+
+	var unlock_hint := Label.new()
+	unlock_hint.name = "UnlockHint"
+	unlock_hint.visible = false
+	unlock_hint.text = "↳ Unlock more slots in Protocol Grid"
+	UiSkin.style_label(unlock_hint, 10, UiSkin.ACCENT_GREEN)
+	cmd_v.add_child(unlock_hint)
+	_unlock_hint_lbl = unlock_hint
+
+	var deploy_hdr := Label.new()
+	deploy_hdr.text = "— DEPLOYMENT —"
+	UiSkin.style_label(deploy_hdr, 11, UiSkin.TEXT_DIM)
+	cmd_v.add_child(deploy_hdr)
+
+	map_select = OptionButton.new()
+	map_select.custom_minimum_size.y = 40
+	cmd_v.add_child(map_select)
+
+	resume_btn = Button.new()
+	resume_btn.text = "⟳ Resume Run"
+	resume_btn.visible = false
+	resume_btn.custom_minimum_size.y = 44
+	cmd_v.add_child(resume_btn)
+
+	start_btn = Button.new()
+	start_btn.text = "▶ START RUN"
+	start_btn.custom_minimum_size.y = 52
+	cmd_v.add_child(start_btn)
+
+	var bottom_row := HBoxContainer.new()
+	bottom_row.add_theme_constant_override("separation", UiSkin.SPACE_SM)
+	cmd_v.add_child(bottom_row)
+
+	settings_btn = Button.new()
+	settings_btn.text = "Settings"
+	settings_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_btn.custom_minimum_size.y = 40
+	bottom_row.add_child(settings_btn)
+
+	back_btn = Button.new()
+	back_btn.text = "← Back"
+	back_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	back_btn.custom_minimum_size.y = 40
+	bottom_row.add_child(back_btn)
+
+	# ── Operative filmstrip (bottom) — like main-menu zone carousel ──
+	var strip_panel := PanelContainer.new()
+	strip_panel.name = "OperativeStrip"
+	strip_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	strip_panel.offset_left = 24
+	strip_panel.offset_right = -24
+	strip_panel.offset_top = -STRIP_HEIGHT
+	strip_panel.add_theme_stylebox_override("panel", UiSkin.pixel_inset(0.72))
+	deck.add_child(strip_panel)
+
+	var strip_pad := MarginContainer.new()
+	strip_pad.set_anchors_preset(Control.PRESET_FULL_RECT)
+	strip_pad.add_theme_constant_override("margin_left", 10)
+	strip_pad.add_theme_constant_override("margin_right", 10)
+	strip_pad.add_theme_constant_override("margin_top", 8)
+	strip_pad.add_theme_constant_override("margin_bottom", 12)
+	strip_panel.add_child(strip_pad)
+
+	var strip_v := VBoxContainer.new()
+	strip_v.add_theme_constant_override("separation", 4)
+	strip_pad.add_child(strip_v)
+
+	var strip_lbl := Label.new()
+	strip_lbl.text = "OPERATIVES  ·  click to inspect"
+	UiSkin.style_label(strip_lbl, 10, UiSkin.TEXT_DIM)
+	strip_v.add_child(strip_lbl)
+
+	var strip_scroll := ScrollContainer.new()
+	strip_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	strip_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	strip_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_strip_scroll_frames(strip_scroll)
+	strip_v.add_child(strip_scroll)
+
+	collection_box = HBoxContainer.new()
+	collection_box.name = "OperativeRow"
+	collection_box.add_theme_constant_override("separation", 10)
+	collection_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	strip_scroll.add_child(collection_box)
 
 func _ready() -> void:
-	get_viewport().canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR
+	get_viewport().canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 	UiSkin.apply_global_font()
-	_apply_layout_fixes()
-	_apply_left_balance()
+	_purge_legacy_scene_backdrop()
+	_apply_background_art()
+	_build_collection_deck()
 	# Force load save
 	var cm := _get_collection_manager()
 	if cm and is_instance_valid(cm) and cm.has_method("load_save"):
@@ -263,6 +468,7 @@ func _ready() -> void:
 	_refresh()
 
 	_setup_map_select()
+	call_deferred("_refresh_map_backdrop")
 	# Meta Progress removed - belongs on MainMenu, not Collection page
 
 	if _search:
@@ -363,38 +569,136 @@ func _maybe_reroll_weapons_once(cm: Node) -> void:
 	if f:
 		f.store_string("done")
 
+	if back_btn:
+		back_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/MainMenu.tscn"))
+
+func _process(delta: float) -> void:
+	if _bg_atmosphere_mat != null:
+		_atmos_t += delta
+		_bg_atmosphere_mat.set_shader_parameter("time", _atmos_t)
+
+func _purge_legacy_scene_backdrop() -> void:
+	for legacy_name in ["Backdrop", "BackdropShader", "Root", "Deck"]:
+		var legacy := get_node_or_null(legacy_name)
+		if legacy:
+			legacy.queue_free()
+
 func _apply_background_art() -> void:
-	if has_node("BgArt"):
+	if has_node("BgPreview"):
 		return
 
-	var bg := TextureRect.new()
-	bg.name = "BgArt"
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	bg.z_index = -200
-	bg.texture = load(BG_FANTASY_PATH) as Texture2D if ResourceLoader.exists(BG_FANTASY_PATH) else null
-	add_child(bg)
-	move_child(bg, 0)
+	# Solid fill — always shows map pixels even if shader fails (no grey letterbox).
+	_bg_fill = TextureRect.new()
+	_bg_fill.name = "BgFill"
+	_bg_fill.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_bg_fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_bg_fill.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_bg_fill.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_bg_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bg_fill.z_index = -204
+	add_child(_bg_fill)
 
-	# Kill purple overlay layers
-	var backdrop := get_node_or_null("Backdrop") as CanvasItem
-	if backdrop:
-		backdrop.visible = false
-	var backdrop_shader := get_node_or_null("BackdropShader") as CanvasItem
-	if backdrop_shader:
-		backdrop_shader.visible = false
+	# Deep parallax — zoomed duplicate for depth.
+	_map_preview_back = _MenuMapPreview.new()
+	_map_preview_back.name = "BgPreviewBack"
+	_map_preview_back.z_index = -203
+	_map_preview_back.pan_speed = 0.35
+	_map_preview_back.zoom_base = 1.28
+	_map_preview_back.vignette_strength = 0.06
+	_map_preview_back.brightness = 1.08
+	_map_preview_back.saturation = 1.12
+	_map_preview_back.modulate = Color(1.0, 0.96, 0.92, 0.72)
+	_map_preview_back.crisp_pixels = true
+	add_child(_map_preview_back)
 
-	# Subtle forest haze so UI pops
-	var haze := ColorRect.new()
-	haze.name = "ForestHaze"
-	haze.set_anchors_preset(Control.PRESET_FULL_RECT)
-	haze.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	haze.color = Color(0.04, 0.06, 0.05, 0.22)
-	add_child(haze)
-	move_child(haze, 1)
+	# Hero map — deployment zone, slow Ken Burns pan.
+	_map_preview = _MenuMapPreview.new()
+	_map_preview.name = "BgPreview"
+	_map_preview.z_index = -202
+	_map_preview.pan_speed = 0.9
+	_map_preview.zoom_base = 1.02
+	_map_preview.vignette_strength = 0.08
+	_map_preview.brightness = 1.18
+	_map_preview.saturation = 1.22
+	_map_preview.crisp_pixels = true
+	add_child(_map_preview)
+
+	# Rim embers + zone tint (edges only — center stays clear).
+	_bg_atmosphere = ColorRect.new()
+	_bg_atmosphere.name = "BgAtmosphere"
+	_bg_atmosphere.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_bg_atmosphere.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bg_atmosphere.z_index = -201
+	_bg_atmosphere_mat = ShaderMaterial.new()
+	_bg_atmosphere_mat.shader = _ATMOS_SHADER
+	_bg_atmosphere_mat.set_shader_parameter("tint", MAP_BACKDROP_TINTS["default"])
+	_bg_atmosphere.material = _bg_atmosphere_mat
+	add_child(_bg_atmosphere)
+
+	# Light scrims for title + strip readability only.
+	var top_scrim := _make_menu_scrim(Color(0.04, 0.03, 0.04, 0.38), Color(0.04, 0.03, 0.04, 0.0))
+	top_scrim.name = "TopScrim"
+	top_scrim.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top_scrim.offset_bottom = 130
+	top_scrim.z_index = -200
+	add_child(top_scrim)
+
+	var bottom_scrim := _make_menu_scrim(Color(0.03, 0.02, 0.03, 0.0), Color(0.03, 0.02, 0.03, 0.52))
+	bottom_scrim.name = "BottomScrim"
+	bottom_scrim.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom_scrim.offset_top = -360
+	bottom_scrim.z_index = -200
+	add_child(bottom_scrim)
+
+	set_process(true)
+	call_deferred("_refresh_map_backdrop")
+
+func _refresh_map_backdrop() -> void:
+	var map_id := "church"
+	var m: Dictionary = {}
+	var rc := get_node_or_null("/root/RunConfig")
+	if rc != null and is_instance_valid(rc):
+		if rc.has_method("ensure_loaded"):
+			rc.ensure_loaded()
+		map_id = _obj_get_str(rc, "selected_map_id", "church")
+		m = rc.get_map(map_id) if rc.has_method("get_map") else {}
+	var tex := _MenuMapPreview.load_map_texture(map_id, m)
+	if tex == null:
+		var authored := "res://assets/maps/authored/%s.webp" % map_id
+		if ResourceLoader.exists(authored):
+			tex = load(authored) as Texture2D
+	if tex == null:
+		var thumb := "res://assets/maps/thumbs/%s.webp" % map_id
+		if ResourceLoader.exists(thumb):
+			tex = load(thumb) as Texture2D
+	if tex == null:
+		tex = _MenuMapPreview.load_map_texture("church", {})
+	if tex == null:
+		return
+	if _bg_fill != null and is_instance_valid(_bg_fill):
+		_bg_fill.texture = tex
+	if _map_preview != null and is_instance_valid(_map_preview):
+		_map_preview.set_preview_texture(tex)
+	if _map_preview_back != null and is_instance_valid(_map_preview_back):
+		_map_preview_back.set_preview_texture(tex)
+	if _bg_atmosphere_mat != null:
+		var tint: Color = MAP_BACKDROP_TINTS.get(map_id, MAP_BACKDROP_TINTS["default"])
+		_bg_atmosphere_mat.set_shader_parameter("tint", tint)
+
+func _make_menu_scrim(from_col: Color, to_col: Color) -> TextureRect:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 1.0])
+	g.colors = PackedColorArray([from_col, to_col])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	var tr := TextureRect.new()
+	tr.texture = gt
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
 
 func _open_settings() -> void:
 	if has_node("SettingsMenu"):
@@ -456,6 +760,7 @@ func _setup_map_select() -> void:
 		if _toast:
 			_toast.show_toast("Selected: %s — %s" % [String(m2.get("name", id)), String(m2.get("tagline", ""))], Color(0.65, 0.85, 1.0, 1.0))
 		_last_unlocked_map_id = id
+		_refresh_map_backdrop()
 	)
 
 func _is_map_unlocked(map_id: String) -> bool:
@@ -487,8 +792,8 @@ func _refresh_collection() -> void:
 	var unlocked: Array = cm.unlocked
 	if unlocked.is_empty():
 		var l := Label.new()
-		l.text = "No unlocked characters yet.\n(Play a run, unlock trophies in the draft.)"
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.text = "No operatives yet — win trophies during runs."
+		UiSkin.style_label(l, 13, UiSkin.TEXT_DIM)
 		collection_box.add_child(l)
 		return
 
@@ -503,180 +808,59 @@ func _refresh_collection() -> void:
 			continue
 
 		var rarity := String(data.get("rarity_id", "common"))
-		var arch := String(data.get("archetype_id", "bruiser"))
-		var cls := int(data.get("class_type", int(CharacterData.Class.WARRIOR)))
-		var cls_name := _class_name(cls)
-		var cls_tag := _class_tag(cls)
+		var race_name := _race_name_from_data(data)
+		var cls_name := _class_name(int(data.get("class_type", int(CharacterData.Class.WARRIOR))))
 
-		# Card row with glow and hover effects
 		var card := PanelContainer.new()
-		var card_ref := card # PATCH: avoid loop-capture weirdness
-		var data_ref := data.duplicate(true) # PATCH: stable per-card reference
-
+		var card_ref := card
+		var data_ref := data.duplicate(true)
+		card_ref.custom_minimum_size = Vector2(92, 124)
 		card_ref.mouse_filter = Control.MOUSE_FILTER_PASS
 		card_ref.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var selected_pid := String(_selected_unlock.get("pixellab_id", ""))
-		var is_selected := (selected_pid != "" and selected_pid == String(data_ref.get("pixellab_id", "")))
-		card_ref.add_theme_stylebox_override("panel", _sb_card(is_selected, UnitFactory.rarity_color(rarity)))
+		var is_sel := selected_pid != "" and selected_pid == String(data_ref.get("pixellab_id", ""))
+		var r_col := UnitFactory.rarity_color(rarity)
+		card_ref.add_theme_stylebox_override("panel", UiSkin.pixel_card(r_col, is_sel))
 		collection_box.add_child(card_ref)
 
-		if is_selected:
-			var tws := card_ref.create_tween()
-			tws.set_loops()
-			tws.tween_property(card_ref, "scale", Vector2(1.01, 1.01), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-			tws.tween_property(card_ref, "scale", Vector2(1.0, 1.0), 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-
-		# Add subtle scale on hover
-		card_ref.pivot_offset = Vector2(card_ref.size.x * 0.5, card_ref.size.y * 0.5) if card_ref.size.x > 0 else Vector2.ZERO
-		card_ref.mouse_entered.connect(func():
-			var tw := card_ref.create_tween()
-			tw.set_trans(Tween.TRANS_BACK)
-			tw.set_ease(Tween.EASE_OUT)
-			tw.tween_property(card_ref, "scale", Vector2(1.01, 1.01), 0.1)
-		)
-		card_ref.mouse_exited.connect(func():
-			var tw := card_ref.create_tween()
-			tw.set_trans(Tween.TRANS_SINE)
-			tw.set_ease(Tween.EASE_OUT)
-			tw.tween_property(card_ref, "scale", Vector2.ONE, 0.08)
-		)
-
 		card_ref.gui_input.connect(func(ev: InputEvent):
-			if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
+					and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 				_select_unlock(data_ref)
-				# Click feedback
+				_refresh_collection()
 				var s := get_node_or_null("/root/SfxSystem")
 				if s and s.has_method("play_ui"):
 					s.play_ui("ui.click")
 		)
 
 		var pad := MarginContainer.new()
-		pad.add_theme_constant_override("margin_left", 10)
-		pad.add_theme_constant_override("margin_right", 10)
-		pad.add_theme_constant_override("margin_top", 8)
-		pad.add_theme_constant_override("margin_bottom", 8)
+		pad.add_theme_constant_override("margin_left", 4)
+		pad.add_theme_constant_override("margin_right", 4)
+		pad.add_theme_constant_override("margin_top", 4)
+		pad.add_theme_constant_override("margin_bottom", 4)
 		card_ref.add_child(pad)
 
-		var row := HBoxContainer.new()
-		row.mouse_filter = Control.MOUSE_FILTER_PASS
-		row.add_theme_constant_override("separation", 10)
-		pad.add_child(row)
+		var col := VBoxContainer.new()
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_theme_constant_override("separation", 2)
+		pad.add_child(col)
 
-		row.add_child(_make_collection_preview(data_ref))
+		col.add_child(_PixelUi.portrait_frame(data_ref, Vector2i(72, 72), true))
 
-		var mid := VBoxContainer.new()
-		mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		mid.add_theme_constant_override("separation", 2)
-		row.add_child(mid)
+		var nm := Label.new()
+		nm.text = race_name
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		UiSkin.style_label(nm, 10, UiSkin.TEXT)
+		col.add_child(nm)
 
-		var name := Label.new()
-		var race_name := _race_name_from_data(data_ref)
-		var show_arch := (arch.strip_edges().to_lower() != cls_tag)
-		var name_base := "%s • %s%s" % [
-			race_name,
-			cls_name,
-			(" • %s" % arch) if show_arch else ""
-		]
-		name.text = "● " + name_base
-		name.add_theme_font_size_override("font_size", 15)
-		name.add_theme_color_override("font_color", TEXT_LIGHT)
-		name.add_theme_color_override("font_outline_color", OUTLINE_DARK)
-		name.add_theme_constant_override("outline_size", 2)
-		mid.add_child(name)
-
-		var small := Label.new()
-		small.text = "HP %d  DMG %d  CD %.2f  RNG %d" % [
-			int(data_ref.get("max_hp", 100)),
-			int(data_ref.get("attack_damage", 10)),
-			float(data_ref.get("attack_cooldown", 1.0)),
-			int(float(data_ref.get("attack_range", 300.0)))
-		]
-		small.add_theme_font_size_override("font_size", 11)
-		small.add_theme_color_override("font_color", TEXT_SOFT)
-		mid.add_child(small)
+		var sub := Label.new()
+		sub.text = cls_name
+		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		UiSkin.style_label(sub, 9, UiSkin.TEXT_DIM)
+		col.add_child(sub)
 
 func _make_collection_preview(data: Dictionary) -> Control:
-	var rarity := String(data.get("rarity_id", "common"))
-
-	var frame := PanelContainer.new()
-	frame.custom_minimum_size = Vector2(56, 56)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	frame.add_theme_stylebox_override("panel", UiSkin.panel_style(UnitFactory.rarity_color(rarity), false))
-
-	var pad := MarginContainer.new()
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pad.add_theme_constant_override("margin_left", 4)
-	pad.add_theme_constant_override("margin_right", 4)
-	pad.add_theme_constant_override("margin_top", 4)
-	pad.add_theme_constant_override("margin_bottom", 4)
-	frame.add_child(pad)
-
-	var sprite_path := String(data.get("sprite_path", ""))
-	var frames := PixellabUtil.walk_frames_from_south_path(sprite_path)
-
-	# Animated preview (preferred)
-	if frames != null and frames.has_animation("walk_south") and frames.get_frame_count("walk_south") > 0:
-		var svc := SubViewportContainer.new()
-		svc.custom_minimum_size = Vector2(48, 48)
-		svc.stretch = true
-		svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pad.add_child(svc)
-
-		var vp := SubViewport.new()
-		vp.size = Vector2i(48, 48)
-		vp.transparent_bg = true
-		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-		vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-		svc.add_child(vp)
-
-		var spr := AnimatedSprite2D.new()
-		spr.sprite_frames = frames
-		spr.animation = "walk_south"
-		spr.centered = true
-		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		# Framing: keep head visible while showing more body.
-		spr.position = Vector2(24, 30)
-		var scale := PixellabUtil.scale_for_target_height(frames, 32.0, 0.40, 0.80)
-		spr.scale = Vector2.ONE * scale
-		spr.play()
-		vp.add_child(spr)
-		return frame
-
-	# Static fallback
-	var tex := PixellabUtil.load_rotation_texture(sprite_path)
-	if tex == null:
-		var pid := String(data.get("pixellab_id", ""))
-		if pid != "":
-			tex = PixellabUtil.load_rotation_texture("res://assets/pixellab/%s/rotations/south.png" % pid)
-	if tex != null:
-		# Use SubViewport even for static so we can bias upward.
-		var svc2 := SubViewportContainer.new()
-		svc2.custom_minimum_size = Vector2(48, 48)
-		svc2.stretch = true
-		svc2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pad.add_child(svc2)
-
-		var vp2 := SubViewport.new()
-		vp2.size = Vector2i(48, 48)
-		vp2.transparent_bg = true
-		vp2.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-		vp2.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-		svc2.add_child(vp2)
-
-		var spr2 := Sprite2D.new()
-		spr2.texture = tex
-		spr2.centered = true
-		spr2.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		# Match animated framing: keep head visible while showing more body.
-		spr2.position = Vector2(24, 30)
-		# Scale to fit nicely in the box.
-		var ts := tex.get_size()
-		var max_dim := maxf(1.0, maxf(ts.x, ts.y))
-		var scale2 := (32.0 / max_dim)
-		spr2.scale = Vector2.ONE * clampf(scale2, 0.40, 0.80)
-		vp2.add_child(spr2)
-	return frame
+	return _PixelUi.portrait_frame(data, Vector2i(48, 48), true)
 
 func _refresh_roster() -> void:
 	if roster_box == null:
@@ -692,7 +876,7 @@ func _refresh_roster() -> void:
 	var cap := _squad_slots()
 
 	# Update squad header counter (in scene)
-	var squad_count := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/HeaderRow/SquadCount") as Label
+	var squad_count := _squad_count_lbl
 	if squad_count:
 		var filled := mini(roster.size(), cap)
 		squad_count.text = "%d / %d" % [filled, cap]
@@ -702,7 +886,7 @@ func _refresh_roster() -> void:
 			squad_count.add_theme_color_override("font_color", TEXT_SOFT)
 
 	# Unlock hint visibility
-	var unlock_hint := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/UnlockHint") as Label
+	var unlock_hint := _unlock_hint_lbl
 	if unlock_hint:
 		var mp := get_node_or_null("/root/MetaProgression")
 		var show_hint := false
@@ -717,7 +901,7 @@ func _refresh_roster() -> void:
 	for i in range(cap):
 		var row_card := PanelContainer.new()
 		row_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row_card.custom_minimum_size.y = 56
+		row_card.custom_minimum_size.y = 62
 		row_card.add_theme_stylebox_override("panel", _sb_row_flat())
 		roster_box.add_child(row_card)
 
@@ -758,7 +942,7 @@ func _refresh_roster() -> void:
 			# InfoVBox: 2 labels (name + subline)
 			var info_vbox := VBoxContainer.new()
 			info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			info_vbox.add_theme_constant_override("separation", 2)
+			info_vbox.add_theme_constant_override("separation", 4)
 			hbox.add_child(info_vbox)
 
 			var name_lbl := Label.new()
@@ -845,11 +1029,13 @@ func _refresh_inspector() -> void:
 			ch.queue_free()
 
 	if _selected_unlock.is_empty():
-		_inspector_name.text = "Click a character to preview."
+		_inspector_name.text = "Pick an operative from the strip below."
 		_inspector_stats.text = ""
 		_inspector_passives.text = ""
 		_clear_synergy_ui()
 		_inspector_primary_btn.disabled = true
+		_inspector_primary_btn.visible = false
+		_inspector_status_lbl.visible = false
 		return
 
 	var arch := String(_selected_unlock.get("archetype_id", "bruiser"))
@@ -858,13 +1044,10 @@ func _refresh_inspector() -> void:
 	var race_name := _race_name_from_data(_selected_unlock)
 	var cls_tag := _class_tag(cls)
 	var show_arch := (arch.strip_edges().to_lower() != cls_tag)
-	# Compact name line (light text on dark card)
-	_inspector_name.text = "● %s • %s%s" % [race_name, cls_name, (" • %s" % arch) if show_arch else ""]
-	_inspector_name.add_theme_color_override("font_color", TEXT_LIGHT)
-	_inspector_name.add_theme_color_override("font_outline_color", OUTLINE_DARK)
-	_inspector_name.add_theme_constant_override("outline_size", 2)
+	_inspector_name.text = "%s · %s%s" % [race_name, cls_name, (" · " + arch) if show_arch else ""]
+	UiSkin.style_label(_inspector_name, 14, UiSkin.TEXT)
 
-	# Weapon and stats on one compact line
+	# Weapon and stats
 	var weapon_id := String(_selected_unlock.get("weapon_id", "standard_bolt"))
 	var weapon_name := WeaponSystem.weapon_name(weapon_id) if weapon_id != "" else ("Melee" if int(_selected_unlock.get("attack_style", 1)) == 0 else "Ranged")
 	_inspector_stats.text = "%s | HP %d  DMG %d  CD %.1f" % [
@@ -883,8 +1066,7 @@ func _refresh_inspector() -> void:
 	_refresh_synergy_ui_for_unlock(_selected_unlock)
 
 	if _inspector_portrait != null:
-		var p := _make_detail_portrait(_selected_unlock)
-		p.custom_minimum_size = Vector2(72, 72)
+		var p := _PixelUi.portrait_frame(_selected_unlock, Vector2i(156, 156), true)
 		_inspector_portrait.add_child(p)
 
 	# Determine primary action: Add if not in roster, else show hint.
@@ -903,14 +1085,18 @@ func _refresh_inspector() -> void:
 					in_roster = true
 					break
 	if in_roster:
-		_inspector_primary_btn.text = "In Squad ✓"
-		_inspector_primary_btn.disabled = true
-		_style_btn(_inspector_primary_btn, false)
+		_inspector_primary_btn.visible = false
+		_inspector_status_lbl.visible = true
+		_inspector_status_lbl.text = "In Squad"
+		UiSkin.style_label(_inspector_status_lbl, 13, UiSkin.ACCENT_GREEN)
 	elif squad_full:
-		_inspector_primary_btn.text = "Squad Full"
-		_inspector_primary_btn.disabled = true
-		_style_btn(_inspector_primary_btn, false)
+		_inspector_primary_btn.visible = false
+		_inspector_status_lbl.visible = true
+		_inspector_status_lbl.text = "Squad Full"
+		UiSkin.style_label(_inspector_status_lbl, 13, UiSkin.TEXT_DIM)
 	else:
+		_inspector_primary_btn.visible = true
+		_inspector_status_lbl.visible = false
 		_inspector_primary_btn.text = "Add to Squad"
 		_inspector_primary_btn.disabled = false
 		_style_btn(_inspector_primary_btn, true)
@@ -936,49 +1122,6 @@ func _matches_query(data: Dictionary, q: String) -> bool:
 	return true
 
 func _apply_skin() -> void:
-	var left_panel := get_node_or_null("Root/Left") as PanelContainer
-	var right_panel := get_node_or_null("Root/Right") as PanelContainer
-	if left_panel:
-		left_panel.add_theme_stylebox_override("panel", _sb_panel())
-	if right_panel:
-		right_panel.add_theme_stylebox_override("panel", _sb_panel())
-
-	# Scroll containers: strip scrollbar chrome but give content a readable dark inset
-	var col_sc := get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/CollectionScroll") as ScrollContainer
-	_strip_scroll_frames(col_sc)
-	if col_sc:
-		col_sc.add_theme_stylebox_override("panel", _sb_inset())
-	var ros_sc := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/RosterScroll") as ScrollContainer
-	_strip_scroll_frames(ros_sc)
-	if ros_sc:
-		ros_sc.add_theme_stylebox_override("panel", _sb_inset())
-
-	# InspectorCard: dark like the rest (no light wood panel)
-	if _inspector_card:
-		_inspector_card.add_theme_stylebox_override("panel", _sb_card(false))
-
-	# Right cards: flat readable
-	var squad_card := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard") as PanelContainer
-	if squad_card:
-		squad_card.add_theme_stylebox_override("panel", _sb_card_flat())
-	var run_card := get_node_or_null("Root/Right/RightPad/RightVBox/RunCard") as PanelContainer
-	if run_card:
-		run_card.add_theme_stylebox_override("panel", _sb_card_flat())
-
-	# Titles: gold accent on dark
-	var title_lbl := get_node_or_null("Root/Left/LeftPad/LeftVBox/Title") as Label
-	if title_lbl:
-		title_lbl.add_theme_font_size_override("font_size", 28)
-		title_lbl.add_theme_color_override("font_color", TITLE_GOLD)
-		title_lbl.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04, 1.0))
-		title_lbl.add_theme_constant_override("outline_size", 4)
-	var squad_title := get_node_or_null("Root/Right/RightPad/RightVBox/SquadCard/Pad/SquadVBox/HeaderRow/SquadTitle") as Label
-	if squad_title:
-		squad_title.add_theme_font_size_override("font_size", 18)
-		squad_title.add_theme_color_override("font_color", TITLE_GOLD)
-		squad_title.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04, 1.0))
-		squad_title.add_theme_constant_override("outline_size", 2)
-
 	_style_line_edit(_search)
 	_style_btn(start_btn, true)
 	_style_btn(resume_btn, false)
@@ -990,27 +1133,10 @@ func _apply_skin() -> void:
 	if map_select:
 		_style_option_button(map_select)
 
-	# Inspector labels: light text
-	if _inspector_name:
-		_inspector_name.add_theme_color_override("font_color", TEXT_LIGHT)
-	if _inspector_stats:
-		_inspector_stats.add_theme_color_override("font_color", TEXT_SOFT)
-	if _inspector_passives:
-		_inspector_passives.add_theme_color_override("font_color", TEXT_SOFT)
-	if _inspector_synergies_title:
-		_inspector_synergies_title.add_theme_color_override("font_color", TEXT_LIGHT)
-	var map_lbl := get_node_or_null("Root/Right/RightPad/RightVBox/RunCard/Pad/RunVBox/MapLabel") as Label
-	if map_lbl:
-		map_lbl.add_theme_color_override("font_color", TEXT_LIGHT)
-	var inspector_title := get_node_or_null("Root/Left/LeftPad/LeftVBox/MainRow/InspectorCard/InspectorPad/InspectorVBox/InspectorTitle") as Label
-	if inspector_title:
-		inspector_title.add_theme_color_override("font_color", TEXT_SOFT)
-
 func _on_start_run() -> void:
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 func _show_details(data: Dictionary) -> void:
-	# Polished details modal (portrait + stat chips + styled passive list).
 	if has_node("DetailsModal"):
 		get_node("DetailsModal").queue_free()
 	var layer := CanvasLayer.new()
@@ -1018,42 +1144,19 @@ func _show_details(data: Dictionary) -> void:
 	layer.layer = 170
 	add_child(layer)
 
-	var bg := ColorRect.new()
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.72)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(bg)
-
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.offset_left = -420
-	panel.offset_top = -260
-	panel.offset_right = 420
-	panel.offset_bottom = 260
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
 	var rarity := String(data.get("rarity_id", "common"))
-	panel.add_theme_stylebox_override("panel", UiSkin.panel_style(UnitFactory.rarity_color(rarity), true))
-	var neon := ShaderMaterial.new()
-	neon.shader = preload("res://shaders/ui_neon_frame.gdshader")
-	neon.set_shader_parameter("base_color", Color(0.08, 0.09, 0.11, 0.96))
-	neon.set_shader_parameter("glow_color", UnitFactory.rarity_color(rarity))
-	neon.set_shader_parameter("glow_width", 0.022)
-	neon.set_shader_parameter("pulse_speed", 1.1)
-	panel.material = neon
+	var shell := _PixelUi.modal_shell(
+		"Operative Dossier",
+		UnitFactory.rarity_name(rarity).to_upper(),
+		UnitFactory.rarity_color(rarity))
+	layer.add_child(shell.root)
+	shell.root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_PixelUi.animate_modal_in(shell)
+	shell.close_btn.pressed.connect(func():
+		layer.queue_free()
+	)
 
-	var pad := MarginContainer.new()
-	pad.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pad.add_theme_constant_override("margin_left", 18)
-	pad.add_theme_constant_override("margin_right", 18)
-	pad.add_theme_constant_override("margin_top", 16)
-	pad.add_theme_constant_override("margin_bottom", 16)
-	panel.add_child(pad)
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	pad.add_child(v)
+	var v := shell.body as VBoxContainer
 
 	var arch := String(data.get("archetype_id", "bruiser"))
 	var weapon_id := String(data.get("weapon_id", "standard_bolt"))
@@ -1068,7 +1171,7 @@ func _show_details(data: Dictionary) -> void:
 	header.add_theme_constant_override("separation", 14)
 	v.add_child(header)
 
-	var portrait := _make_detail_portrait(data)
+	var portrait := _PixelUi.portrait_frame(data, Vector2i(96, 96), true)
 	header.add_child(portrait)
 
 	var header_right := VBoxContainer.new()
@@ -1083,8 +1186,7 @@ func _show_details(data: Dictionary) -> void:
 		(" • %s" % arch) if show_arch else "",
 		weapon_name
 	]
-	t.add_theme_font_size_override("font_size", 24)
-	t.add_theme_color_override("font_color", UnitFactory.rarity_color(rarity))
+	_PixelUi.style_label(t, 22, UnitFactory.rarity_color(rarity), 2)
 	header_right.add_child(t)
 
 	var cchip := Label.new()
@@ -1151,89 +1253,6 @@ func _show_details(data: Dictionary) -> void:
 	else:
 		for pid in pids:
 			pbox.add_child(_make_passive_row(String(pid)))
-
-	var close := Button.new()
-	close.text = "Close"
-	UiSkin.style_secondary_button(close)
-	close.pressed.connect(func(): layer.queue_free())
-	v.add_child(close)
-
-func _make_detail_portrait(data: Dictionary) -> Control:
-	# Larger portrait for details modal.
-	var rarity := String(data.get("rarity_id", "common"))
-	var frame := PanelContainer.new()
-	frame.custom_minimum_size = Vector2(110, 110)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_theme_stylebox_override("panel", UiSkin.card_style(UnitFactory.rarity_color(rarity), false))
-
-	var pad := MarginContainer.new()
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pad.add_theme_constant_override("margin_left", 6)
-	pad.add_theme_constant_override("margin_right", 6)
-	pad.add_theme_constant_override("margin_top", 6)
-	pad.add_theme_constant_override("margin_bottom", 6)
-	frame.add_child(pad)
-
-	var sprite_path := String(data.get("sprite_path", ""))
-	var frames := PixellabUtil.walk_frames_from_south_path(sprite_path)
-	if frames != null and frames.has_animation("walk_south") and frames.get_frame_count("walk_south") > 0:
-		var svc := SubViewportContainer.new()
-		svc.custom_minimum_size = Vector2(96, 96)
-		svc.stretch = true
-		svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pad.add_child(svc)
-
-		var vp := SubViewport.new()
-		vp.size = Vector2i(96, 96)
-		vp.transparent_bg = true
-		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-		vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-		svc.add_child(vp)
-
-		var spr := AnimatedSprite2D.new()
-		spr.sprite_frames = frames
-		spr.animation = "walk_south"
-		spr.centered = true
-		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		# Framing: keep head visible while reducing overall zoom.
-		spr.position = Vector2(48, 60)
-		var scale3 := PixellabUtil.scale_for_target_height(frames, 64.0, 0.45, 0.85)
-		spr.scale = Vector2.ONE * scale3
-		spr.play()
-		vp.add_child(spr)
-		return frame
-
-	# Static fallback
-	var tex := PixellabUtil.load_rotation_texture(sprite_path)
-	if tex == null:
-		var pid := String(data.get("pixellab_id", ""))
-		if pid != "":
-			tex = PixellabUtil.load_rotation_texture("res://assets/pixellab/%s/rotations/south.png" % pid)
-	if tex != null:
-		var svc2 := SubViewportContainer.new()
-		svc2.custom_minimum_size = Vector2(96, 96)
-		svc2.stretch = true
-		svc2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pad.add_child(svc2)
-
-		var vp2 := SubViewport.new()
-		vp2.size = Vector2i(96, 96)
-		vp2.transparent_bg = true
-		vp2.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-		vp2.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-		svc2.add_child(vp2)
-
-		var spr2 := Sprite2D.new()
-		spr2.texture = tex
-		spr2.centered = true
-		spr2.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		spr2.position = Vector2(48, 64)
-		var ts := tex.get_size()
-		var max_dim := maxf(1.0, maxf(ts.x, ts.y))
-		var scale := (86.0 / max_dim)
-		spr2.scale = Vector2.ONE * scale
-		vp2.add_child(spr2)
-	return frame
 
 func _add_stat_chip(parent: Control, label: String, value: String, tint: Color) -> void:
 	var chip := PanelContainer.new()
@@ -1330,36 +1349,34 @@ func _make_synergy_chip(state: Dictionary) -> Control:
 	var denom: int = (tier_n if tier_n > 0 else (next_n if next_n > 0 else max(1, count)))
 	var txt: String = "%s (%d/%d)" % [name, count, denom]
 
-	var b: TooltipButton = TooltipButton.new()
-	b.text = txt
-	b.tooltip_text = SynergySystem.synergy_tooltip_bbcode(state)
-	b.tooltip_accent = (Color(0.65, 0.85, 1.0, 1.0) if tier_n > 0 else Color(0.75, 0.80, 0.86, 1.0))
-	b.mouse_default_cursor_shape = Control.CURSOR_HELP
-	b.add_theme_font_size_override("font_size", 10)
-	b.custom_minimum_size = Vector2(0, 22)
-
-	# Styling: compact "pill" chip with subtle glow when active.
+	var chip := PanelContainer.new()
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var active: bool = tier_n > 0
-	var accent: Color = (Color(0.65, 0.85, 1.0, 1.0) if active else Color(0.75, 0.80, 0.86, 1.0))
-	var sb: StyleBoxFlat = UiSkin.chip_style(accent)
-	sb.content_margin_left = 6
-	sb.content_margin_right = 6
-	sb.content_margin_top = 2
-	sb.content_margin_bottom = 2
-	if active:
-		sb.shadow_size = 6
-		sb.shadow_color = Color(accent.r, accent.g, accent.b, 0.12)
-	b.add_theme_stylebox_override("normal", sb)
-	var hov: StyleBoxFlat = (sb.duplicate() as StyleBoxFlat)
-	hov.bg_color = Color(sb.bg_color.r, sb.bg_color.g, sb.bg_color.b, minf(1.0, sb.bg_color.a + 0.10))
-	hov.border_color = Color(sb.border_color.r, sb.border_color.g, sb.border_color.b, minf(1.0, sb.border_color.a + 0.18))
-	b.add_theme_stylebox_override("hover", hov)
-	b.add_theme_stylebox_override("focus", hov)
-	b.add_theme_stylebox_override("pressed", hov)
+	var accent: Color = (Color(0.72, 0.88, 0.78, 1.0) if active else Color(0.62, 0.64, 0.70, 1.0))
+	var sb := UiSkin.pixel_inset(0.95 if active else 0.88)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.75 if active else 0.45)
+	chip.add_theme_stylebox_override("panel", sb)
 
-	# Chips are informational (no action), but keep enabled so tooltip always works.
-	b.pressed.connect(func(): pass)
-	return b
+	var lbl := Label.new()
+	lbl.text = txt
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UiSkin.style_label(lbl, 10, accent)
+	chip.add_child(lbl)
+
+	var tip := TooltipButton.new()
+	tip.text = ""
+	tip.tooltip_text = SynergySystem.synergy_tooltip_bbcode(state)
+	tip.tooltip_accent = accent
+	tip.mouse_default_cursor_shape = Control.CURSOR_HELP
+	tip.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tip.flat = true
+	tip.pressed.connect(func(): pass)
+	chip.add_child(tip)
+	return chip
 
 func _make_passive_row(pid: String) -> Control:
 	var row := PanelContainer.new()

@@ -31,8 +31,10 @@ func _run() -> void:
 	var fails := 0
 	for zoom in [0.5, 0.78, 1.4, 2.2]:
 		cam.zoom = Vector2(zoom, zoom)
+		if main.has_method("refresh_camera_limits"):
+			main.call("refresh_camera_limits")
 		player.global_position = corner
-		for _j in range(8):
+		for _j in range(12):
 			await process_frame
 		# Player must be inside the visible camera window.
 		var cam_center := cam.get_screen_center_position()
@@ -44,5 +46,26 @@ func _run() -> void:
 			zoom, str(cam_center.round()), str(player.global_position.round()), str(on_screen)])
 		if not on_screen:
 			fails += 1
+
+	# Walk the player to the corner over several physics frames — camera must track.
+	player.global_position = world_rect.position + world_rect.size * 0.5
+	main.call("refresh_camera_limits")
+	cam.zoom = Vector2(0.78, 0.78)
+	var dest := world_rect.position + world_rect.size - Vector2(80, 80)
+	for _k in range(48):
+		var dir := (dest - player.global_position)
+		if dir.length() < 8.0:
+			break
+		player.velocity = dir.normalized() * 900.0
+		player.move_and_slide()
+		await process_frame
+	var move_center := cam.get_screen_center_position()
+	var move_ok := player.global_position.distance_to(move_center) < 24.0
+	print("CAMERA_SMOKE move_track player=%s cam_center=%s dist=%.1f -> %s" % [
+		str(player.global_position.round()), str(move_center.round()),
+		player.global_position.distance_to(move_center), "OK" if move_ok else "FAIL"])
+	if not move_ok:
+		fails += 1
+
 	print("CAMERA_SMOKE fails=%d -> %s" % [fails, "OK" if fails == 0 else "FAIL"])
 	quit(0 if fails == 0 else 1)

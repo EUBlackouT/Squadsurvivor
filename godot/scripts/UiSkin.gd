@@ -4,19 +4,20 @@ extends Node
 # Fun Arcade UI skin: centralized colors + reusable style helpers.
 # Goal: keep all menus consistent without duplicating StyleBox setup per screen.
 
-const ACCENT: Color = Color(0.20, 0.78, 0.82, 1.0) # teal
-const ACCENT_PURPLE: Color = Color(0.78, 0.56, 0.95, 1.0)
-const ACCENT_GOLD: Color = Color(1.0, 0.78, 0.35, 1.0)
-const ACCENT_GREEN: Color = Color(0.45, 0.92, 0.65, 1.0)
-const ACCENT_RED: Color = Color(1.0, 0.55, 0.50, 1.0)
-const BG_PANEL: Color = Color(0.12, 0.17, 0.21, 0.98)
-const BG_PANEL_SOFT: Color = Color(0.15, 0.20, 0.24, 0.96)
-const BG_CARD: Color = Color(0.17, 0.22, 0.27, 0.94)
-const TEXT: Color = Color(0.98, 0.99, 1.0, 1.0)
-const TEXT_SOFT: Color = Color(0.88, 0.92, 0.97, 0.95)
-const TEXT_DIM: Color = Color(0.70, 0.78, 0.88, 0.85)
-const BORDER_SOFT: Color = Color(1, 1, 1, 0.12)
-const BORDER_GLOW: Color = Color(0.20, 0.78, 0.82, 0.30)
+# Warm stone / gem palette — matches map tile art, not sci-fi HUD teal.
+const ACCENT: Color = Color(0.58, 0.76, 0.62, 1.0) # jade moss
+const ACCENT_PURPLE: Color = Color(0.70, 0.56, 0.82, 1.0) # reliquary violet
+const ACCENT_GOLD: Color = Color(0.90, 0.72, 0.38, 1.0) # cathedral gold
+const ACCENT_GREEN: Color = Color(0.50, 0.80, 0.52, 1.0)
+const ACCENT_RED: Color = Color(0.88, 0.46, 0.40, 1.0)
+const BG_PANEL: Color = Color(0.10, 0.08, 0.11, 0.96)
+const BG_PANEL_SOFT: Color = Color(0.12, 0.10, 0.13, 0.94)
+const BG_CARD: Color = Color(0.14, 0.11, 0.15, 0.92)
+const TEXT: Color = Color(0.94, 0.90, 0.82, 1.0)
+const TEXT_SOFT: Color = Color(0.80, 0.76, 0.68, 0.96)
+const TEXT_DIM: Color = Color(0.56, 0.52, 0.48, 0.90)
+const BORDER_SOFT: Color = Color(0.94, 0.88, 0.78, 0.14)
+const BORDER_GLOW: Color = Color(0.58, 0.76, 0.62, 0.28)
 
 # === DESIGN TOKENS (Phase 1 foundation) ===
 # Spacing scale: use these instead of magic numbers in margins/separations.
@@ -26,14 +27,14 @@ const SPACE_MD: int = 12
 const SPACE_LG: int = 18
 const SPACE_XL: int = 28
 
-# Typography scale: one source of truth for font sizes.
-const FONT_XS: int = 12
-const FONT_SM: int = 13
-const FONT_BODY: int = 14
-const FONT_LEAD: int = 16
-const FONT_H3: int = 20
-const FONT_H2: int = 24
-const FONT_H1: int = 32
+# Typography scale tuned for Press Start 2P (pixel font reads small — bump sizes).
+const FONT_XS: int = 10
+const FONT_SM: int = 11
+const FONT_BODY: int = 12
+const FONT_LEAD: int = 13
+const FONT_H3: int = 14
+const FONT_H2: int = 16
+const FONT_H1: int = 20
 
 # Corner radius scale.
 const RADIUS_SM: int = 8
@@ -82,27 +83,32 @@ const SLIDER_KNOB_PATH: String = "res://assets/ui/kit/slider_knob.webp"
 const USE_TEXTURE_KIT: bool = false
 
 static var _global_font_applied: bool = false
+static var _applied_font_path: String = ""
 static var _cached_font: Font = null
 
-const FONT_PATH: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
+const FONT_PATH: String = "res://assets/ui/fonts/PressStart2P-Regular.ttf"
+const FONT_PATH_DISPLAY: String = "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
 
-static func apply_global_font(font_path: String = FONT_PATH, base_size: int = 14) -> void:
-	# Apply a global fallback font for all UI text (labels/buttons/tooltips/etc).
-	# This avoids having to set fonts per scene/control.
-	if _global_font_applied:
+static func apply_global_font(font_path: String = FONT_PATH, base_size: int = 12) -> void:
+	if _global_font_applied and _applied_font_path == font_path:
 		return
 	if not ResourceLoader.exists(font_path):
-		push_warning("UiSkin: Font not found at %s" % font_path)
+		push_warning("UiSkin: Font not found at %s — trying fallback" % font_path)
+		font_path = FONT_PATH_DISPLAY if ResourceLoader.exists(FONT_PATH_DISPLAY) else font_path
+	if not ResourceLoader.exists(font_path):
 		return
 	var f: Resource = load(font_path)
+	if f == null and font_path != FONT_PATH_DISPLAY and ResourceLoader.exists(FONT_PATH_DISPLAY):
+		font_path = FONT_PATH_DISPLAY
+		f = load(font_path)
 	if f == null:
 		push_warning("UiSkin: Failed to load font at %s" % font_path)
 		return
-	# Imported .ttf is typically a FontFile (inherits Font).
 	if f is Font:
 		_cached_font = (f as Font)
 		ThemeDB.fallback_font = _cached_font
 		ThemeDB.fallback_font_size = base_size
+		_applied_font_path = font_path
 		_global_font_applied = true
 
 static func get_font() -> Font:
@@ -112,11 +118,14 @@ static func get_font() -> Font:
 	return _cached_font
 
 static func style_label(lbl: Label, size: int = 14, color: Color = TEXT) -> void:
-	# Convenience to style a label with our font and colors
 	lbl.add_theme_font_size_override("font_size", size)
 	lbl.add_theme_color_override("font_color", color)
+	if size >= 12:
+		lbl.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.05, 0.95))
+		lbl.add_theme_constant_override("outline_size", 2 if size >= 16 else 1)
 	if _cached_font != null:
 		lbl.add_theme_font_override("font", _cached_font)
+	lbl.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 static func panel_style(accent: Color = ACCENT, strong: bool = false) -> StyleBox:
 	var tex := _maybe_stylebox_texture(PANEL_FRAME_PATH, 30, 20)
@@ -141,21 +150,23 @@ static func chip_style(accent: Color) -> StyleBox:
 	var tex := _maybe_stylebox_texture(CHIP_PATH, 12, 6)
 	if tex != null:
 		return tex
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.12, 0.14, 0.90)
+	var sb := pixel_inset(0.94)
 	sb.border_width_left = 2
 	sb.border_width_right = 2
 	sb.border_width_top = 2
 	sb.border_width_bottom = 2
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.60)
-	sb.corner_radius_top_left = 12
-	sb.corner_radius_top_right = 12
-	sb.corner_radius_bottom_left = 12
-	sb.corner_radius_bottom_right = 12
+	sb.border_color = Color(accent.r * 0.55 + 0.22, accent.g * 0.55 + 0.22, accent.b * 0.55 + 0.22, 0.82)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
 	return sb
 
 static func style_primary_button(btn: Button, accent: Color = ACCENT) -> void:
 	if btn == null:
+		return
+	if not USE_TEXTURE_KIT:
+		style_pixel_primary_button(btn, accent)
 		return
 	btn.focus_mode = Control.FOCUS_ALL
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -201,6 +212,9 @@ static func style_primary_button(btn: Button, accent: Color = ACCENT) -> void:
 
 static func style_secondary_button(btn: Button, accent: Color = ACCENT) -> void:
 	if btn == null:
+		return
+	if not USE_TEXTURE_KIT:
+		style_pixel_secondary_button(btn, accent)
 		return
 	btn.focus_mode = Control.FOCUS_ALL
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -250,6 +264,8 @@ static func card_style(accent: Color, glow: bool = false) -> StyleBox:
 	var tex := _maybe_stylebox_texture(CARD_FRAME_PATH, 22, 12)
 	if tex != null:
 		return tex
+	if not USE_TEXTURE_KIT:
+		return pixel_card(accent, false)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = BG_CARD
 	sb.border_width_left = 3
@@ -270,6 +286,8 @@ static func card_style(accent: Color, glow: bool = false) -> StyleBox:
 	return sb
 
 static func card_style_hover(accent: Color) -> StyleBox:
+	if not USE_TEXTURE_KIT:
+		return pixel_card(accent, true)
 	var sb := card_style(accent, true)
 	if sb is StyleBoxFlat:
 		var flat := sb as StyleBoxFlat
@@ -281,6 +299,106 @@ static func card_style_hover(accent: Color) -> StyleBox:
 	return sb
 
 static func glowing_panel_style(accent: Color) -> StyleBox:
+	return pixel_panel(accent, 0.84)
+
+## Sharp-edged HUD panels that sit next to pixel sprites (no sci-fi glow/radius).
+static func pixel_panel(accent: Color, bg_alpha: float = 0.84) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.06, 0.09, bg_alpha)
+	sb.border_width_left = 3
+	sb.border_width_right = 3
+	sb.border_width_top = 3
+	sb.border_width_bottom = 3
+	var edge := Color(
+		accent.r * 0.35 + 0.18,
+		accent.g * 0.35 + 0.18,
+		accent.b * 0.35 + 0.20,
+		0.88)
+	sb.border_color = edge
+	sb.corner_radius_top_left = 0
+	sb.corner_radius_top_right = 0
+	sb.corner_radius_bottom_left = 0
+	sb.corner_radius_bottom_right = 0
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	sb.shadow_size = 0
+	sb.anti_aliasing = false
+	return sb
+
+static func pixel_inset(alpha: float = 0.90) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.04, 0.07, alpha)
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(0.30, 0.28, 0.34, 0.72)
+	sb.corner_radius_top_left = 0
+	sb.corner_radius_top_right = 0
+	sb.corner_radius_bottom_left = 0
+	sb.corner_radius_bottom_right = 0
+	return sb
+
+static func pixel_card(accent: Color, selected: bool = false) -> StyleBoxFlat:
+	var sb := pixel_inset(0.90 if selected else 0.82)
+	sb.border_width_left = 3 if selected else 2
+	sb.border_width_right = 3 if selected else 2
+	sb.border_width_top = 3 if selected else 2
+	sb.border_width_bottom = 3 if selected else 2
+	sb.border_color = Color(
+		accent.r * 0.55 + 0.20,
+		accent.g * 0.55 + 0.20,
+		accent.b * 0.55 + 0.22,
+		0.95 if selected else 0.55)
+	return sb
+
+static func style_pixel_primary_button(btn: Button, accent: Color = ACCENT_GOLD) -> void:
+	if btn == null:
+		return
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var n := pixel_inset(1.0)
+	n.bg_color = Color(accent.r, accent.g, accent.b, 0.88)
+	n.border_color = Color(accent.r * 0.6, accent.g * 0.6, accent.b * 0.6, 1.0)
+	var h := n.duplicate() as StyleBoxFlat
+	h.bg_color = Color(accent.r, accent.g, accent.b, 1.0)
+	var p := n.duplicate() as StyleBoxFlat
+	p.bg_color = Color(accent.r * 0.85, accent.g * 0.85, accent.b * 0.85, 1.0)
+	btn.add_theme_stylebox_override("normal", n)
+	btn.add_theme_stylebox_override("hover", h)
+	btn.add_theme_stylebox_override("pressed", p)
+	btn.add_theme_stylebox_override("focus", h)
+	btn.add_theme_color_override("font_color", Color(0.08, 0.06, 0.05, 1.0))
+	btn.add_theme_color_override("font_hover_color", Color(0.08, 0.06, 0.05, 1.0))
+	btn.add_theme_color_override("font_pressed_color", Color(0.08, 0.06, 0.05, 1.0))
+	if _cached_font != null:
+		btn.add_theme_font_override("font", _cached_font)
+
+static func style_pixel_secondary_button(btn: Button, accent: Color = ACCENT) -> void:
+	if btn == null:
+		return
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var n := pixel_inset(0.94)
+	n.border_color = Color(accent.r, accent.g, accent.b, 0.55)
+	var h := n.duplicate() as StyleBoxFlat
+	h.bg_color = Color(0.06, 0.06, 0.09, 0.98)
+	h.border_color = Color(accent.r, accent.g, accent.b, 0.85)
+	btn.add_theme_stylebox_override("normal", n)
+	btn.add_theme_stylebox_override("hover", h)
+	btn.add_theme_stylebox_override("pressed", h)
+	btn.add_theme_stylebox_override("focus", h)
+	btn.add_theme_color_override("font_color", TEXT)
+	btn.add_theme_color_override("font_hover_color", TEXT)
+	btn.add_theme_color_override("font_pressed_color", TEXT)
+	if _cached_font != null:
+		btn.add_theme_font_override("font", _cached_font)
+
+static func glowing_panel_style_legacy(accent: Color) -> StyleBox:
 	var tex := _maybe_stylebox_texture(PANEL_FRAME_PATH, 30, 20)
 	if tex != null:
 		return tex
@@ -475,6 +593,10 @@ static func style_slider(slider: HSlider) -> void:
 		slider.add_theme_stylebox_override("grabber_area", f)
 
 static func inset_style(radius: int = RADIUS_MD, alpha: float = 0.86, surface: Color = Color(0.04, 0.06, 0.10, 1.0), border: Color = Color(0.50, 0.74, 1.0, 0.28)) -> StyleBoxFlat:
+	if not USE_TEXTURE_KIT:
+		var sb := pixel_inset(alpha)
+		sb.border_color = Color(border.r, border.g, border.b, border.a * 0.85)
+		return sb
 	# Dark readable inset surface for lists/previews inside larger panels.
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(surface.r, surface.g, surface.b, alpha)
@@ -494,35 +616,17 @@ static func inset_style(radius: int = RADIUS_MD, alpha: float = 0.86, surface: C
 	return sb
 
 static func list_selected_style(accent: Color = ACCENT) -> StyleBoxFlat:
-	# Selected-row highlight for ItemList/Tree style controls.
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(accent.r, accent.g, accent.b, 0.28)
-	sb.border_width_left = 2
+	var sb := pixel_inset(0.92)
+	sb.bg_color = Color(accent.r * 0.25, accent.g * 0.25, accent.b * 0.25, 0.55)
+	sb.border_width_left = 3
 	sb.border_color = Color(accent.r, accent.g, accent.b, 0.85)
-	sb.corner_radius_top_left = RADIUS_SM
-	sb.corner_radius_top_right = RADIUS_SM
-	sb.corner_radius_bottom_left = RADIUS_SM
-	sb.corner_radius_bottom_right = RADIUS_SM
 	return sb
 
 static func tooltip_style(accent: Color = ACCENT) -> StyleBox:
 	var tex := _maybe_stylebox_texture(TOOLTIP_PATH, 18, 12)
 	if tex != null:
 		return tex
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.10, 0.14, 0.18, 0.96)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(accent.r, accent.g, accent.b, 0.60)
-	sb.corner_radius_top_left = 12
-	sb.corner_radius_top_right = 12
-	sb.corner_radius_bottom_left = 12
-	sb.corner_radius_bottom_right = 12
-	sb.shadow_size = 16
-	sb.shadow_color = Color(0, 0, 0, 0.55)
-	return sb
+	return pixel_panel(accent, 0.94)
 
 static func _maybe_texture(path: String) -> Texture2D:
 	if not USE_TEXTURE_KIT:

@@ -52,7 +52,7 @@ func _ready() -> void:
 	add_child(_root)
 	
 	# Load bold font for impactful numbers
-	var font_path := "res://assets/ui/fonts/Orbitron-VariableFont_wght.ttf"
+	var font_path := UiSkin.FONT_PATH
 	if ResourceLoader.exists(font_path):
 		_font = load(font_path) as Font
 

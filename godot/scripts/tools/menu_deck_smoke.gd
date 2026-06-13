@@ -10,7 +10,7 @@ func _run() -> void:
 		print("MENU_DECK_SMOKE_FAIL scene_change err=%d" % err)
 		quit(1)
 		return
-	for _i in range(40):
+	for _i in range(80):
 		await process_frame
 
 	var menu := current_scene
@@ -50,7 +50,9 @@ func _run() -> void:
 		var n2: Node = stack2.pop_back()
 		for c2 in n2.get_children():
 			stack2.append(c2)
-		if n2 is TextureRect and (n2 as TextureRect).stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED \
+		if n2 is MenuMapPreview and (n2 as MenuMapPreview).texture != null:
+			hero_ok = true
+		elif n2 is TextureRect and (n2 as TextureRect).stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED \
 				and (n2 as TextureRect).texture != null:
 			hero_ok = true
 	print("MENU_DECK_SMOKE hero_art=%s" % ("yes" if hero_ok else "no"))

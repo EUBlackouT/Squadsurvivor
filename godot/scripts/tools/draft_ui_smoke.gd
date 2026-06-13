@@ -1,5 +1,7 @@
 extends SceneTree
 
+const _RecruitDraftUI := preload("res://scripts/run/RecruitDraftUI.gd")
+
 # Boots the real Main scene headless, opens the recruit draft,
 # and verifies the new card UI builds (3 cards, badges, chips, buttons).
 
@@ -23,7 +25,7 @@ func _run() -> void:
 		quit(1)
 		return
 
-	main.call("_show_recruit_draft")
+	_RecruitDraftUI.present(main)
 	for _i in range(20):
 		await process_frame
 
@@ -90,7 +92,10 @@ func _check_swap_prompt(main: Node, draft: Node) -> bool:
 	if cd == null:
 		print("DRAFT_SMOKE_FAIL no_character_data")
 		return false
-	main.call("_show_swap_prompt", cd, draft)
+	if draft == null or not draft.has_method("show_swap_prompt"):
+		print("DRAFT_SMOKE_FAIL no_swap_method")
+		return false
+	draft.show_swap_prompt(cd)
 	for _i in range(5):
 		await process_frame
 	var prompt := draft.get_node_or_null("SwapPrompt")
